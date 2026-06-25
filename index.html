@@ -1,0 +1,1728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0B2028">
+<title>Family Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy: #0B2028;
+    --navy-mid: #0F2D38;
+    --navy-card: #112830;
+    --cream: #F0EDE6;
+    --cream-muted: #A8A49D;
+    --sage: #2EC4B6;
+    --sage-dark: #1A9E91;
+    --amber: #E8A838;
+    --amber-dark: #C48820;
+    --rose: #E07070;
+    --blue-soft: #5B9BD5;
+    --border: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.15);
+  }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: var(--navy);
+    color: var(--cream);
+    font-family: 'Inter', sans-serif;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── LAYOUT ─────────────────────────────── */
+  #app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ── HEADER BAR ─────────────────────────── */
+  #header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+    height: 72px;
+    background: var(--navy-mid);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  #header-left {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+
+  #clock {
+    font-family: 'Nunito', sans-serif;
+    font-size: 36px;
+    font-weight: 800;
+    color: var(--cream);
+    letter-spacing: -1px;
+    line-height: 1;
+  }
+
+  #date-str {
+    font-size: 14px;
+    color: var(--cream-muted);
+    font-weight: 500;
+  }
+
+  #header-center {
+    font-family: 'Nunito', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--sage);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  #today-summary {
+    font-size: 13px;
+    color: var(--cream-muted);
+    text-align: right;
+    max-width: 280px;
+    line-height: 1.4;
+  }
+
+  #today-summary span {
+    color: var(--amber);
+    font-weight: 600;
+  }
+
+  /* ── NAV TABS ───────────────────────────── */
+  #nav {
+    display: flex;
+    background: var(--navy-mid);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .nav-tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 0;
+    font-family: 'Nunito', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--cream-muted);
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: color 0.2s, border-color 0.2s;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .nav-tab .tab-icon {
+    font-size: 20px;
+  }
+
+  .nav-tab.active {
+    color: var(--cream);
+    border-bottom-color: var(--sage);
+  }
+
+  .nav-tab .badge {
+    background: var(--amber);
+    color: var(--navy);
+    font-size: 11px;
+    font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 10px;
+    line-height: 1.6;
+  }
+
+  /* ── MAIN CONTENT ───────────────────────── */
+  #main {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .view {
+    display: none;
+    height: 100%;
+    overflow-y: auto;
+    padding: 24px 28px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .view.active {
+    display: block;
+  }
+
+  /* ── DASHBOARD GRID ─────────────────────── */
+  #view-dashboard {
+    display: none;
+    grid-template-columns: 1.4fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 20px;
+  }
+
+  #view-dashboard.active {
+    display: grid;
+  }
+
+  .dash-card {
+    background: var(--navy-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px 22px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .dash-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    flex-shrink: 0;
+  }
+
+  .dash-card-title {
+    font-family: 'Nunito', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--cream-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+
+  .dash-card-icon {
+    font-size: 18px;
+    opacity: 0.5;
+  }
+
+  .dash-card-body {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* ── CALENDAR DASH ──────────────────────── */
+  .event-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .event-time {
+    font-size: 12px;
+    color: var(--cream-muted);
+    min-width: 44px;
+    padding-top: 2px;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .event-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-top: 5px;
+    flex-shrink: 0;
+  }
+
+  .event-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--cream);
+    line-height: 1.3;
+  }
+
+  .event-who {
+    font-size: 12px;
+    color: var(--cream-muted);
+    margin-top: 1px;
+  }
+
+  /* ── TODO / CHORES DASH ─────────────────── */
+  .task-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+  }
+
+  .task-row:last-child { border-bottom: none; }
+
+  .task-check {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid var(--border-strong);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  .task-check.done {
+    background: var(--sage);
+    border-color: var(--sage);
+    color: var(--navy);
+  }
+
+  .task-text {
+    font-size: 14px;
+    color: var(--cream);
+    flex: 1;
+  }
+
+  .task-text.done {
+    text-decoration: line-through;
+    color: var(--cream-muted);
+  }
+
+  .task-tag {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-weight: 600;
+  }
+
+  /* ── SHOPPING DASH ──────────────────────── */
+  .shop-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .shop-item:last-child { border-bottom: none; }
+
+  .shop-item-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--blue-soft);
+    flex-shrink: 0;
+  }
+
+  .shop-item-name {
+    font-size: 14px;
+    color: var(--cream);
+    flex: 1;
+  }
+
+  .shop-item-qty {
+    font-size: 12px;
+    color: var(--cream-muted);
+  }
+
+  /* ── MEALS DASH ─────────────────────────── */
+  .meal-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .meal-row:last-child { border-bottom: none; }
+
+  .meal-day {
+    font-size: 12px;
+    color: var(--cream-muted);
+    min-width: 30px;
+    padding-top: 2px;
+    font-weight: 600;
+  }
+
+  .meal-name {
+    font-size: 14px;
+    color: var(--cream);
+    line-height: 1.3;
+  }
+
+  /* ── FULL VIEWS ─────────────────────────── */
+  .view-title {
+    font-family: 'Nunito', sans-serif;
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--cream);
+    margin-bottom: 8px;
+  }
+
+  .view-subtitle {
+    font-size: 14px;
+    color: var(--cream-muted);
+    margin-bottom: 28px;
+  }
+
+  /* ── CALENDAR FULL ──────────────────────── */
+  .cal-week-strip {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 28px;
+  }
+
+  .cal-day-pill {
+    flex: 1;
+    background: var(--navy-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 6px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+
+  .cal-day-pill.today {
+    border-color: var(--sage);
+    background: rgba(126,184,152,0.08);
+  }
+
+  .cal-day-pill .day-name {
+    font-size: 11px;
+    color: var(--cream-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .cal-day-pill .day-num {
+    font-family: 'Nunito', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--cream);
+    line-height: 1.1;
+  }
+
+  .cal-day-pill.today .day-num {
+    color: var(--sage);
+  }
+
+  .cal-day-pill .day-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--amber);
+    margin: 4px auto 0;
+  }
+
+  .cal-day-pill .day-dot.hidden { background: transparent; }
+
+  .cal-events-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .cal-event-card {
+    background: var(--navy-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 18px;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .cal-event-time-col {
+    min-width: 56px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .cal-event-time-start {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--cream);
+  }
+
+  .cal-event-time-end {
+    font-size: 12px;
+    color: var(--cream-muted);
+  }
+
+  .cal-event-bar {
+    width: 3px;
+    border-radius: 2px;
+    align-self: stretch;
+    min-height: 36px;
+    flex-shrink: 0;
+  }
+
+  .cal-event-info { flex: 1; }
+
+  .cal-event-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--cream);
+    margin-bottom: 3px;
+  }
+
+  .cal-event-meta {
+    font-size: 13px;
+    color: var(--cream-muted);
+  }
+
+  /* ── ADD BUTTON ─────────────────────────── */
+  .add-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 14px;
+    background: rgba(126,184,152,0.1);
+    border: 1px dashed rgba(126,184,152,0.4);
+    border-radius: 12px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--sage);
+    cursor: pointer;
+    margin-top: 16px;
+    transition: background 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .add-btn:hover { background: rgba(126,184,152,0.18); }
+
+  /* ── FULL TODO ──────────────────────────── */
+  .todo-section-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--cream-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin: 20px 0 10px;
+  }
+
+  .todo-full-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    background: var(--navy-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .todo-full-check {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid var(--border-strong);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  .todo-full-check.done {
+    background: var(--sage);
+    border-color: var(--sage);
+    color: var(--navy);
+  }
+
+  .todo-full-text {
+    font-size: 15px;
+    color: var(--cream);
+    flex: 1;
+  }
+
+  .todo-full-text.done {
+    text-decoration: line-through;
+    color: var(--cream-muted);
+  }
+
+  .todo-full-who {
+    font-size: 13px;
+    color: var(--cream-muted);
+  }
+
+  /* ── SHOPPING FULL ──────────────────────── */
+  .shop-category {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--cream-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin: 20px 0 10px;
+  }
+
+  .shop-full-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    background: var(--navy-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .shop-check {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    border: 2px solid var(--border-strong);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  .shop-check.done {
+    background: var(--blue-soft);
+    border-color: var(--blue-soft);
+    color: white;
+  }
+
+  .shop-full-name {
+    font-size: 15px;
+    color: var(--cream);
+    flex: 1;
+  }
+
+  .shop-full-name.done {
+    text-decoration: line-through;
+    color: var(--cream-muted);
+  }
+
+  .shop-full-qty {
+    font-size: 13px;
+    color: var(--cream-muted);
+  }
+
+  /* ── MEALS FULL ─────────────────────────── */
+  .meal-full-card {
+    background: var(--navy-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .meal-day-col {
+    min-width: 48px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .meal-day-name {
+    font-size: 11px;
+    color: var(--cream-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .meal-day-date {
+    font-family: 'Nunito', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--cream);
+    line-height: 1.1;
+  }
+
+  .meal-info { flex: 1; }
+
+  .meal-full-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--cream);
+    margin-bottom: 4px;
+  }
+
+  .meal-full-meta {
+    font-size: 13px;
+    color: var(--cream-muted);
+  }
+
+  .meal-tag {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 8px;
+    font-weight: 700;
+    align-self: flex-start;
+    margin-top: 2px;
+  }
+
+  /* ── MODAL ──────────────────────────────── */
+  #modal-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  #modal-overlay.open {
+    display: flex;
+  }
+
+  .modal-box {
+    background: var(--navy-mid);
+    border: 1px solid var(--border-strong);
+    border-radius: 20px;
+    padding: 28px;
+    width: 100%;
+    max-width: 480px;
+  }
+
+  .modal-title {
+    font-family: 'Nunito', sans-serif;
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--cream);
+    margin-bottom: 20px;
+  }
+
+  .modal-field {
+    margin-bottom: 16px;
+  }
+
+  .modal-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--cream-muted);
+    margin-bottom: 6px;
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .modal-input {
+    width: 100%;
+    background: var(--navy-card);
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 15px;
+    color: var(--cream);
+    font-family: 'Inter', sans-serif;
+    outline: none;
+  }
+
+  .modal-input:focus {
+    border-color: var(--sage);
+  }
+
+  .modal-select {
+    width: 100%;
+    background: var(--navy-card);
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 15px;
+    color: var(--cream);
+    font-family: 'Inter', sans-serif;
+    outline: none;
+    appearance: none;
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+  }
+
+  .btn-cancel {
+    flex: 1;
+    padding: 13px;
+    background: transparent;
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--cream-muted);
+    cursor: pointer;
+  }
+
+  .btn-save {
+    flex: 2;
+    padding: 13px;
+    background: var(--sage);
+    border: none;
+    border-radius: 10px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--navy);
+    cursor: pointer;
+  }
+
+  /* ── PEOPLE COLOURS ─────────────────────── */
+  .who-Giuseppe { color: var(--amber); }
+  .who-Ross { color: var(--rose); }
+  .who-Malachi { color: var(--blue-soft); }
+  .who-Mack { color: var(--sage); }
+  .who-tag-Giuseppe { background: rgba(232,168,56,0.15); color: var(--amber); }
+  .who-tag-Ross { background: rgba(224,112,112,0.15); color: var(--rose); }
+  .who-tag-Malachi { background: rgba(91,155,213,0.15); color: var(--blue-soft); }
+  .who-tag-Mack { background: rgba(46,196,182,0.15); color: var(--sage); }
+
+  /* ── SCROLLBAR ──────────────────────────── */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
+
+  /* ── DRAG & DROP ────────────────────────── */
+  .dash-card {
+    cursor: grab;
+    transition: opacity 0.2s, transform 0.15s;
+    position: relative;
+  }
+
+  .dash-card.dragging {
+    opacity: 0.4;
+    cursor: grabbing;
+    transform: scale(0.97);
+  }
+
+  .dash-card.drag-over {
+    border-color: var(--sage);
+    box-shadow: 0 0 0 2px rgba(46,196,182,0.3);
+  }
+
+  .dash-card.hidden-card {
+    display: none;
+  }
+
+  /* Edit mode toggle */
+  #edit-mode-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--navy-mid);
+    border: 1px solid var(--border-strong);
+    border-radius: 50px;
+    padding: 10px 18px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--cream-muted);
+    cursor: pointer;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: border-color 0.2s, color 0.2s;
+  }
+
+  #edit-mode-btn.active {
+    border-color: var(--sage);
+    color: var(--sage);
+  }
+
+  /* Remove button shown in edit mode */
+  .card-remove-btn {
+    display: none;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--rose);
+    color: white;
+    font-size: 14px;
+    font-weight: 800;
+    border: none;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    line-height: 1;
+  }
+
+  .edit-mode .card-remove-btn {
+    display: flex;
+  }
+
+  .edit-mode .dash-card {
+    animation: wiggle 0.5s infinite alternate;
+  }
+
+  @keyframes wiggle {
+    from { transform: rotate(-0.4deg); }
+    to   { transform: rotate(0.4deg); }
+  }
+
+  /* Hidden cards tray */
+  #hidden-tray {
+    display: none;
+    position: fixed;
+    bottom: 64px;
+    right: 20px;
+    background: var(--navy-mid);
+    border: 1px solid var(--border-strong);
+    border-radius: 14px;
+    padding: 12px 16px;
+    z-index: 49;
+    min-width: 180px;
+  }
+
+  #hidden-tray.visible { display: block; }
+
+  .tray-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--cream-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 10px;
+  }
+
+  .tray-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--sage);
+    font-weight: 600;
+  }
+
+  .tray-item:last-child { border-bottom: none; }
+
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- HEADER -->
+  <div id="header">
+    <div id="header-left">
+      <div id="clock">00:00</div>
+      <div id="date-str">Loading...</div>
+    </div>
+    <div id="header-center">🏠 🏠 The Family Hub</div>
+    <div id="today-summary">
+      <span id="summary-text">Loading...</span>
+    </div>
+  </div>
+
+  <!-- NAV -->
+  <div id="nav">
+    <div class="nav-tab active" data-view="dashboard" onclick="switchView('dashboard')">
+      <span class="tab-icon">⊞</span> Overview
+    </div>
+    <div class="nav-tab" data-view="calendar" onclick="switchView('calendar')">
+      <span class="tab-icon">📅</span> Calendar
+      <span class="badge" id="badge-cal">0</span>
+    </div>
+    <div class="nav-tab" data-view="todos" onclick="switchView('todos')">
+      <span class="tab-icon">✓</span> To-dos &amp; Chores
+      <span class="badge" id="badge-todo">0</span>
+    </div>
+    <div class="nav-tab" data-view="shopping" onclick="switchView('shopping')">
+      <span class="tab-icon">🛒</span> Shopping
+      <span class="badge" id="badge-shop">0</span>
+    </div>
+    <div class="nav-tab" data-view="meals" onclick="switchView('meals')">
+      <span class="tab-icon">🍽</span> Meals
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div id="main">
+
+    <!-- DASHBOARD -->
+    <div id="view-dashboard" class="view active">
+
+      <!-- Calendar card -->
+      <div class="dash-card" data-card="events" draggable="true">
+        <div class="dash-card-header">
+          <div class="dash-card-title">Today's Schedule</div>
+          <div class="dash-card-icon">📅</div>
+        </div>
+        <button class="card-remove-btn" onclick="removeCard('dash-events', event)">✕</button>
+        <div class="dash-card-body" id="dash-events"></div>
+      </div>
+
+      <!-- To-dos card -->
+      <div class="dash-card" data-card="todos" draggable="true">
+        <div class="dash-card-header">
+          <div class="dash-card-title">To-dos &amp; Chores</div>
+          <div class="dash-card-icon">✓</div>
+        </div>
+        <button class="card-remove-btn" onclick="removeCard('dash-todos', event)">✕</button>
+        <div class="dash-card-body" id="dash-todos"></div>
+      </div>
+
+      <!-- Shopping card -->
+      <div class="dash-card" data-card="shopping" draggable="true">
+        <div class="dash-card-header">
+          <div class="dash-card-title">Shopping List</div>
+          <div class="dash-card-icon">🛒</div>
+        </div>
+        <button class="card-remove-btn" onclick="removeCard('dash-shop', event)">✕</button>
+        <div class="dash-card-body" id="dash-shop"></div>
+      </div>
+
+      <!-- Meals card -->
+      <div class="dash-card" data-card="meals" draggable="true">
+        <div class="dash-card-header">
+          <div class="dash-card-title">This Week's Meals</div>
+          <div class="dash-card-icon">🍽</div>
+        </div>
+        <button class="card-remove-btn" onclick="removeCard('dash-meals', event)">✕</button>
+        <div class="dash-card-body" id="dash-meals"></div>
+      </div>
+
+    </div>
+
+    <!-- CALENDAR FULL -->
+    <div id="view-calendar" class="view">
+      <div class="view-title">Calendar</div>
+      <div class="view-subtitle" id="cal-subtitle">This week at a glance</div>
+      <div class="cal-week-strip" id="week-strip"></div>
+      <div class="cal-events-list" id="cal-events-full"></div>
+      <div class="add-btn" onclick="openModal('event')">+ Add event</div>
+    </div>
+
+    <!-- TODOS FULL -->
+    <div id="view-todos" class="view">
+      <div class="view-title">To-dos &amp; Chores</div>
+      <div class="view-subtitle">Tap to mark done</div>
+      <div id="todo-pending-label" class="todo-section-label">To do</div>
+      <div id="todos-pending"></div>
+      <div id="todo-done-label" class="todo-section-label" style="display:none">Done</div>
+      <div id="todos-done"></div>
+      <div class="add-btn" onclick="openModal('todo')">+ Add task or chore</div>
+    </div>
+
+    <!-- SHOPPING FULL -->
+    <div id="view-shopping" class="view">
+      <div class="view-title">Shopping List</div>
+      <div class="view-subtitle">Tap items to tick off as you shop</div>
+      <div id="shop-lists"></div>
+      <div class="add-btn" onclick="openModal('shop')">+ Add item</div>
+    </div>
+
+    <!-- MEALS FULL -->
+    <div id="view-meals" class="view">
+      <div class="view-title">Meals This Week</div>
+      <div class="view-subtitle">What's for dinner?</div>
+      <div id="meals-list"></div>
+      <div class="add-btn" onclick="openModal('meal')">+ Plan a meal</div>
+    </div>
+
+  </div>
+
+  <!-- MODAL -->
+  <div id="modal-overlay" onclick="closeModalIfBackground(event)">
+    <div class="modal-box">
+      <div class="modal-title" id="modal-title">Add item</div>
+
+      <div id="modal-event-fields">
+        <div class="modal-field">
+          <label class="modal-label">Event name</label>
+          <input class="modal-input" id="new-event-name" placeholder="e.g. Dentist appointment">
+        </div>
+        <div class="modal-field">
+          <label class="modal-label">Date</label>
+          <input class="modal-input" id="new-event-date" type="date">
+        </div>
+        <div style="display:flex;gap:12px">
+          <div class="modal-field" style="flex:1">
+            <label class="modal-label">Start time</label>
+            <input class="modal-input" id="new-event-start" type="time">
+          </div>
+          <div class="modal-field" style="flex:1">
+            <label class="modal-label">End time</label>
+            <input class="modal-input" id="new-event-end" type="time">
+          </div>
+        </div>
+        <div class="modal-field">
+          <label class="modal-label">Who</label>
+          <select class="modal-select" id="new-event-who">
+            <option>Everyone</option>
+            <option>Giuseppe</option>
+            <option>Ross</option>
+            <option>Malachi</option>
+            <option>Mack</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="modal-todo-fields" style="display:none">
+        <div class="modal-field">
+          <label class="modal-label">Task</label>
+          <input class="modal-input" id="new-todo-text" placeholder="e.g. Hoover the lounge">
+        </div>
+        <div class="modal-field">
+          <label class="modal-label">Assigned to</label>
+          <select class="modal-select" id="new-todo-who">
+            <option>Everyone</option>
+            <option>Giuseppe</option>
+            <option>Ross</option>
+            <option>Malachi</option>
+            <option>Mack</option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label class="modal-label">Type</label>
+          <select class="modal-select" id="new-todo-type">
+            <option value="todo">To-do</option>
+            <option value="chore">Chore</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="modal-shop-fields" style="display:none">
+        <div class="modal-field">
+          <label class="modal-label">Item</label>
+          <input class="modal-input" id="new-shop-name" placeholder="e.g. Olive oil">
+        </div>
+        <div class="modal-field">
+          <label class="modal-label">Quantity</label>
+          <input class="modal-input" id="new-shop-qty" placeholder="e.g. 2 bottles">
+        </div>
+        <div class="modal-field">
+          <label class="modal-label">Category</label>
+          <select class="modal-select" id="new-shop-cat">
+            <option>Fridge &amp; Fresh</option>
+            <option>Store Cupboard</option>
+            <option>Freezer</option>
+            <option>Household</option>
+            <option>Other</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="modal-meal-fields" style="display:none">
+        <div class="modal-field">
+          <label class="modal-label">Meal name</label>
+          <input class="modal-input" id="new-meal-name" placeholder="e.g. Pasta arrabbiata">
+        </div>
+        <div class="modal-field">
+          <label class="modal-label">Day of week</label>
+          <select class="modal-select" id="new-meal-day">
+            <option>Monday</option><option>Tuesday</option><option>Wednesday</option>
+            <option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label class="modal-label">Notes (optional)</label>
+          <input class="modal-input" id="new-meal-notes" placeholder="e.g. Kids prefer less spicy">
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+        <button class="btn-save" onclick="saveModal()">Save</button>
+      </div>
+    </div>
+  
+  <!-- EDIT MODE CONTROLS -->
+  <button id="edit-mode-btn" onclick="toggleEditMode()">⠿ Arrange</button>
+  <div id="hidden-tray">
+    <div class="tray-title">Hidden widgets</div>
+    <div id="tray-items"></div>
+  </div>
+
+</div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────────────────────
+const today = new Date();
+const todayStr = today.toISOString().split('T')[0];
+
+function getWeekDates() {
+  const dates = [];
+  const mon = new Date(today);
+  mon.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(mon);
+    d.setDate(mon.getDate() + i);
+    dates.push(d);
+  }
+  return dates;
+}
+
+function fmt(d) { return d.toISOString().split('T')[0]; }
+
+const weekDates = getWeekDates();
+const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+// Seed sample data relative to today
+const eventColors = ['#7EB898','#E8A838','#5B9BD5','#E07070','#B08BE8'];
+
+let events = [
+  { id:1, name:"School run", date: fmt(weekDates[0]), start:"08:15", end:"08:45", who:"Giuseppe", color:"#E8A838" },
+  { id:2, name:"Dentist – Luca", date: fmt(weekDates[1]), start:"10:00", end:"10:30", who:"Luca", color:"#5B9BD5" },
+  { id:3, name:"Football practice", date: fmt(weekDates[2]), start:"17:30", end:"19:00", who:"Marco", color:"#7EB898" },
+  { id:4, name:"Parents' evening", date: todayStr, start:"18:00", end:"20:00", who:"Everyone", color:"#E07070" },
+  { id:5, name:"Grocery run", date: todayStr, start:"09:30", end:"10:30", who:"Sarah", color:"#5B9BD5" },
+  { id:6, name:"Swimming – Marco", date: fmt(weekDates[4]), start:"08:00", end:"09:00", who:"Marco", color:"#7EB898" },
+  { id:7, name:"Date night 🍷", date: fmt(weekDates[5]), start:"19:30", end:"23:00", who:"Giuseppe", color:"#B08BE8" },
+];
+
+let todos = [
+  { id:1, text:"Hoover downstairs", who:"Malachi", type:"chore", done:false },
+  { id:2, text:"Put bins out", who:"Mack", type:"chore", done:false },
+  { id:3, text:"Book car service", who:"Giuseppe", type:"todo", done:false },
+  { id:4, text:"Empty dishwasher", who:"Mack", type:"chore", done:true },
+  { id:5, text:"Feed Paloma & Otis 🐾", who:"Malachi", type:"chore", done:false },
+  { id:6, text:"Sort out school trip consent form", who:"Ross", type:"todo", done:false },
+  { id:7, text:"Clean bathroom", who:"Malachi", type:"chore", done:false },
+  { id:8, text:"Book haircuts – twins", who:"Giuseppe", type:"todo", done:false },
+];
+
+let shopping = [
+  { id:1, name:"Milk", qty:"2 litres", cat:"Fridge & Fresh", done:false },
+  { id:2, name:"Chicken thighs", qty:"1 pack", cat:"Fridge & Fresh", done:false },
+  { id:3, name:"Cherry tomatoes", qty:"1 punnet", cat:"Fridge & Fresh", done:true },
+  { id:4, name:"Pasta", qty:"2 bags", cat:"Store Cupboard", done:false },
+  { id:5, name:"Olive oil", qty:"1 bottle", cat:"Store Cupboard", done:false },
+  { id:6, name:"Washing powder", qty:"1 box", cat:"Household", done:false },
+  { id:7, name:"Bin bags", qty:"1 roll", cat:"Household", done:false },
+];
+
+let meals = [
+  { id:1, day:"Monday",    name:"Spaghetti bolognese",       notes:"Make extra for freezer", tag:"Family fave" },
+  { id:2, day:"Tuesday",   name:"Chicken stir fry",           notes:"Use up the veg", tag:"Quick" },
+  { id:3, day:"Wednesday", name:"Homemade pizza night 🍕",   notes:"Mack & Malachi choose toppings", tag:"Fun night" },
+  { id:4, day:"Thursday",  name:"Baked salmon with rice",     notes:"", tag:"Healthy" },
+  { id:5, day:"Friday",    name:"Takeaway 🥡",               notes:"Ross picks this week", tag:"Treat" },
+  { id:6, day:"Saturday",  name:"BBQ (weather permitting) 🌤", notes:"Invite the neighbours?", tag:"Weekend" },
+  { id:7, day:"Sunday",    name:"Roast chicken",              notes:"Early lunch, boys out at 3", tag:"Sunday roast" },
+];
+
+let nextId = 100;
+
+// ── CLOCK ─────────────────────────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2,'0');
+  const m = String(now.getMinutes()).padStart(2,'0');
+  document.getElementById('clock').textContent = h + ':' + m;
+  const opts = { weekday:'long', day:'numeric', month:'long' };
+  document.getElementById('date-str').textContent = now.toLocaleDateString('en-GB', opts);
+}
+setInterval(updateClock, 10000);
+updateClock();
+
+// ── SUMMARY ───────────────────────────────────────────────────────────────────
+function updateSummary() {
+  const todayEvents = events.filter(e => e.date === todayStr);
+  const pendingTodos = todos.filter(t => !t.done).length;
+  const pendingShop = shopping.filter(s => !s.done).length;
+  let lines = [];
+  if (todayEvents.length) lines.push(todayEvents.length + ' event' + (todayEvents.length > 1 ? 's' : '') + ' today');
+  if (pendingTodos) lines.push(pendingTodos + ' task' + (pendingTodos > 1 ? 's' : '') + ' to do');
+  if (pendingShop) lines.push(pendingShop + ' items to get');
+  document.getElementById('summary-text').innerHTML = lines.join(' · ') || 'All clear today!';
+
+  document.getElementById('badge-cal').textContent = todayEvents.length || '';
+  document.getElementById('badge-todo').textContent = todos.filter(t=>!t.done).length || '';
+  document.getElementById('badge-shop').textContent = shopping.filter(s=>!s.done).length || '';
+}
+
+// ── VIEWS ─────────────────────────────────────────────────────────────────────
+function switchView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  document.querySelector('[data-view="' + name + '"]').classList.add('active');
+  renderAll();
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function renderAll() {
+  renderDashboard();
+  renderCalendar();
+  renderTodos();
+  renderShopping();
+  renderMeals();
+  updateSummary();
+}
+
+function whoTag(who) {
+  return '<span class="task-tag who-tag-' + who + '">' + who + '</span>';
+}
+
+// DASHBOARD
+function renderDashboard() {
+  // Events today
+  const todayEvts = events.filter(e => e.date === todayStr).sort((a,b) => a.start.localeCompare(b.start));
+  const evtEl = document.getElementById('dash-events');
+  if (!todayEvts.length) {
+    evtEl.innerHTML = '<div style="color:var(--cream-muted);font-size:14px;padding-top:8px">Nothing scheduled today 🎉</div>';
+  } else {
+    evtEl.innerHTML = todayEvts.map(e => `
+      <div class="event-row">
+        <div class="event-time">${e.start}</div>
+        <div class="event-dot" style="background:${e.color}"></div>
+        <div>
+          <div class="event-label">${e.name}</div>
+          <div class="event-who">${e.who}</div>
+        </div>
+      </div>`).join('');
+  }
+
+  // Todos
+  const pending = todos.filter(t => !t.done).slice(0,5);
+  const tdEl = document.getElementById('dash-todos');
+  tdEl.innerHTML = pending.map(t => `
+    <div class="task-row" onclick="toggleTodo(${t.id})">
+      <div class="task-check ${t.done?'done':''}">✓</div>
+      <div class="task-text ${t.done?'done':''}">${t.text}</div>
+      <span class="task-tag who-tag-${t.who}" style="font-size:11px;padding:2px 7px;border-radius:6px;font-weight:600">${t.who}</span>
+    </div>`).join('') || '<div style="color:var(--cream-muted);font-size:14px;padding-top:8px">All done! 🙌</div>';
+
+  // Shopping
+  const items = shopping.filter(s => !s.done).slice(0,6);
+  const shEl = document.getElementById('dash-shop');
+  shEl.innerHTML = items.map(s => `
+    <div class="shop-item" onclick="switchView('shopping')">
+      <div class="shop-item-dot"></div>
+      <div class="shop-item-name">${s.name}</div>
+      <div class="shop-item-qty">${s.qty}</div>
+    </div>`).join('') || '<div style="color:var(--cream-muted);font-size:14px;padding-top:8px">List is empty 👍</div>';
+
+  // Meals - show next 3 days
+  const dayOrder = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  const todayDay = today.toLocaleDateString('en-GB',{weekday:'long'});
+  const todayIdx = dayOrder.indexOf(todayDay);
+  const upcoming = meals.filter(m => dayOrder.indexOf(m.day) >= todayIdx).slice(0,3);
+  const meEl = document.getElementById('dash-meals');
+  meEl.innerHTML = upcoming.map(m => `
+    <div class="meal-row">
+      <div class="meal-day">${m.day.substring(0,3)}</div>
+      <div class="meal-name">${m.name}</div>
+    </div>`).join('') || '<div style="color:var(--cream-muted);font-size:14px;padding-top:8px">No meals planned yet</div>';
+}
+
+// CALENDAR
+function renderCalendar() {
+  // Week strip
+  const strip = document.getElementById('week-strip');
+  strip.innerHTML = weekDates.map((d, i) => {
+    const dStr = fmt(d);
+    const hasEvent = events.some(e => e.date === dStr);
+    const isToday = dStr === todayStr;
+    return `<div class="cal-day-pill${isToday?' today':''}" onclick="filterCalDay('${dStr}')">
+      <div class="day-name">${days[i]}</div>
+      <div class="day-num">${d.getDate()}</div>
+      <div class="day-dot${hasEvent?'':' hidden'}"></div>
+    </div>`;
+  }).join('');
+
+  // Events list (all this week, sorted)
+  const weekStart = fmt(weekDates[0]);
+  const weekEnd = fmt(weekDates[6]);
+  const weekEvents = events
+    .filter(e => e.date >= weekStart && e.date <= weekEnd)
+    .sort((a,b) => (a.date+a.start).localeCompare(b.date+b.start));
+
+  const el = document.getElementById('cal-events-full');
+  el.innerHTML = weekEvents.map(e => {
+    const d = new Date(e.date + 'T12:00:00');
+    const dayLabel = d.toLocaleDateString('en-GB',{weekday:'short', day:'numeric'});
+    return `<div class="cal-event-card">
+      <div class="cal-event-time-col">
+        <div class="cal-event-time-start">${e.start}</div>
+        <div class="cal-event-time-end">${e.end}</div>
+        <div style="font-size:11px;color:var(--cream-muted);margin-top:4px">${dayLabel}</div>
+      </div>
+      <div class="cal-event-bar" style="background:${e.color}"></div>
+      <div class="cal-event-info">
+        <div class="cal-event-name">${e.name}</div>
+        <div class="cal-event-meta who-${e.who}">${e.who}</div>
+      </div>
+    </div>`;
+  }).join('') || '<div style="color:var(--cream-muted);font-size:14px;padding:12px 0">Nothing this week yet</div>';
+}
+
+function filterCalDay(dStr) {
+  const el = document.getElementById('cal-events-full');
+  const dayEvents = events.filter(e => e.date === dStr).sort((a,b) => a.start.localeCompare(b.start));
+  const d = new Date(dStr + 'T12:00:00');
+  document.getElementById('cal-subtitle').textContent = d.toLocaleDateString('en-GB',{weekday:'long', day:'numeric', month:'long'});
+  el.innerHTML = dayEvents.map(e => `
+    <div class="cal-event-card">
+      <div class="cal-event-time-col">
+        <div class="cal-event-time-start">${e.start}</div>
+        <div class="cal-event-time-end">${e.end}</div>
+      </div>
+      <div class="cal-event-bar" style="background:${e.color}"></div>
+      <div class="cal-event-info">
+        <div class="cal-event-name">${e.name}</div>
+        <div class="cal-event-meta who-${e.who}">${e.who}</div>
+      </div>
+    </div>`).join('') || '<div style="color:var(--cream-muted);font-size:14px;padding:12px 0">Nothing on this day</div>';
+}
+
+// TODOS
+function renderTodos() {
+  const pending = todos.filter(t => !t.done);
+  const done = todos.filter(t => t.done);
+
+  document.getElementById('todos-pending').innerHTML = pending.map(t => `
+    <div class="todo-full-row" onclick="toggleTodo(${t.id})">
+      <div class="todo-full-check">✓</div>
+      <div class="todo-full-text">${t.text}</div>
+      <div class="todo-full-who who-${t.who}">${t.who}</div>
+      <span style="font-size:11px;padding:2px 8px;border-radius:6px;background:${t.type==='chore'?'rgba(232,168,56,0.15)':'rgba(91,155,213,0.15)'};color:${t.type==='chore'?'var(--amber)':'var(--blue-soft)'};font-weight:600">${t.type}</span>
+    </div>`).join('') || '<div style="color:var(--cream-muted);font-size:14px;padding:12px 0">All tasks done! 🎉</div>';
+
+  document.getElementById('todo-done-label').style.display = done.length ? 'block' : 'none';
+  document.getElementById('todos-done').innerHTML = done.map(t => `
+    <div class="todo-full-row" onclick="toggleTodo(${t.id})" style="opacity:0.5">
+      <div class="todo-full-check done">✓</div>
+      <div class="todo-full-text done">${t.text}</div>
+      <div class="todo-full-who">${t.who}</div>
+    </div>`).join('');
+}
+
+function toggleTodo(id) {
+  const t = todos.find(t => t.id === id);
+  if (t) { t.done = !t.done; renderAll(); }
+}
+
+// SHOPPING
+function renderShopping() {
+  const cats = [...new Set(shopping.map(s => s.cat))];
+  document.getElementById('shop-lists').innerHTML = cats.map(cat => {
+    const items = shopping.filter(s => s.cat === cat);
+    return `<div class="shop-category">${cat}</div>` +
+      items.map(s => `
+        <div class="shop-full-row" onclick="toggleShop(${s.id})">
+          <div class="shop-check ${s.done?'done':''}">✓</div>
+          <div class="shop-full-name ${s.done?'done':''}">${s.name}</div>
+          <div class="shop-full-qty">${s.qty}</div>
+        </div>`).join('');
+  }).join('');
+}
+
+function toggleShop(id) {
+  const s = shopping.find(s => s.id === id);
+  if (s) { s.done = !s.done; renderAll(); }
+}
+
+// MEALS
+function renderMeals() {
+  const dayOrder = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  const tagColors = {
+    'Family fave':'rgba(126,184,152,0.2);color:var(--sage)',
+    'Quick':'rgba(91,155,213,0.2);color:var(--blue-soft)',
+    'Fun night':'rgba(176,139,232,0.2);color:#B08BE8',
+    'Healthy':'rgba(126,184,152,0.2);color:var(--sage)',
+    'Treat':'rgba(232,168,56,0.2);color:var(--amber)',
+    'Weekend':'rgba(232,168,56,0.2);color:var(--amber)',
+    'Sunday roast':'rgba(224,112,112,0.2);color:var(--rose)',
+  };
+  const sorted = [...meals].sort((a,b) => dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day));
+  const dateForDay = (dayName) => {
+    const idx = dayOrder.indexOf(dayName);
+    const d = new Date(weekDates[idx] || weekDates[0]);
+    return d.getDate();
+  };
+
+  document.getElementById('meals-list').innerHTML = sorted.map(m => {
+    const tc = tagColors[m.tag] || 'rgba(255,255,255,0.1);color:var(--cream-muted)';
+    return `<div class="meal-full-card">
+      <div class="meal-day-col">
+        <div class="meal-day-name">${m.day.substring(0,3)}</div>
+        <div class="meal-day-date">${dateForDay(m.day)}</div>
+      </div>
+      <div class="meal-info">
+        <div class="meal-full-name">${m.name}</div>
+        ${m.notes ? '<div class="meal-full-meta">' + m.notes + '</div>' : ''}
+      </div>
+      <div class="meal-tag" style="background:${tc.split(';')[0]};${tc.split(';')[1]}">${m.tag}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── MODAL ─────────────────────────────────────────────────────────────────────
+let currentModal = '';
+
+function openModal(type) {
+  currentModal = type;
+  const titles = { event:'Add event', todo:'Add task or chore', shop:'Add shopping item', meal:'Plan a meal' };
+  document.getElementById('modal-title').textContent = titles[type];
+  ['event','todo','shop','meal'].forEach(t => {
+    document.getElementById('modal-'+t+'-fields').style.display = t === type ? 'block' : 'none';
+  });
+  if (type === 'event') document.getElementById('new-event-date').value = todayStr;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+function closeModalIfBackground(e) {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+}
+
+function saveModal() {
+  if (currentModal === 'event') {
+    const name = document.getElementById('new-event-name').value.trim();
+    if (!name) return;
+    const who = document.getElementById('new-event-who').value;
+    const colors = { Giuseppe:'#E8A838', Ross:'#E07070', Malachi:'#5B9BD5', Mack:'#7EB898', Everyone:'#B08BE8' };
+    events.push({
+      id: nextId++,
+      name,
+      date: document.getElementById('new-event-date').value || todayStr,
+      start: document.getElementById('new-event-start').value || '09:00',
+      end: document.getElementById('new-event-end').value || '10:00',
+      who,
+      color: colors[who] || '#7EB898'
+    });
+    document.getElementById('new-event-name').value = '';
+  }
+  if (currentModal === 'todo') {
+    const text = document.getElementById('new-todo-text').value.trim();
+    if (!text) return;
+    todos.unshift({
+      id: nextId++,
+      text,
+      who: document.getElementById('new-todo-who').value,
+      type: document.getElementById('new-todo-type').value,
+      done: false
+    });
+    document.getElementById('new-todo-text').value = '';
+  }
+  if (currentModal === 'shop') {
+    const name = document.getElementById('new-shop-name').value.trim();
+    if (!name) return;
+    shopping.push({
+      id: nextId++,
+      name,
+      qty: document.getElementById('new-shop-qty').value || '1',
+      cat: document.getElementById('new-shop-cat').value,
+      done: false
+    });
+    document.getElementById('new-shop-name').value = '';
+  }
+  if (currentModal === 'meal') {
+    const name = document.getElementById('new-meal-name').value.trim();
+    if (!name) return;
+    meals = meals.filter(m => m.day !== document.getElementById('new-meal-day').value);
+    meals.push({
+      id: nextId++,
+      day: document.getElementById('new-meal-day').value,
+      name,
+      notes: document.getElementById('new-meal-notes').value,
+      tag: 'New'
+    });
+    document.getElementById('new-meal-name').value = '';
+  }
+  closeModal();
+  renderAll();
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+renderAll();
+
+
+// ── EDIT MODE & DRAG/DROP ─────────────────────────────────────────────────────
+let editMode = false;
+let dragSrc = null;
+
+const cardMeta = {
+  events:   { title: "Today's Schedule", icon: "📅" },
+  todos:    { title: "To-dos & Chores",  icon: "✓"  },
+  shopping: { title: "Shopping List",    icon: "🛒"  },
+  meals:    { title: "This Week's Meals",icon: "🍽"  },
+};
+
+// Restore saved order & visibility from localStorage
+function applyCardState() {
+  const order = JSON.parse(localStorage.getItem('cardOrder') || '["events","todos","shopping","meals"]');
+  const hidden = JSON.parse(localStorage.getItem('cardHidden') || '[]');
+  const grid = document.getElementById('view-dashboard');
+  order.forEach(id => {
+    const card = document.querySelector('[data-card="' + id + '"]');
+    if (card) {
+      grid.appendChild(card);
+      card.classList.toggle('hidden-card', hidden.includes(id));
+    }
+  });
+  refreshTray();
+}
+
+function saveCardState() {
+  const cards = [...document.querySelectorAll('#view-dashboard [data-card]')];
+  const order = cards.map(c => c.dataset.card);
+  const hidden = cards.filter(c => c.classList.contains('hidden-card')).map(c => c.dataset.card);
+  localStorage.setItem('cardOrder', JSON.stringify(order));
+  localStorage.setItem('cardHidden', JSON.stringify(hidden));
+}
+
+function toggleEditMode() {
+  editMode = !editMode;
+  const btn = document.getElementById('edit-mode-btn');
+  const grid = document.getElementById('view-dashboard');
+  const tray = document.getElementById('hidden-tray');
+  btn.classList.toggle('active', editMode);
+  btn.textContent = editMode ? '✓ Done' : '⠿ Arrange';
+  grid.classList.toggle('edit-mode', editMode);
+  tray.classList.toggle('visible', editMode);
+  refreshTray();
+}
+
+function removeCard(bodyId, e) {
+  e.stopPropagation();
+  const cardMap = { 'dash-events':'events','dash-todos':'todos','dash-shop':'shopping','dash-meals':'meals' };
+  const cardId = cardMap[bodyId];
+  const card = document.querySelector('[data-card="' + cardId + '"]');
+  if (card) {
+    card.classList.add('hidden-card');
+    saveCardState();
+    refreshTray();
+  }
+}
+
+function restoreCard(cardId) {
+  const card = document.querySelector('[data-card="' + cardId + '"]');
+  if (card) {
+    card.classList.remove('hidden-card');
+    saveCardState();
+    refreshTray();
+  }
+}
+
+function refreshTray() {
+  const hidden = [...document.querySelectorAll('#view-dashboard [data-card].hidden-card')];
+  const trayItems = document.getElementById('tray-items');
+  if (!hidden.length) {
+    trayItems.innerHTML = '<div style="font-size:13px;color:var(--cream-muted)">All widgets visible</div>';
+    return;
+  }
+  trayItems.innerHTML = hidden.map(c => {
+    const id = c.dataset.card;
+    const m = cardMeta[id];
+    return '<div class="tray-item" onclick="restoreCard(\'' + id + '\')">+ ' + m.icon + ' ' + m.title + '</div>';
+  }).join('');
+}
+
+// Drag events
+function initDrag() {
+  const grid = document.getElementById('view-dashboard');
+  grid.addEventListener('dragstart', e => {
+    const card = e.target.closest('[data-card]');
+    if (!card || !editMode) { e.preventDefault(); return; }
+    dragSrc = card;
+    setTimeout(() => card.classList.add('dragging'), 0);
+  });
+  grid.addEventListener('dragend', e => {
+    const card = e.target.closest('[data-card]');
+    if (card) card.classList.remove('dragging');
+    document.querySelectorAll('.drag-over').forEach(c => c.classList.remove('drag-over'));
+    saveCardState();
+  });
+  grid.addEventListener('dragover', e => {
+    e.preventDefault();
+    const card = e.target.closest('[data-card]');
+    if (!card || card === dragSrc) return;
+    document.querySelectorAll('.drag-over').forEach(c => c.classList.remove('drag-over'));
+    card.classList.add('drag-over');
+  });
+  grid.addEventListener('drop', e => {
+    e.preventDefault();
+    const target = e.target.closest('[data-card]');
+    if (!target || target === dragSrc) return;
+    const cards = [...grid.querySelectorAll('[data-card]')];
+    const srcIdx = cards.indexOf(dragSrc);
+    const tgtIdx = cards.indexOf(target);
+    if (srcIdx < tgtIdx) {
+      grid.insertBefore(dragSrc, target.nextSibling);
+    } else {
+      grid.insertBefore(dragSrc, target);
+    }
+    target.classList.remove('drag-over');
+    saveCardState();
+  });
+}
+
+// Touch drag support for tablets
+let touchDragCard = null;
+let touchClone = null;
+
+function initTouchDrag() {
+  const grid = document.getElementById('view-dashboard');
+
+  grid.addEventListener('touchstart', e => {
+    if (!editMode) return;
+    const card = e.target.closest('[data-card]');
+    if (!card) return;
+    touchDragCard = card;
+  }, { passive: true });
+
+  grid.addEventListener('touchmove', e => {
+    if (!touchDragCard) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+    const target = el && el.closest('[data-card]');
+    document.querySelectorAll('.drag-over').forEach(c => c.classList.remove('drag-over'));
+    if (target && target !== touchDragCard) target.classList.add('drag-over');
+  }, { passive: false });
+
+  grid.addEventListener('touchend', e => {
+    if (!touchDragCard) return;
+    const touch = e.changedTouches[0];
+    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+    const target = el && el.closest('[data-card]');
+    if (target && target !== touchDragCard) {
+      const cards = [...grid.querySelectorAll('[data-card]')];
+      const srcIdx = cards.indexOf(touchDragCard);
+      const tgtIdx = cards.indexOf(target);
+      if (srcIdx < tgtIdx) grid.insertBefore(touchDragCard, target.nextSibling);
+      else grid.insertBefore(touchDragCard, target);
+      target.classList.remove('drag-over');
+      saveCardState();
+    }
+    touchDragCard = null;
+  });
+}
+
+applyCardState();
+initDrag();
+initTouchDrag();
+
+</script>
+</body>
+</html>
