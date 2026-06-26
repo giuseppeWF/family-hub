@@ -34,6 +34,8 @@
       const data = [];
       snap.forEach(d => data.push({ id: d.id, ...d.data() }));
       setter(data);
+      if (typeof renderAll === 'function') renderAll();
+      window.dispatchEvent(new CustomEvent('fb-data'));
     });
   }
 
