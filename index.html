@@ -872,6 +872,18 @@
   .swipeable {
     position: relative;
     overflow: hidden;
+    border-radius: 12px;
+    margin-bottom: 8px;
+  }
+
+  .swipe-inner {
+    position: relative;
+    z-index: 2;
+    transition: transform 0.25s ease;
+  }
+
+  .swipeable.revealed .swipe-inner {
+    transform: translateX(-160px);
   }
 
   .swipe-actions {
@@ -879,31 +891,68 @@
     right: 0;
     top: 0;
     bottom: 0;
+    width: 160px;
     display: flex;
     align-items: stretch;
-    transform: translateX(100%);
-    transition: transform 0.2s;
-  }
-
-  .swipeable.revealed .swipe-actions {
-    transform: translateX(0);
+    z-index: 1;
   }
 
   .swipe-btn {
+    flex: 1;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 0 18px;
-    font-size: 13px;
+    gap: 3px;
+    font-size: 11px;
     font-weight: 700;
     font-family: 'Nunito', sans-serif;
     cursor: pointer;
     border: none;
     color: white;
+    padding: 0 8px;
   }
 
-  .swipe-delete { background: var(--rose); }
+  .swipe-btn-icon { font-size: 18px; }
+  .swipe-delete { background: var(--rose); border-radius: 0 12px 12px 0; }
   .swipe-edit   { background: var(--blue-soft); }
+
+  /* Desktop inline action buttons */
+  .item-actions {
+    display: none;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  @media (hover: hover) {
+    .item-actions { display: flex; }
+    .swipeable .swipe-actions { display: none; }
+  }
+
+  .item-action-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  .todo-full-row:hover .item-action-btn,
+  .shop-full-row:hover .item-action-btn,
+  .meal-full-card:hover .item-action-btn,
+  .cal-event-card:hover .item-action-btn,
+  .swipeable:hover .item-action-btn {
+    opacity: 1;
+  }
+
+  .item-action-btn.edit   { background: rgba(91,155,213,0.2);  color: var(--blue-soft); }
+  .item-action-btn.delete { background: rgba(224,112,112,0.2); color: var(--rose); }
 
   /* Edit modal */
   #edit-item-overlay {
@@ -1481,23 +1530,42 @@ function initSwipe(el) {
   el.addEventListener('touchmove', e => {
     if (swipeEl !== el) return;
     const dx = swipeStartX - e.touches[0].clientX;
-    if (dx > 40) el.classList.add('revealed');
-    else if (dx < -10) el.classList.remove('revealed');
+    if (dx > 50) {
+      // Close all others first
+      document.querySelectorAll('.swipeable.revealed').forEach(x => { if (x !== el) x.classList.remove('revealed'); });
+      el.classList.add('revealed');
+    } else if (dx < -10) {
+      el.classList.remove('revealed');
+    }
   }, { passive: true });
   el.addEventListener('touchend', () => { swipeEl = null; });
-  // Click outside closes
-  document.addEventListener('click', () => {
-    document.querySelectorAll('.swipeable.revealed').forEach(e => e.classList.remove('revealed'));
-  });
 }
+
+// Close swipes on tap elsewhere
+document.addEventListener('touchstart', e => {
+  if (!e.target.closest('.swipeable')) {
+    document.querySelectorAll('.swipeable.revealed').forEach(x => x.classList.remove('revealed'));
+  }
+}, { passive: true });
 
 function swipeRow(item, colName, editFn, html) {
   return `<div class="swipeable" id="row-${colName}-${item.id}">
-    <div style="position:relative;z-index:1;background:var(--navy-card);">${html}</div>
+    <div class="swipe-inner">${html}</div>
     <div class="swipe-actions">
-      <button class="swipe-btn swipe-edit"   onclick="event.stopPropagation();${editFn}">✏️ Edit</button>
-      <button class="swipe-btn swipe-delete" onclick="event.stopPropagation();deleteItem('${colName}','${item.id}')">🗑 Delete</button>
+      <button class="swipe-btn swipe-edit"   onclick="event.stopPropagation();${editFn}">
+        <span class="swipe-btn-icon">✏️</span>Edit
+      </button>
+      <button class="swipe-btn swipe-delete" onclick="event.stopPropagation();deleteItem('${colName}','${item.id}')">
+        <span class="swipe-btn-icon">🗑</span>Delete
+      </button>
     </div>
+  </div>`;
+}
+
+function actionBtns(colName, id, editFn) {
+  return `<div class="item-actions">
+    <button class="item-action-btn edit"   onclick="event.stopPropagation();${editFn}" title="Edit">✏️</button>
+    <button class="item-action-btn delete" onclick="event.stopPropagation();deleteItem('${colName}','${id}')" title="Delete">🗑</button>
   </div>`;
 }
 
@@ -1626,6 +1694,7 @@ function renderTodos() {
           ${dueBadge(t.due)}
           <div class="todo-full-who who-${t.who}">${t.who}</div>
           <span style="font-size:11px;padding:2px 8px;border-radius:6px;background:${t.type==='chore'?'rgba(232,168,56,0.15)':'rgba(91,155,213,0.15)'};color:${t.type==='chore'?'var(--amber)':'var(--blue-soft)'};font-weight:600">${t.type||'todo'}</span>
+          ${actionBtns('todos', t.id, `openEditItem('todo','${t.id}')`)}
         </div>
       </div>`)
   ).join('') || '<div style="color:var(--cream-muted);font-size:14px;padding:12px 0">All tasks done! 🎉</div>';
@@ -1636,7 +1705,10 @@ function renderTodos() {
       `<div class="todo-full-row" style="opacity:0.5" onclick="toggleTodo('${t.id}')">
         <div class="todo-full-check done">✓</div>
         <div class="todo-full-text done">${t.text}</div>
-        <div class="todo-full-who">${t.who}</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div class="todo-full-who">${t.who}</div>
+          ${actionBtns('todos', t.id, `openEditItem('todo','${t.id}')`)}
+        </div>
       </div>`)
   ).join('');
 
@@ -1661,8 +1733,11 @@ function renderShopping() {
       swipeRow(s, 'shopping', `openEditItem('shop','${s.id}')`,
         `<div class="shop-full-row" onclick="toggleShop('${s.id}')">
           <div class="shop-check ${s.done?'done':''}">✓</div>
-          <div class="shop-full-name ${s.done?'done':''}">  ${s.name}</div>
-          <div class="shop-full-qty">${s.qty||''}</div>
+          <div class="shop-full-name ${s.done?'done':''}">${s.name}</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="shop-full-qty">${s.qty||''}</div>
+            ${actionBtns('shopping', s.id, `openEditItem('shop','${s.id}')`)}
+          </div>
         </div>`)
     ).join('');
   }).join('');
@@ -1705,7 +1780,10 @@ function renderMeals() {
           <div class="meal-full-name">${m.name}</div>
           ${m.notes ? '<div class="meal-full-meta">'+m.notes+'</div>' : ''}
         </div>
-        <div class="meal-tag" style="background:${tc.split(';')[0]};${tc.split(';')[1]}">${m.tag||''}</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="meal-tag" style="background:${tc.split(';')[0]};${tc.split(';')[1]}">${m.tag||''}</div>
+          ${actionBtns('meals', m.id, `openEditItem('meal','${m.id}')`)}
+        </div>
       </div>`);
   }).join('');
   document.querySelectorAll('#meals-list .swipeable').forEach(initSwipe);
