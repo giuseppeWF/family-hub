@@ -267,6 +267,13 @@
     justify-content: space-between;
     margin-bottom: 16px;
     flex-shrink: 0;
+    border-radius: 8px;
+    padding: 4px 2px;
+    transition: background 0.15s;
+  }
+
+  .dash-card-header:hover {
+    background: rgba(255,255,255,0.04);
   }
 
   .dash-card-title {
@@ -1162,9 +1169,9 @@
 
       <!-- Calendar card -->
       <div class="dash-card" data-card="events" draggable="true">
-        <div class="dash-card-header">
+        <div class="dash-card-header" onclick="switchView('calendar')" style="cursor:pointer">
           <div class="dash-card-title">Today's Schedule</div>
-          <div class="dash-card-icon">📅</div>
+          <div class="dash-card-icon">📅 ›</div>
         </div>
         <button class="card-remove-btn" onclick="removeCard('dash-events', event)">✕</button>
         <div class="dash-card-body" id="dash-events"></div>
@@ -1172,9 +1179,9 @@
 
       <!-- To-dos card -->
       <div class="dash-card" data-card="todos" draggable="true">
-        <div class="dash-card-header">
+        <div class="dash-card-header" onclick="switchView('todos')" style="cursor:pointer">
           <div class="dash-card-title">To-dos &amp; Chores</div>
-          <div class="dash-card-icon">✓</div>
+          <div class="dash-card-icon">✓ ›</div>
         </div>
         <button class="card-remove-btn" onclick="removeCard('dash-todos', event)">✕</button>
         <div class="dash-card-body" id="dash-todos"></div>
@@ -1182,9 +1189,9 @@
 
       <!-- Shopping card -->
       <div class="dash-card" data-card="shopping" draggable="true">
-        <div class="dash-card-header">
+        <div class="dash-card-header" onclick="switchView('shopping')" style="cursor:pointer">
           <div class="dash-card-title">Shopping List</div>
-          <div class="dash-card-icon">🛒</div>
+          <div class="dash-card-icon">🛒 ›</div>
         </div>
         <button class="card-remove-btn" onclick="removeCard('dash-shop', event)">✕</button>
         <div class="dash-card-body" id="dash-shop"></div>
@@ -1192,9 +1199,9 @@
 
       <!-- Meals card -->
       <div class="dash-card" data-card="meals" draggable="true">
-        <div class="dash-card-header">
+        <div class="dash-card-header" onclick="switchView('meals')" style="cursor:pointer">
           <div class="dash-card-title">This Week's Meals</div>
-          <div class="dash-card-icon">🍽</div>
+          <div class="dash-card-icon">🍽 ›</div>
         </div>
         <button class="card-remove-btn" onclick="removeCard('dash-meals', event)">✕</button>
         <div class="dash-card-body" id="dash-meals"></div>
@@ -1246,8 +1253,9 @@
     <div style="background:var(--navy-mid);border:1px solid var(--border-strong);border-radius:20px;padding:28px;width:100%;max-width:440px;" onclick="event.stopPropagation()">
       <div id="detail-content"></div>
       <div style="display:flex;gap:12px;margin-top:24px;">
-        <button class="btn-cancel" onclick="document.getElementById('detail-overlay').style.display='none'">Close</button>
-        <button class="btn-save" id="detail-action-btn" onclick="detailAction()">Mark done</button>
+        <button class="btn-cancel" onclick="closeDetailModal()">Close</button>
+        <button class="btn-save" id="detail-edit-btn" style="background:var(--blue-soft)" onclick="detailEdit()">✏️ Edit</button>
+        <button class="btn-save" id="detail-action-btn">Action</button>
       </div>
     </div>
   </div>
@@ -1578,7 +1586,8 @@ function handleSwipeEdit(btn) {
   const col  = btn.dataset.col;
   const id   = btn.dataset.id;
   const type = btn.dataset.type;
-  openEditItem(type, id);
+  // Show detail first — edit button is inside detail modal (consistent with calendar)
+  showDetail(type, id);
 }
 
 function handleSwipeDelete(btn) {
@@ -1994,6 +2003,9 @@ function showDetail(type, id) {
   const overlay   = document.getElementById('detail-overlay');
   const content   = document.getElementById('detail-content');
   const actionBtn = document.getElementById('detail-action-btn');
+  // Reset edit button — each type will show it if relevant
+  const editBtn = document.getElementById('detail-edit-btn');
+  if (editBtn) editBtn.style.display = 'none';
 
   if (type === 'event') {
     const e = getEvents().find(x => String(x.id) === String(id)); if (!e) return;
@@ -2015,9 +2027,10 @@ function showDetail(type, id) {
           <span class="who-${e.who}" style="font-size:15px;font-weight:600">${e.who||''}</span>
         </div>
       </div>`;
-    actionBtn.textContent = 'Edit event';
+    actionBtn.textContent = 'Go to Calendar';
     actionBtn.style.background = e.color;
-    actionBtn.onclick = () => { closeDetailModal(); openEditItem('event', id); };
+    actionBtn.onclick = () => { closeDetailModal(); switchView('calendar'); };
+    document.getElementById('detail-edit-btn').style.display = 'flex';
   }
   if (type === 'todo') {
     const t = getTodos().find(x => String(x.id) === String(id)); if (!t) return;
@@ -2043,6 +2056,7 @@ function showDetail(type, id) {
     actionBtn.textContent = t.done ? 'Mark undone' : 'Mark done';
     actionBtn.style.background = 'var(--sage)';
     actionBtn.onclick = () => { toggleTodo(id); closeDetailModal(); };
+    document.getElementById('detail-edit-btn').style.display = 'flex';
   }
   if (type === 'shop') {
     const s = getShopping().find(x => String(x.id) === String(id)); if (!s) return;
@@ -2064,6 +2078,7 @@ function showDetail(type, id) {
     actionBtn.textContent = s.done ? 'Mark needed' : 'Mark got it';
     actionBtn.style.background = 'var(--blue-soft)';
     actionBtn.onclick = () => { toggleShop(id); closeDetailModal(); };
+    document.getElementById('detail-edit-btn').style.display = 'flex';
   }
   if (type === 'meal') {
     const m = getMeals().find(x => String(x.id) === String(id)); if (!m) return;
@@ -2073,15 +2088,22 @@ function showDetail(type, id) {
         <div style="font-size:14px;color:var(--cream-muted)">${m.day||''}</div>
       </div>
       ${m.notes?`<div style="padding:14px;background:var(--navy-card);border-radius:10px;font-size:14px;color:var(--cream-muted)">${m.notes}</div>`:''}`;
-    actionBtn.textContent = 'Edit meal';
+    actionBtn.textContent = 'Go to Meals';
     actionBtn.style.background = 'var(--sage)';
-    actionBtn.onclick = () => { closeDetailModal(); openEditItem('meal', id); };
+    actionBtn.onclick = () => { closeDetailModal(); switchView('meals'); };
+    document.getElementById('detail-edit-btn').style.display = 'flex';
   }
   overlay.style.display = 'flex';
 }
 
 function closeDetailModal() { document.getElementById('detail-overlay').style.display = 'none'; }
 function closeDetail(e) { if (e.target === document.getElementById('detail-overlay')) closeDetailModal(); }
+
+function detailEdit() {
+  if (!detailContext) return;
+  closeDetailModal();
+  openEditItem(detailContext.type, detailContext.id);
+}
 
 // ── WIDGET DRAG/DROP ──────────────────────────────────────────────────────────
 let editMode = false, dragSrc = null;
