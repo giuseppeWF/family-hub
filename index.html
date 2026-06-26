@@ -1465,12 +1465,33 @@
           <label class="modal-label">Due date (optional)</label>
           <input class="modal-input" id="new-todo-due" type="date">
         </div>
+        <div class="modal-field">
+          <label class="modal-label">Repeat</label>
+          <select class="modal-select" id="new-todo-recur">
+            <option value="none">No repeat</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="fortnightly">Every 2 weeks</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </div>
       </div>
 
       <div id="modal-shop-fields" style="display:none">
+        <!-- Favourites quick-pick -->
         <div class="modal-field">
+          <label class="modal-label">Quick add from favourites</label>
+          <div id="shop-favs-picker" style="display:flex;flex-wrap:wrap;gap:6px;max-height:100px;overflow-y:auto;padding:4px 0"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+          <div style="flex:1;height:1px;background:var(--border)"></div>
+          <span style="font-size:12px;color:var(--cream-muted)">or add manually</span>
+          <div style="flex:1;height:1px;background:var(--border)"></div>
+        </div>
+        <div class="modal-field" style="position:relative">
           <label class="modal-label">Item</label>
-          <input class="modal-input" id="new-shop-name" placeholder="e.g. Olive oil">
+          <input class="modal-input" id="new-shop-name" placeholder="e.g. Olive oil" oninput="shopAutocomplete(this.value)" autocomplete="off">
+          <div id="shop-autocomplete" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--navy-mid);border:1px solid var(--border-strong);border-radius:10px;z-index:300;overflow:hidden;margin-top:4px"></div>
         </div>
         <div class="modal-field">
           <label class="modal-label">Quantity</label>
@@ -1486,12 +1507,28 @@
             <option>Other</option>
           </select>
         </div>
+        <div class="modal-field" style="display:flex;align-items:center;gap:10px">
+          <input type="checkbox" id="new-shop-save-fav" style="width:16px;height:16px;accent-color:var(--sage)">
+          <label for="new-shop-save-fav" style="font-size:13px;color:var(--cream-muted);cursor:pointer">Save as favourite</label>
+        </div>
       </div>
 
       <div id="modal-meal-fields" style="display:none">
+        <!-- Favourites by category -->
         <div class="modal-field">
+          <label class="modal-label">Pick from favourites</label>
+          <div id="meal-cat-filter" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
+          <div id="meal-favs-picker" style="display:flex;flex-wrap:wrap;gap:6px;max-height:90px;overflow-y:auto;padding:4px 0"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+          <div style="flex:1;height:1px;background:var(--border)"></div>
+          <span style="font-size:12px;color:var(--cream-muted)">or type a meal</span>
+          <div style="flex:1;height:1px;background:var(--border)"></div>
+        </div>
+        <div class="modal-field" style="position:relative">
           <label class="modal-label">Meal name</label>
-          <input class="modal-input" id="new-meal-name" placeholder="e.g. Pasta arrabbiata">
+          <input class="modal-input" id="new-meal-name" placeholder="e.g. Pasta arrabbiata" oninput="mealAutocomplete(this.value)" autocomplete="off">
+          <div id="meal-autocomplete" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--navy-mid);border:1px solid var(--border-strong);border-radius:10px;z-index:300;overflow:hidden;margin-top:4px"></div>
         </div>
         <div class="modal-field">
           <label class="modal-label">Day of week</label>
@@ -1503,6 +1540,10 @@
         <div class="modal-field">
           <label class="modal-label">Notes (optional)</label>
           <input class="modal-input" id="new-meal-notes" placeholder="e.g. Kids prefer less spicy">
+        </div>
+        <div class="modal-field" style="display:flex;align-items:center;gap:10px">
+          <input type="checkbox" id="new-meal-save-fav" style="width:16px;height:16px;accent-color:var(--sage)">
+          <label for="new-meal-save-fav" style="font-size:13px;color:var(--cream-muted);cursor:pointer">Save as favourite</label>
         </div>
       </div>
 
@@ -1585,14 +1626,18 @@ window.fbEvents   = [];
 window.fbTodos    = [];
 window.fbShopping = [];
 window.fbMeals     = [];
-window.fbHousehold = [];
+window.fbHousehold   = [];
+window.fbShopFavs    = [];
+window.fbMealFavs    = [];
 
 // Local getters — always read from Firebase-synced globals
 function getEvents()   { return window.fbEvents   || []; }
 function getTodos()    { return window.fbTodos    || []; }
 function getShopping() { return window.fbShopping || []; }
 function getMeals()     { return window.fbMeals     || []; }
-function getHousehold() { return window.fbHousehold || []; }
+function getHousehold()  { return window.fbHousehold  || []; }
+function getShopFavs()   { return window.fbShopFavs   || []; }
+function getMealFavs()   { return window.fbMealFavs   || []; }
 
 // ── DATE HELPERS ──────────────────────────────────────────────────────────────
 const today    = new Date();
@@ -1639,6 +1684,30 @@ const sampleShopping = [
   { id:'s6', name:'Washing powder',  qty:'1 box',    cat:'Household',       done:false },
   { id:'s7', name:'Bin bags',        qty:'1 roll',   cat:'Household',       done:false },
 ];
+const sampleShopFavs = [
+  { id:'sf1', name:'Milk',           qty:'2 litres', cat:'Fridge & Fresh'  },
+  { id:'sf2', name:'Bread',          qty:'1 loaf',   cat:'Fridge & Fresh'  },
+  { id:'sf3', name:'Eggs',           qty:'12',       cat:'Fridge & Fresh'  },
+  { id:'sf4', name:'Chicken thighs', qty:'1 pack',   cat:'Fridge & Fresh'  },
+  { id:'sf5', name:'Pasta',          qty:'2 bags',   cat:'Store Cupboard'  },
+  { id:'sf6', name:'Olive oil',      qty:'1 bottle', cat:'Store Cupboard'  },
+  { id:'sf7', name:'Tinned tomatoes',qty:'4 tins',   cat:'Store Cupboard'  },
+  { id:'sf8', name:'Washing powder', qty:'1 box',    cat:'Household'       },
+  { id:'sf9', name:'Bin bags',       qty:'1 roll',   cat:'Household'       },
+  { id:'sf10',name:'Dog food',       qty:'1 bag',    cat:'Household'       },
+];
+
+const sampleMealFavs = [
+  { id:'mf1',  name:'Spaghetti bolognese',     category:'Family fave', notes:'Make extra for freezer' },
+  { id:'mf2',  name:'Chicken stir fry',         category:'Quick',       notes:'Use up the veg'         },
+  { id:'mf3',  name:'Homemade pizza night 🍕', category:'Fun night',   notes:'Kids choose toppings'   },
+  { id:'mf4',  name:'Baked salmon with rice',   category:'Healthy',     notes:''                       },
+  { id:'mf5',  name:'Roast chicken',            category:'Sunday roast',notes:'Early lunch'            },
+  { id:'mf6',  name:'Pasta arrabbiata',         category:'Quick',       notes:'Vegetarian'             },
+  { id:'mf7',  name:'Fish and chips',           category:'Treat',       notes:'Friday favourite'       },
+  { id:'mf8',  name:'Chicken curry',            category:'Family fave', notes:'Malachi loves this'     },
+];
+
 const sampleHousehold = [
   { id:'h1', text:'Paint the hallway',        room:'Hallway',     who:'Giuseppe', priority:'high',   notes:'Dulux Chic Shadow - 2 tins', done:false },
   { id:'h2', text:'Fix kitchen tap',          room:'Kitchen',     who:'Ross',     priority:'high',   notes:'Dripping — need new washer',  done:false },
@@ -1714,6 +1783,22 @@ function switchView(name) {
   // Show arrange button only on dashboard
   document.body.classList.toggle('on-dashboard', name === 'dashboard');
   renderAll();
+}
+
+// ── RECURRING HELPER ─────────────────────────────────────────────────────────
+function nextOccurrence(doneDate, freq) {
+  const d = new Date(doneDate + 'T00:00:00');
+  if (freq === 'daily')     d.setDate(d.getDate() + 1);
+  if (freq === 'weekly')    d.setDate(d.getDate() + 7);
+  if (freq === 'fortnightly') d.setDate(d.getDate() + 14);
+  if (freq === 'monthly')   d.setMonth(d.getMonth() + 1);
+  return d.toISOString().split('T')[0];
+}
+
+function recurBadge(freq) {
+  if (!freq || freq === 'none') return '';
+  const labels = { daily:'Daily', weekly:'Weekly', fortnightly:'Fortnightly', monthly:'Monthly' };
+  return '<span style="font-size:10px;padding:2px 6px;border-radius:5px;background:rgba(176,139,232,0.15);color:#B08BE8;font-weight:700">↻ ' + (labels[freq]||freq) + '</span>';
 }
 
 // ── DUE DATE HELPER ───────────────────────────────────────────────────────────
@@ -1978,7 +2063,10 @@ function renderCalendar() {
       <div class="cal-event-bar" style="background:${e.color||'#2EC4B6'}"></div>
       <div class="cal-event-info">
         <div class="cal-event-name">${e.name}</div>
-        <div class="cal-event-meta who-${e.who}">${e.who||''}</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div class="cal-event-meta who-${e.who}">${e.who||''}</div>
+          ${e.recur && e.recur !== 'none' ? recurBadge(e.recur) : ''}
+        </div>
       </div>
     </div>`;
   }).join('') || '<div style="color:var(--cream-muted);font-size:14px;padding:12px 0">Nothing this week yet</div>';
@@ -2016,6 +2104,7 @@ function renderTodos() {
         <div class="todo-full-text">${t.text}</div>
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
           ${dueBadge(t.due)}
+          ${recurBadge(t.recur)}
           <div class="todo-full-who who-${t.who}">${t.who}</div>
           <span style="font-size:11px;padding:2px 8px;border-radius:6px;background:${t.type==='chore'?'rgba(232,168,56,0.15)':'rgba(91,155,213,0.15)'};color:${t.type==='chore'?'var(--amber)':'var(--blue-soft)'};font-weight:600">${t.type||'todo'}</span>
           ${actionBtns('todos', t.id, 'todo')}
@@ -2044,7 +2133,16 @@ async function toggleTodo(id) {
   const t = getTodos().find(x => String(x.id) === String(id));
   if (!t) return;
   setSyncStatus('saving');
-  try { await window.fbUpdate('todos', id, { done: !t.done }); } catch(e) { setSyncStatus('error'); }
+  try {
+    const nowDone = !t.done;
+    await window.fbUpdate('todos', id, { done: nowDone });
+    // If marking done and task is recurring, spawn next occurrence
+    if (nowDone && t.recur && t.recur !== 'none') {
+      const newId  = 'id_' + Date.now();
+      const newDue = nextOccurrence(todayStr, t.recur);
+      await window.fbSave('todos', { ...t, id: newId, done: false, due: newDue });
+    }
+  } catch(e) { setSyncStatus('error'); }
 }
 
 // ── SHOPPING ──────────────────────────────────────────────────────────────────
@@ -2124,7 +2222,72 @@ function openModal(type) {
     document.getElementById('modal-'+t+'-fields').style.display = t === type ? 'block' : 'none';
   });
   if (type === 'event') document.getElementById('new-event-date').value = todayStr;
+  if (type === 'shop')  populateShopFavsPicker();
+  if (type === 'meal')  populateMealFavsPicker('All');
   document.getElementById('modal-overlay').classList.add('open');
+}
+
+function populateShopFavsPicker() {
+  const favs = getShopFavs();
+  const existing = getShopping().map(s => s.name.toLowerCase());
+  const picker = document.getElementById('shop-favs-picker');
+  if (!picker) return;
+  const available = favs.filter(f => !existing.includes(f.name.toLowerCase()));
+  picker.innerHTML = available.length
+    ? available.map(f => `<button onclick="pickShopFav('${f.id}')" style="padding:5px 12px;border-radius:20px;border:1px solid var(--border-strong);background:var(--navy-card);color:var(--cream);font-size:12px;cursor:pointer;font-family:'Inter',sans-serif">${f.name}</button>`).join('')
+    : '<span style="font-size:12px;color:var(--cream-muted)">All favourites already on the list</span>';
+}
+
+function pickShopFav(id) {
+  const f = getShopFavs().find(x => x.id === id);
+  if (!f) return;
+  document.getElementById('new-shop-name').value = f.name;
+  document.getElementById('new-shop-qty').value  = f.qty || '';
+  // Set category
+  const sel = document.getElementById('new-shop-cat');
+  for (let o of sel.options) { if (o.value === f.cat || o.text === f.cat) { sel.value = o.value; break; } }
+  document.getElementById('shop-autocomplete').style.display = 'none';
+}
+
+function shopAutocomplete(val) {
+  const ac = document.getElementById('shop-autocomplete');
+  if (!val || val.length < 2) { ac.style.display = 'none'; return; }
+  const favs = getShopFavs().filter(f => f.name.toLowerCase().includes(val.toLowerCase()));
+  if (!favs.length) { ac.style.display = 'none'; return; }
+  ac.style.display = 'block';
+  ac.innerHTML = favs.map(f => `<div onclick="pickShopFav('${f.id}')" style="padding:10px 14px;cursor:pointer;font-size:14px;color:var(--cream);border-bottom:1px solid var(--border)">${f.name} <span style="font-size:11px;color:var(--cream-muted)">${f.qty||''}</span></div>`).join('');
+}
+
+function populateMealFavsPicker(filterCat) {
+  const favs = getMealFavs();
+  const cats = ['All', ...new Set(favs.map(f => f.category).filter(Boolean))];
+  const catEl = document.getElementById('meal-cat-filter');
+  if (catEl) {
+    catEl.innerHTML = cats.map(c => `<button onclick="populateMealFavsPicker('${c}')" style="padding:4px 10px;border-radius:16px;border:1px solid ${c===filterCat?'var(--sage)':'var(--border-strong)'};background:${c===filterCat?'rgba(46,196,182,0.15)':'transparent'};color:${c===filterCat?'var(--sage)':'var(--cream-muted)'};font-size:11px;font-weight:700;cursor:pointer">${c}</button>`).join('');
+  }
+  const filtered = filterCat === 'All' ? favs : favs.filter(f => f.category === filterCat);
+  const picker = document.getElementById('meal-favs-picker');
+  if (!picker) return;
+  picker.innerHTML = filtered.length
+    ? filtered.map(f => `<button onclick="pickMealFav('${f.id}')" style="padding:5px 12px;border-radius:20px;border:1px solid var(--border-strong);background:var(--navy-card);color:var(--cream);font-size:12px;cursor:pointer;font-family:'Inter',sans-serif">${f.name}</button>`).join('')
+    : '<span style="font-size:12px;color:var(--cream-muted)">No meals in this category yet</span>';
+}
+
+function pickMealFav(id) {
+  const f = getMealFavs().find(x => x.id === id);
+  if (!f) return;
+  document.getElementById('new-meal-name').value  = f.name;
+  document.getElementById('new-meal-notes').value = f.notes || '';
+  document.getElementById('meal-autocomplete').style.display = 'none';
+}
+
+function mealAutocomplete(val) {
+  const ac = document.getElementById('meal-autocomplete');
+  if (!val || val.length < 2) { ac.style.display = 'none'; return; }
+  const favs = getMealFavs().filter(f => f.name.toLowerCase().includes(val.toLowerCase()));
+  if (!favs.length) { ac.style.display = 'none'; return; }
+  ac.style.display = 'block';
+  ac.innerHTML = favs.map(f => `<div onclick="pickMealFav('${f.id}')" style="padding:10px 14px;cursor:pointer;font-size:14px;color:var(--cream);border-bottom:1px solid var(--border)">${f.name} <span style="font-size:11px;color:var(--cream-muted)">${f.category||''}</span></div>`).join('');
 }
 
 function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
@@ -2136,41 +2299,63 @@ async function saveModal() {
     const id = 'id_' + Date.now();
     if (currentModal === 'event') {
       const name = document.getElementById('new-event-name').value.trim(); if (!name) return;
-      const who  = document.getElementById('new-event-who').value;
+      const who   = document.getElementById('new-event-who').value;
+      const recur = document.getElementById('new-event-recur').value;
       const colorMap = { Giuseppe:'#E8A838', Ross:'#E07070', Malachi:'#5B9BD5', Mack:'#2EC4B6', Rachel:'#B08BE8', Everyone:'#9B8BCC' };
       await window.fbSave('events', { id, name, date: document.getElementById('new-event-date').value || todayStr,
         start: document.getElementById('new-event-start').value || '09:00',
         end:   document.getElementById('new-event-end').value   || '10:00',
-        who, color: colorMap[who] || '#2EC4B6' });
-      document.getElementById('new-event-name').value = '';
+        who, color: colorMap[who] || '#2EC4B6',
+        recur: recur !== 'none' ? recur : null });
+      document.getElementById('new-event-name').value  = '';
+      document.getElementById('new-event-recur').value = 'none';
     }
     if (currentModal === 'todo') {
       const text = document.getElementById('new-todo-text').value.trim(); if (!text) return;
+      const recur = document.getElementById('new-todo-recur').value;
       await window.fbSave('todos', { id, text,
-        who:  document.getElementById('new-todo-who').value,
-        type: document.getElementById('new-todo-type').value,
-        due:  document.getElementById('new-todo-due').value || null,
-        done: false });
-      document.getElementById('new-todo-text').value = '';
-      document.getElementById('new-todo-due').value  = '';
+        who:   document.getElementById('new-todo-who').value,
+        type:  document.getElementById('new-todo-type').value,
+        due:   document.getElementById('new-todo-due').value || null,
+        recur: recur !== 'none' ? recur : null,
+        done:  false });
+      document.getElementById('new-todo-text').value  = '';
+      document.getElementById('new-todo-due').value   = '';
+      document.getElementById('new-todo-recur').value = 'none';
     }
     if (currentModal === 'shop') {
       const name = document.getElementById('new-shop-name').value.trim(); if (!name) return;
-      await window.fbSave('shopping', { id, name,
-        qty:  document.getElementById('new-shop-qty').value || '1',
-        cat:  document.getElementById('new-shop-cat').value,
-        done: false });
+      const qty  = document.getElementById('new-shop-qty').value || '1';
+      const cat  = document.getElementById('new-shop-cat').value;
+      await window.fbSave('shopping', { id, name, qty, cat, done: false });
+      // Save as favourite if ticked
+      if (document.getElementById('new-shop-save-fav').checked) {
+        const favId = 'sf_' + Date.now();
+        const existing = getShopFavs().find(f => f.name.toLowerCase() === name.toLowerCase());
+        if (!existing) await window.fbSave('shopfavs', { id: favId, name, qty, cat });
+      }
       document.getElementById('new-shop-name').value = '';
+      document.getElementById('new-shop-qty').value  = '';
+      document.getElementById('new-shop-save-fav').checked = false;
+      document.getElementById('shop-autocomplete').style.display = 'none';
     }
     if (currentModal === 'meal') {
-      const name = document.getElementById('new-meal-name').value.trim(); if (!name) return;
-      const day = document.getElementById('new-meal-day').value;
+      const name  = document.getElementById('new-meal-name').value.trim(); if (!name) return;
+      const day   = document.getElementById('new-meal-day').value;
+      const notes = document.getElementById('new-meal-notes').value || '';
       const existing = getMeals().find(m => m.day === day);
       if (existing) await window.fbDelete('meals', existing.id);
-      await window.fbSave('meals', { id, day, name,
-        notes: document.getElementById('new-meal-notes').value || '',
-        tag:   'New' });
-      document.getElementById('new-meal-name').value = '';
+      await window.fbSave('meals', { id, day, name, notes, tag: 'New' });
+      // Save as favourite if ticked
+      if (document.getElementById('new-meal-save-fav').checked) {
+        const favId = 'mf_' + Date.now();
+        const existFav = getMealFavs().find(f => f.name.toLowerCase() === name.toLowerCase());
+        if (!existFav) await window.fbSave('mealfavs', { id: favId, name, notes, category: 'Family fave' });
+      }
+      document.getElementById('new-meal-name').value  = '';
+      document.getElementById('new-meal-notes').value = '';
+      document.getElementById('new-meal-save-fav').checked = false;
+      document.getElementById('meal-autocomplete').style.display = 'none';
     }
     if (currentModal === 'household') {
       const text = document.getElementById('new-house-text').value.trim(); if (!text) return;
@@ -2620,7 +2805,9 @@ window.addEventListener('load', () => {
   setTimeout(async () => {
     if (typeof window.fbSeedIfEmpty === 'function') {
       await window.fbSeedIfEmpty('events',   sampleEvents);
-      await window.fbSeedIfEmpty('household', sampleHousehold);
+      await window.fbSeedIfEmpty('household',  sampleHousehold);
+      await window.fbSeedIfEmpty('shopfavs',   sampleShopFavs);
+      await window.fbSeedIfEmpty('mealfavs',   sampleMealFavs);
       await window.fbSeedIfEmpty('todos',    sampleTodos);
       await window.fbSeedIfEmpty('shopping', sampleShopping);
       await window.fbSeedIfEmpty('meals',    sampleMeals);
