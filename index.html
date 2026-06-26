@@ -60,13 +60,13 @@
 
   #header-left {
     display: flex;
-    align-items: baseline;
-    gap: 10px;
+    align-items: center;
+    gap: 12px;
   }
 
   #clock {
     font-family: 'Nunito', sans-serif;
-    font-size: 36px;
+    font-size: 32px;
     font-weight: 800;
     color: var(--cream);
     letter-spacing: -1px;
@@ -74,9 +74,11 @@
   }
 
   #date-str {
-    font-size: 14px;
+    font-size: 13px;
     color: var(--cream-muted);
     font-weight: 500;
+    border-left: 1px solid var(--border-strong);
+    padding-left: 12px;
   }
 
   #header-center {
@@ -932,7 +934,7 @@
       <div id="clock">00:00</div>
       <div id="date-str">Loading...</div>
     </div>
-    <div id="header-center">🏠 🏠 The Family Hub</div>
+    <div id="header-center">🏠 The Family Hub 🏠</div>
     <div id="today-summary">
       <span id="summary-text">Loading...</span>
     </div>
@@ -1046,6 +1048,18 @@
 
   </div>
 
+
+  <!-- DETAIL MODAL -->
+  <div id="detail-overlay" onclick="closeDetail(event)" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center;padding:24px;">
+    <div style="background:var(--navy-mid);border:1px solid var(--border-strong);border-radius:20px;padding:28px;width:100%;max-width:440px;" onclick="event.stopPropagation()">
+      <div id="detail-content"></div>
+      <div style="display:flex;gap:12px;margin-top:24px;">
+        <button class="btn-cancel" onclick="document.getElementById('detail-overlay').style.display='none'">Close</button>
+        <button class="btn-save" id="detail-action-btn" onclick="detailAction()">Mark done</button>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL -->
   <div id="modal-overlay" onclick="closeModalIfBackground(event)">
     <div class="modal-box">
@@ -1103,6 +1117,10 @@
             <option value="todo">To-do</option>
             <option value="chore">Chore</option>
           </select>
+        </div>
+        <div class="modal-field">
+          <label class="modal-label">Due date (optional)</label>
+          <input class="modal-input" id="new-todo-due" type="date">
         </div>
       </div>
 
@@ -1228,6 +1246,25 @@ let meals = [
 
 let nextId = 100;
 
+// ── PERSISTENCE ───────────────────────────────────────────────────────────────
+function saveData() {
+  localStorage.setItem('fh_events',   JSON.stringify(events));
+  localStorage.setItem('fh_todos',    JSON.stringify(todos));
+  localStorage.setItem('fh_shopping', JSON.stringify(shopping));
+  localStorage.setItem('fh_meals',    JSON.stringify(meals));
+  localStorage.setItem('fh_nextId',   nextId);
+}
+
+function loadData() {
+  try {
+    if (localStorage.getItem('fh_events'))   events   = JSON.parse(localStorage.getItem('fh_events'));
+    if (localStorage.getItem('fh_todos'))    todos    = JSON.parse(localStorage.getItem('fh_todos'));
+    if (localStorage.getItem('fh_shopping')) shopping = JSON.parse(localStorage.getItem('fh_shopping'));
+    if (localStorage.getItem('fh_meals'))    meals    = JSON.parse(localStorage.getItem('fh_meals'));
+    if (localStorage.getItem('fh_nextId'))   nextId   = parseInt(localStorage.getItem('fh_nextId'));
+  } catch(e) { console.warn('Could not load saved data', e); }
+}
+
 // ── CLOCK ─────────────────────────────────────────────────────────────────────
 function updateClock() {
   const now = new Date();
@@ -1265,6 +1302,18 @@ function switchView(name) {
   renderAll();
 }
 
+
+// ── DUE DATE HELPER ───────────────────────────────────────────────────────────
+function dueBadge(due) {
+  if (!due) return '';
+  const d = new Date(due + 'T00:00:00');
+  const t = new Date(todayStr + 'T00:00:00');
+  const diff = Math.round((d - t) / 86400000);
+  if (diff < 0)  return '<span style="font-size:11px;padding:2px 7px;border-radius:6px;background:rgba(224,112,112,0.2);color:var(--rose);font-weight:700">Overdue</span>';
+  if (diff === 0) return '<span style="font-size:11px;padding:2px 7px;border-radius:6px;background:rgba(232,168,56,0.2);color:var(--amber);font-weight:700">Today</span>';
+  if (diff <= 3)  return '<span style="font-size:11px;padding:2px 7px;border-radius:6px;background:rgba(232,168,56,0.1);color:var(--amber);font-weight:600">' + d.toLocaleDateString('en-GB',{day:'numeric',month:'short'}) + '</span>';
+  return '<span style="font-size:11px;padding:2px 7px;border-radius:6px;background:rgba(255,255,255,0.05);color:var(--cream-muted);font-weight:600">' + d.toLocaleDateString('en-GB',{day:'numeric',month:'short'}) + '</span>';
+}
 // ── RENDER ────────────────────────────────────────────────────────────────────
 function renderAll() {
   renderDashboard();
@@ -1288,7 +1337,7 @@ function renderDashboard() {
     evtEl.innerHTML = '<div style="color:var(--cream-muted);font-size:14px;padding-top:8px">Nothing scheduled today 🎉</div>';
   } else {
     evtEl.innerHTML = todayEvts.map(e => `
-      <div class="event-row">
+      <div class="event-row" onclick="showDetail('event',${e.id})" style="cursor:pointer">
         <div class="event-time">${e.start}</div>
         <div class="event-dot" style="background:${e.color}"></div>
         <div>
@@ -1302,7 +1351,7 @@ function renderDashboard() {
   const pending = todos.filter(t => !t.done).slice(0,5);
   const tdEl = document.getElementById('dash-todos');
   tdEl.innerHTML = pending.map(t => `
-    <div class="task-row" onclick="toggleTodo(${t.id})">
+    <div class="task-row" onclick="showDetail('todo',${t.id})">
       <div class="task-check ${t.done?'done':''}">✓</div>
       <div class="task-text ${t.done?'done':''}">${t.text}</div>
       <span class="task-tag who-tag-${t.who}" style="font-size:11px;padding:2px 7px;border-radius:6px;font-weight:600">${t.who}</span>
@@ -1312,7 +1361,7 @@ function renderDashboard() {
   const items = shopping.filter(s => !s.done).slice(0,6);
   const shEl = document.getElementById('dash-shop');
   shEl.innerHTML = items.map(s => `
-    <div class="shop-item" onclick="switchView('shopping')">
+    <div class="shop-item" onclick="showDetail('shop',${s.id})" style="cursor:pointer">
       <div class="shop-item-dot"></div>
       <div class="shop-item-name">${s.name}</div>
       <div class="shop-item-qty">${s.qty}</div>
@@ -1325,7 +1374,7 @@ function renderDashboard() {
   const upcoming = meals.filter(m => dayOrder.indexOf(m.day) >= todayIdx).slice(0,3);
   const meEl = document.getElementById('dash-meals');
   meEl.innerHTML = upcoming.map(m => `
-    <div class="meal-row">
+    <div class="meal-row" onclick="showDetail('meal',${m.id})" style="cursor:pointer">
       <div class="meal-day">${m.day.substring(0,3)}</div>
       <div class="meal-name">${m.name}</div>
     </div>`).join('') || '<div style="color:var(--cream-muted);font-size:14px;padding-top:8px">No meals planned yet</div>';
@@ -1397,11 +1446,14 @@ function renderTodos() {
   const done = todos.filter(t => t.done);
 
   document.getElementById('todos-pending').innerHTML = pending.map(t => `
-    <div class="todo-full-row" onclick="toggleTodo(${t.id})">
+    <div class="todo-full-row" onclick="showDetail('todo',${t.id})">
       <div class="todo-full-check">✓</div>
       <div class="todo-full-text">${t.text}</div>
-      <div class="todo-full-who who-${t.who}">${t.who}</div>
-      <span style="font-size:11px;padding:2px 8px;border-radius:6px;background:${t.type==='chore'?'rgba(232,168,56,0.15)':'rgba(91,155,213,0.15)'};color:${t.type==='chore'?'var(--amber)':'var(--blue-soft)'};font-weight:600">${t.type}</span>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        ${dueBadge(t.due)}
+        <div class="todo-full-who who-${t.who}">${t.who}</div>
+        <span style="font-size:11px;padding:2px 8px;border-radius:6px;background:${t.type==='chore'?'rgba(232,168,56,0.15)':'rgba(91,155,213,0.15)'};color:${t.type==='chore'?'var(--amber)':'var(--blue-soft)'};font-weight:600">${t.type}</span>
+      </div>
     </div>`).join('') || '<div style="color:var(--cream-muted);font-size:14px;padding:12px 0">All tasks done! 🎉</div>';
 
   document.getElementById('todo-done-label').style.display = done.length ? 'block' : 'none';
@@ -1415,7 +1467,7 @@ function renderTodos() {
 
 function toggleTodo(id) {
   const t = todos.find(t => t.id === id);
-  if (t) { t.done = !t.done; renderAll(); }
+  if (t) { t.done = !t.done; saveData(); renderAll(); }
 }
 
 // SHOPPING
@@ -1435,7 +1487,7 @@ function renderShopping() {
 
 function toggleShop(id) {
   const s = shopping.find(s => s.id === id);
-  if (s) { s.done = !s.done; renderAll(); }
+  if (s) { s.done = !s.done; saveData(); renderAll(); }
 }
 
 // MEALS
@@ -1520,9 +1572,11 @@ function saveModal() {
       text,
       who: document.getElementById('new-todo-who').value,
       type: document.getElementById('new-todo-type').value,
+      due: document.getElementById('new-todo-due').value || null,
       done: false
     });
     document.getElementById('new-todo-text').value = '';
+    document.getElementById('new-todo-due').value = '';
   }
   if (currentModal === 'shop') {
     const name = document.getElementById('new-shop-name').value.trim();
@@ -1549,13 +1603,131 @@ function saveModal() {
     });
     document.getElementById('new-meal-name').value = '';
   }
+  saveData();
   closeModal();
   renderAll();
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
+loadData();
 renderAll();
 
+
+
+// ── DETAIL MODAL ──────────────────────────────────────────────────────────────
+let detailContext = null;
+
+function showDetail(type, id) {
+  detailContext = { type, id };
+  const overlay = document.getElementById('detail-overlay');
+  const content = document.getElementById('detail-content');
+  const actionBtn = document.getElementById('detail-action-btn');
+
+  if (type === 'event') {
+    const e = events.find(x => x.id === id);
+    if (!e) return;
+    content.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+        <div style="width:4px;height:48px;border-radius:2px;background:${e.color};flex-shrink:0"></div>
+        <div>
+          <div style="font-family:'Nunito',sans-serif;font-size:22px;font-weight:800;color:var(--cream)">${e.name}</div>
+          <div style="font-size:14px;color:var(--cream-muted);margin-top:2px">${new Date(e.date+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})}</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;gap:12px;align-items:center">
+          <span style="font-size:12px;color:var(--cream-muted);min-width:60px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Time</span>
+          <span style="font-size:15px;color:var(--cream)">${e.start} – ${e.end}</span>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center">
+          <span style="font-size:12px;color:var(--cream-muted);min-width:60px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Who</span>
+          <span class="who-${e.who}" style="font-size:15px;font-weight:600">${e.who}</span>
+        </div>
+      </div>`;
+    actionBtn.textContent = 'Go to Calendar';
+    actionBtn.style.background = e.color;
+  }
+
+  if (type === 'todo') {
+    const t = todos.find(x => x.id === id);
+    if (!t) return;
+    const typeColor = t.type === 'chore' ? 'var(--amber)' : 'var(--blue-soft)';
+    content.innerHTML = `
+      <div style="margin-bottom:20px">
+        <div style="font-family:'Nunito',sans-serif;font-size:22px;font-weight:800;color:var(--cream);margin-bottom:8px">${t.text}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <span style="font-size:12px;padding:3px 10px;border-radius:8px;background:${t.type==='chore'?'rgba(232,168,56,0.15)':'rgba(91,155,213,0.15)'};color:${typeColor};font-weight:700">${t.type}</span>
+          ${t.done ? '<span style="font-size:12px;padding:3px 10px;border-radius:8px;background:rgba(46,196,182,0.15);color:var(--sage);font-weight:700">Done ✓</span>' : ''}
+          ${dueBadge(t.due)}
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;gap:12px;align-items:center">
+          <span style="font-size:12px;color:var(--cream-muted);min-width:60px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Assigned</span>
+          <span class="who-${t.who}" style="font-size:15px;font-weight:600">${t.who}</span>
+        </div>
+        ${t.due ? `<div style="display:flex;gap:12px;align-items:center">
+          <span style="font-size:12px;color:var(--cream-muted);min-width:60px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Due</span>
+          <span style="font-size:15px;color:var(--cream)">${new Date(t.due+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})}</span>
+        </div>` : ''}
+      </div>`;
+    actionBtn.textContent = t.done ? 'Mark undone' : 'Mark done';
+    actionBtn.style.background = 'var(--sage)';
+  }
+
+  if (type === 'shop') {
+    const s = shopping.find(x => x.id === id);
+    if (!s) return;
+    content.innerHTML = `
+      <div style="margin-bottom:20px">
+        <div style="font-family:'Nunito',sans-serif;font-size:22px;font-weight:800;color:var(--cream);margin-bottom:6px">${s.name}</div>
+        ${s.done ? '<span style="font-size:12px;padding:3px 10px;border-radius:8px;background:rgba(91,155,213,0.15);color:var(--blue-soft);font-weight:700">Got it ✓</span>' : ''}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;gap:12px;align-items:center">
+          <span style="font-size:12px;color:var(--cream-muted);min-width:70px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Quantity</span>
+          <span style="font-size:15px;color:var(--cream)">${s.qty}</span>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center">
+          <span style="font-size:12px;color:var(--cream-muted);min-width:70px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Category</span>
+          <span style="font-size:15px;color:var(--cream)">${s.cat}</span>
+        </div>
+      </div>`;
+    actionBtn.textContent = s.done ? 'Mark needed' : 'Mark got it';
+    actionBtn.style.background = 'var(--blue-soft)';
+  }
+
+  if (type === 'meal') {
+    const m = meals.find(x => x.id === id);
+    if (!m) return;
+    content.innerHTML = `
+      <div style="margin-bottom:20px">
+        <div style="font-family:'Nunito',sans-serif;font-size:22px;font-weight:800;color:var(--cream);margin-bottom:6px">${m.name}</div>
+        <div style="font-size:14px;color:var(--cream-muted)">${m.day}</div>
+      </div>
+      ${m.notes ? `<div style="padding:14px;background:var(--navy-card);border-radius:10px;font-size:14px;color:var(--cream-muted)">${m.notes}</div>` : ''}`;
+    actionBtn.textContent = 'Go to Meals';
+    actionBtn.style.background = 'var(--sage)';
+  }
+
+  overlay.style.display = 'flex';
+}
+
+function closeDetail(e) {
+  if (e.target === document.getElementById('detail-overlay')) {
+    document.getElementById('detail-overlay').style.display = 'none';
+  }
+}
+
+function detailAction() {
+  if (!detailContext) return;
+  const { type, id } = detailContext;
+  if (type === 'event') { switchView('calendar'); }
+  if (type === 'todo')  { toggleTodo(id); document.getElementById('detail-overlay').style.display = 'none'; }
+  if (type === 'shop')  { toggleShop(id); document.getElementById('detail-overlay').style.display = 'none'; }
+  if (type === 'meal')  { switchView('meals'); }
+  document.getElementById('detail-overlay').style.display = 'none';
+}
 
 // ── EDIT MODE & DRAG/DROP ─────────────────────────────────────────────────────
 let editMode = false;
