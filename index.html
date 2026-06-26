@@ -34,7 +34,6 @@
       const data = [];
       snap.forEach(d => data.push({ id: d.id, ...d.data() }));
       setter(data);
-      if (typeof renderAll === 'function') renderAll();
     });
   }
 
@@ -50,16 +49,19 @@
   window.fbSave = async (colName, item) => {
     const id = item.id ? String(item.id) : String(Date.now());
     await setDoc(doc(db, colName, id), { ...item, id, _ts: serverTimestamp() });
+    window.dispatchEvent(new CustomEvent('fb-saved'));
     return id;
   };
 
   window.fbDelete = async (colName, id) => {
     await deleteDoc(doc(db, colName, String(id)));
+    window.dispatchEvent(new CustomEvent('fb-saved'));
   };
 
   window.fbUpdate = async (colName, id, fields) => {
     const ref = doc(db, colName, String(id));
     await setDoc(ref, fields, { merge: true });
+    window.dispatchEvent(new CustomEvent('fb-saved'));
   };
 
   // Seed sample data if collections are empty (first run only)
@@ -1407,12 +1409,15 @@ function setSyncStatus(state) {
   if (state === 'error') { dot.style.background = '#E07070'; dot.classList.remove('syncing'); label.textContent = 'Offline'; }
 }
 
-// Watch for first data to confirm connection
+// Watch for Firestore connection via custom events
 let connected = false;
-const _origSet = window.__fbListenerReady;
-window.__onFbData = () => {
+window.addEventListener('fb-data', () => {
   if (!connected) { connected = true; setSyncStatus('live'); }
-};
+  if (typeof renderAll === 'function') renderAll();
+});
+window.addEventListener('fb-saved', () => {
+  setSyncStatus('live');
+});
 
 // ── SUMMARY ───────────────────────────────────────────────────────────────────
 function updateSummary() {
