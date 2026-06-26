@@ -1561,32 +1561,16 @@ document.addEventListener('touchstart', e => {
 
 function swipeRow(item, colName, editType, html) {
   const sid = String(item.id);
-  return `<div class="swipeable" id="row-${colName}-${sid}">
-    <div class="swipe-inner">${html}</div>
-    <div class="swipe-actions">
-      <button class="swipe-btn swipe-edit"
-        data-col="${colName}" data-id="${sid}" data-type="${editType}"
-        onclick="event.stopPropagation();handleSwipeEdit(this)">
-        <span class="swipe-btn-icon">✏️</span>Edit
-      </button>
-      <button class="swipe-btn swipe-delete"
-        data-col="${colName}" data-id="${sid}"
-        onclick="event.stopPropagation();handleSwipeDelete(this)">
-        <span class="swipe-btn-icon">🗑</span>Delete
-      </button>
-    </div>
-  </div>`;
+  const editBtn   = '<button class="swipe-btn swipe-edit" data-col="' + colName + '" data-id="' + sid + '" data-type="' + editType + '" onclick="event.stopPropagation();handleSwipeEdit(this)"><span class="swipe-btn-icon">✏️</span>Edit</button>';
+  const deleteBtn = '<button class="swipe-btn swipe-delete" data-col="' + colName + '" data-id="' + sid + '" onclick="event.stopPropagation();handleSwipeDelete(this)"><span class="swipe-btn-icon">🗑</span>Delete</button>';
+  return '<div class="swipeable" id="row-' + colName + '-' + sid + '"><div class="swipe-inner">' + html + '</div><div class="swipe-actions">' + editBtn + deleteBtn + '</div></div>';
 }
 
 function actionBtns(colName, id, editType) {
-  return `<div class="item-actions">
-    <button class="item-action-btn edit"
-      data-col="${colName}" data-id="${id}" data-type="${editType}"
-      onclick="event.stopPropagation();handleSwipeEdit(this)" title="Edit">✏️</button>
-    <button class="item-action-btn delete"
-      data-col="${colName}" data-id="${id}"
-      onclick="event.stopPropagation();handleSwipeDelete(this)" title="Delete">🗑</button>
-  </div>`;
+  const sid = String(id);
+  const editBtn   = '<button class="item-action-btn edit" data-col="' + colName + '" data-id="' + sid + '" data-type="' + editType + '" onclick="event.stopPropagation();handleSwipeEdit(this)" title="Edit">✏️</button>';
+  const deleteBtn = '<button class="item-action-btn delete" data-col="' + colName + '" data-id="' + sid + '" onclick="event.stopPropagation();handleSwipeDelete(this)" title="Delete">🗑</button>';
+  return '<div class="item-actions">' + editBtn + deleteBtn + '</div>';
 }
 
 function handleSwipeEdit(btn) {
