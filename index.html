@@ -1315,6 +1315,20 @@
         <div class="dash-card-body" id="dash-meals"></div>
       </div>
 
+      <!-- Household card (hidden by default) -->
+      <div class="dash-card hidden-card" data-card="household" draggable="true">
+        <div class="dash-card-header" onclick="switchView('household')" style="cursor:pointer">
+          <div class="dash-card-title">Household Tasks</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="dash-card-icon" style="opacity:0.4;font-size:15px">🔧</div>
+            <button onclick="event.stopPropagation();openModal('household')" style="background:rgba(46,196,182,0.15);border:none;border-radius:6px;color:var(--sage);font-size:16px;font-weight:800;width:24px;height:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">+</button>
+            <span style="color:var(--cream-muted);font-size:14px;opacity:0.5">›</span>
+          </div>
+        </div>
+        <button class="card-remove-btn" onclick="removeCard('dash-household', event)">✕</button>
+        <div class="dash-card-body" id="dash-household"></div>
+      </div>
+
     </div>
 
     <!-- CALENDAR FULL -->
@@ -1762,6 +1776,24 @@ function renderHousehold() {
 
   document.querySelectorAll('#household-pending .swipeable, #household-done .swipeable').forEach(initSwipe);
 
+  // Render dashboard card if present
+  const dashEl = document.getElementById('dash-household');
+  if (dashEl) {
+    const highPriority = pending.filter(t => t.priority === 'high').slice(0,4);
+    dashEl.innerHTML = highPriority.length
+      ? highPriority.map(t => `<div class="task-row" onclick="showDetail('household','${t.id}')" style="cursor:pointer">
+          <div class="task-check">✓</div>
+          <div class="task-text">${t.text}</div>
+          <span style="font-size:10px;font-weight:700;color:var(--rose);text-transform:uppercase">${t.room||''}</span>
+        </div>`).join('')
+      : pending.slice(0,4).map(t => `<div class="task-row" onclick="showDetail('household','${t.id}')" style="cursor:pointer">
+          <div class="task-check">✓</div>
+          <div class="task-text">${t.text}</div>
+          <span style="font-size:10px;color:var(--cream-muted)">${t.room||''}</span>
+        </div>`).join('')
+      || '<div style="color:var(--cream-muted);font-size:14px;padding-top:8px">No tasks yet 🔧</div>';
+  }
+
   // Badge
   const badge = document.getElementById('badge-house');
   const highCount = pending.filter(t => t.priority === 'high').length;
@@ -1894,8 +1926,17 @@ function renderDashboard() {
 
   // Meals
   const dayOrder = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-  const todayIdx = dayOrder.indexOf(today.toLocaleDateString('en-GB',{weekday:'long'}));
-  const upcoming = meals.filter(m => dayOrder.indexOf(m.day) >= todayIdx).slice(0,3);
+  const todayDay = today.toLocaleDateString('en-GB',{weekday:'long'});
+  const todayIdx = dayOrder.indexOf(todayDay);
+  // Sort all meals by day order, starting from today, wrapping around
+  const upcoming = [...meals]
+    .sort((a,b) => {
+      const ai = (dayOrder.indexOf(a.day) - todayIdx + 7) % 7;
+      const bi = (dayOrder.indexOf(b.day) - todayIdx + 7) % 7;
+      return ai - bi;
+    })
+    .filter(m => (dayOrder.indexOf(m.day) - todayIdx + 7) % 7 < 7)
+    .slice(0,3);
   const meEl = document.getElementById('dash-meals');
   meEl.innerHTML = upcoming.length
     ? upcoming.map(m => `<div class="meal-row" onclick="showDetail('meal','${m.id}')" style="cursor:pointer">
@@ -2497,15 +2538,16 @@ function detailEdit() {
 // ── WIDGET DRAG/DROP ──────────────────────────────────────────────────────────
 let editMode = false, dragSrc = null;
 const cardMeta = {
-  events:   { title:"Today's Schedule", icon:"📅" },
-  todos:    { title:"To-dos & Chores",  icon:"✓"  },
-  shopping: { title:"Shopping List",    icon:"🛒"  },
-  meals:    { title:"This Week's Meals",icon:"🍽"  },
+  events:    { title:"Today's Schedule",  icon:"📅" },
+  todos:     { title:"To-dos & Chores",   icon:"✓"  },
+  shopping:  { title:"Shopping List",     icon:"🛒"  },
+  meals:     { title:"This Week's Meals", icon:"🍽"  },
+  household: { title:"Household Tasks",   icon:"🔧"  },
 };
 
 function applyCardState() {
-  const order  = JSON.parse(localStorage.getItem('cardOrder')  || '["events","todos","shopping","meals"]');
-  const hidden = JSON.parse(localStorage.getItem('cardHidden') || '[]');
+  const order  = JSON.parse(localStorage.getItem('cardOrder')  || '["events","todos","shopping","meals","household"]');
+  const hidden = JSON.parse(localStorage.getItem('cardHidden') || '["household"]');
   const grid   = document.getElementById('view-dashboard');
   order.forEach(id => {
     const card = document.querySelector('[data-card="' + id + '"]');
@@ -2534,7 +2576,7 @@ function toggleEditMode() {
 
 function removeCard(bodyId, e) {
   e.stopPropagation();
-  const cardMap = { 'dash-events':'events','dash-todos':'todos','dash-shop':'shopping','dash-meals':'meals' };
+  const cardMap = { 'dash-events':'events','dash-todos':'todos','dash-shop':'shopping','dash-meals':'meals','dash-household':'household' };
   const card = document.querySelector('[data-card="' + cardMap[bodyId] + '"]');
   if (card) { card.classList.add('hidden-card'); saveCardState(); refreshTray(); }
 }
