@@ -48,6 +48,7 @@
     listenCol('household', d => { window.fbHousehold  = d; window.dispatchEvent(new CustomEvent('fb-data')); });
     listenCol('shopfavs',  d => { window.fbShopFavs   = d; window.dispatchEvent(new CustomEvent('fb-data')); });
     listenCol('mealfavs',  d => { window.fbMealFavs   = d; window.dispatchEvent(new CustomEvent('fb-data')); });
+    listenCol('dogwalks',  d => { window.fbDogwalks   = d; window.dispatchEvent(new CustomEvent('fb-data')); });
   });
 
   // ── Write helpers (exposed globally) ──────────────────────────────────────
@@ -583,6 +584,24 @@
     letter-spacing: 0.8px;
     margin: 20px 0 10px;
   }
+
+  .dogwalk-slot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 16px;
+    cursor: pointer;
+    min-height: 44px;
+    transition: background 0.15s;
+  }
+  .dogwalk-slot:active { background: rgba(255,255,255,0.06); }
+  .dogwalk-slot + .dogwalk-slot { border-top: 1px solid rgba(255,255,255,0.06); }
+  .dogwalk-icon  { font-size: 16px; flex-shrink: 0; }
+  .dogwalk-time  { color: var(--cream-muted); font-size: 12px; width: 60px; flex-shrink: 0; }
+  .dogwalk-who   { font-weight: 700; font-size: 13px; color: var(--cream); flex-shrink: 0; }
+  .dogwalk-who.done { opacity: 0.4; text-decoration: line-through; }
+  .dogwalk-pets  { flex: 1; color: var(--cream-muted); font-size: 12px; }
+  .dogwalk-check { font-size: 18px; flex-shrink: 0; width: 24px; text-align: center; }
 
   .todo-full-row {
     display: flex;
@@ -1359,6 +1378,9 @@
     <!-- DASHBOARD -->
     <div id="view-dashboard" class="view active">
 
+      <!-- Dog walk rota banner -->
+      <div id="dogwalk-banner" style="display:none;flex-direction:column;background:rgba(255,255,255,0.04);border-bottom:1px solid rgba(255,255,255,0.07);font-family:'Nunito',sans-serif"></div>
+
       <!-- Calendar card -->
       <div class="dash-card" data-card="events" draggable="true">
         <div class="dash-card-header" onclick="switchView('calendar')" style="cursor:pointer">
@@ -1914,6 +1936,7 @@ window.addEventListener('fb-data', () => {
   if (!connected) { connected = true; setSyncStatus('live'); }
   if (typeof renderAll === 'function') renderAll();
   processRecurringEvents();
+  ensureTodaysDogwalk();
 });
 window.addEventListener('fb-saved', () => {
   setSyncStatus('live');
@@ -1945,6 +1968,84 @@ function switchView(name) {
   // Show arrange button only on dashboard
   document.body.classList.toggle('on-dashboard', name === 'dashboard');
   renderAll();
+}
+
+// ── DOG WALK ROTA ─────────────────────────────────────────────────────────────
+window.fbDogwalks = [];
+function getDogwalks() { return window.fbDogwalks || []; }
+
+let dogwalkGenDone = false;
+
+async function ensureTodaysDogwalk() {
+  if (dogwalkGenDone) return;
+  dogwalkGenDone = true;
+
+  if (getDogwalks().some(w => w.date === todayStr)) return;
+
+  const memberNames = getFamilyMembers().map(m => m.name);
+  if (!memberNames.length) return;
+
+  const sorted = [...getDogwalks()].sort((a, b) => b.date.localeCompare(a.date));
+  const last = sorted[0];
+
+  let mIdx = 0;
+  let eIdx = Math.floor(memberNames.length / 2);
+
+  if (last) {
+    const lm = memberNames.indexOf(last.morning);
+    const le = memberNames.indexOf(last.evening);
+    if (lm >= 0) mIdx = (lm + 1) % memberNames.length;
+    if (le >= 0) eIdx = (le + 1) % memberNames.length;
+  }
+
+  // Keep morning and evening on different people when possible
+  if (memberNames.length > 1 && mIdx === eIdx) {
+    eIdx = (eIdx + 1) % memberNames.length;
+  }
+
+  setSyncStatus('saving');
+  try {
+    await window.fbSave('dogwalks', {
+      id: 'dogwalk_' + todayStr,
+      date: todayStr,
+      morning: memberNames[mIdx],
+      morning_done: false,
+      evening: memberNames[eIdx],
+      evening_done: false
+    });
+  } catch(err) { setSyncStatus('error'); }
+}
+
+function renderDogwalk() {
+  const banner = document.getElementById('dogwalk-banner');
+  if (!banner) return;
+
+  const today = getDogwalks().find(w => w.date === todayStr);
+  if (!today) { banner.style.display = 'none'; return; }
+
+  banner.style.display = 'flex';
+  const slots = [
+    { key: 'morning', icon: '🌅', label: 'Morning', who: today.morning, done: today.morning_done },
+    { key: 'evening', icon: '🌆', label: 'Evening', who: today.evening, done: today.evening_done }
+  ];
+  banner.innerHTML = slots.map(s => `
+    <div class="dogwalk-slot" onclick="markWalk('${s.key}','${today.id}',${!!s.done})">
+      <span class="dogwalk-icon">${s.icon}</span>
+      <span class="dogwalk-time">${s.label}</span>
+      <span class="dogwalk-who${s.done ? ' done' : ''}">${s.who}</span>
+      <span class="dogwalk-pets">— Paloma 🐾 &amp; Otis 🐾</span>
+      <span class="dogwalk-check">${s.done ? '✅' : '○'}</span>
+    </div>
+  `).join('');
+}
+
+async function markWalk(slot, id, currentDone) {
+  setSyncStatus('saving');
+  const update = {};
+  update[slot + '_done'] = !currentDone;
+  try {
+    await window.fbUpdate('dogwalks', id, update);
+  } catch(err) { setSyncStatus('error'); }
 }
 
 // ── RECURRING EVENTS — AUTO-GENERATE NEXT OCCURRENCE ─────────────────────────
@@ -2109,6 +2210,7 @@ async function toggleHousehold(id) {
 }
 
 function renderAll() {
+  renderDogwalk();
   renderDashboard();
   renderCalendar();
   renderTodos();

@@ -91,7 +91,7 @@ navigator.serviceWorker.register(URL.createObjectURL(blob));
 ---
 
 ### S3-004 · Edit Modal — Who Chip Selector
-**Status:** TODO  
+**Status:** DONE — implemented as part of S3-007 (renderWhoChipsWithValue + all edit modal cases)  
 **Priority:** High
 **Category:** Bug / Consistency
 
@@ -112,7 +112,7 @@ The edit modals (openEditItem) still use plain text dropdowns for the "who" fiel
 ---
 
 ### S3-005 · Dog Walk Rota (Paloma & Otis)
-**Status:** TODO
+**Status:** DONE — 2026-06-27
 **Priority:** Low
 **Category:** Feature — Dashboard
 
