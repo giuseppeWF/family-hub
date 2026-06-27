@@ -44,7 +44,10 @@
     listenCol('events',   d => { window.fbEvents   = d; });
     listenCol('todos',    d => { window.fbTodos    = d; });
     listenCol('shopping', d => { window.fbShopping = d; });
-    listenCol('meals',    d => { window.fbMeals    = d; });
+    listenCol('meals',     d => { window.fbMeals     = d; window.dispatchEvent(new CustomEvent('fb-data')); });
+    listenCol('household', d => { window.fbHousehold  = d; window.dispatchEvent(new CustomEvent('fb-data')); });
+    listenCol('shopfavs',  d => { window.fbShopFavs   = d; window.dispatchEvent(new CustomEvent('fb-data')); });
+    listenCol('mealfavs',  d => { window.fbMealFavs   = d; window.dispatchEvent(new CustomEvent('fb-data')); });
   });
 
   // ── Write helpers (exposed globally) ──────────────────────────────────────
@@ -864,6 +867,24 @@
   .who-tag-Mack { background: rgba(46,196,182,0.15); color: var(--sage); }
   .who-tag-Rachel { background: rgba(176,139,232,0.15); color: #B08BE8; }
 
+  /* ── WHO CHIPS ──────────────────────────────────────── */
+  .who-chip {
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    border: 2px solid var(--border-strong);
+    background: transparent;
+    color: var(--cream-muted);
+    font-family: 'Nunito', sans-serif;
+    transition: all 0.15s;
+  }
+  .who-chip.selected {
+    border-color: currentColor;
+    background: rgba(255,255,255,0.08);
+  }
+
   /* ── MONTH VIEW ─────────────────────────────────── */
   .month-grid {
     display: grid;
@@ -1666,14 +1687,8 @@
         </div>
         <div class="modal-field">
           <label class="modal-label">Assigned to</label>
-          <select class="modal-select" id="new-house-who" class="member-select">
-            <option>Everyone</option>
-            <option>Giuseppe</option>
-            <option>Ross</option>
-            <option>Malachi</option>
-            <option>Mack</option>
-            <option>Rachel</option>
-          </select>
+          <div id="new-house-who-chips" style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0"></div>
+          <input type="hidden" id="new-house-who" value="Everyone">
         </div>
         <div class="modal-field">
           <label class="modal-label">Priority</label>
@@ -2338,7 +2353,7 @@ function renderTodos() {
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
           ${dueBadge(t.due)}
           ${recurBadge(t.recur)}
-          <div class="todo-full-who who-${t.who}">${t.who}</div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap">${(t.who||'Everyone').split(', ').map(w=>'<span class="todo-full-who who-'+w+'">'+w+'</span>').join('')}</div>
           <span style="font-size:11px;padding:2px 8px;border-radius:6px;background:${t.type==='chore'?'rgba(232,168,56,0.15)':'rgba(91,155,213,0.15)'};color:${t.type==='chore'?'var(--amber)':'var(--blue-soft)'};font-weight:600">${t.type||'todo'}</span>
           ${actionBtns('todos', t.id, 'todo')}
         </div>
@@ -2454,10 +2469,74 @@ function openModal(type) {
   ['event','todo','shop','meal','household'].forEach(t => {
     document.getElementById('modal-'+t+'-fields').style.display = t === type ? 'block' : 'none';
   });
-  if (type === 'event') document.getElementById('new-event-date').value = todayStr;
+  if (type === 'event') document.getElementById('new-event-date').value = (calViewMode === 'month' && selectedMonthDay) ? selectedMonthDay : todayStr;
+  if (type === 'todo')  renderWhoChips('new-todo-who-chips', 'new-todo-who');
+  if (type === 'household') renderWhoChips('new-house-who-chips', 'new-house-who');
   if (type === 'shop')  populateShopFavsPicker();
   if (type === 'meal')  populateMealFavsPicker('All');
   document.getElementById('modal-overlay').classList.add('open');
+}
+
+function renderWhoChips(containerId, hiddenId) {
+  const members = getFamilyMembers();
+  const all = ['Everyone', ...members.map(m => m.name)];
+  const memberColors = { Everyone: 'var(--cream-muted)' };
+  members.forEach(m => memberColors[m.name] = m.color);
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  let selected = ['Everyone'];
+  container.innerHTML = all.map(name => {
+    const color = memberColors[name] || 'var(--cream-muted)';
+    return `<button type="button" class="who-chip${selected.includes(name)?' selected':''}"
+      data-name="${name}" style="color:${color};${selected.includes(name)?'border-color:'+color+';background:'+color+'22':''}"
+      onclick="toggleWhoChip(this,'${containerId}','${hiddenId}')">${name}</button>`;
+  }).join('');
+  updateWhoHidden(containerId, hiddenId);
+}
+
+function toggleWhoChip(btn, containerId, hiddenId) {
+  const name = btn.dataset.name;
+  const container = document.getElementById(containerId);
+  const chips = [...container.querySelectorAll('.who-chip')];
+
+  if (name === 'Everyone') {
+    // Select only Everyone
+    chips.forEach(c => { c.classList.remove('selected'); c.style.background=''; c.style.borderColor='var(--border-strong)'; });
+    btn.classList.add('selected');
+    btn.style.borderColor = 'var(--cream-muted)';
+    btn.style.background = 'rgba(255,255,255,0.08)';
+  } else {
+    // Deselect Everyone
+    const everyoneChip = chips.find(c => c.dataset.name === 'Everyone');
+    if (everyoneChip) { everyoneChip.classList.remove('selected'); everyoneChip.style.background=''; everyoneChip.style.borderColor='var(--border-strong)'; }
+    // Toggle this chip
+    if (btn.classList.contains('selected')) {
+      btn.classList.remove('selected'); btn.style.background=''; btn.style.borderColor='var(--border-strong)';
+    } else {
+      const members = getFamilyMembers();
+      const color = (members.find(m=>m.name===name)||{color:'var(--cream-muted)'}).color;
+      btn.classList.add('selected'); btn.style.borderColor=color; btn.style.background=color+'22';
+    }
+    // If nothing selected, revert to Everyone
+    const anySelected = chips.filter(c=>c.dataset.name!=='Everyone').some(c=>c.classList.contains('selected'));
+    if (!anySelected && everyoneChip) {
+      everyoneChip.classList.add('selected'); everyoneChip.style.borderColor='var(--cream-muted)'; everyoneChip.style.background='rgba(255,255,255,0.08)';
+    }
+  }
+  updateWhoHidden(containerId, hiddenId);
+}
+
+function updateWhoHidden(containerId, hiddenId) {
+  const container = document.getElementById(containerId);
+  const hidden    = document.getElementById(hiddenId);
+  if (!container || !hidden) return;
+  const selected = [...container.querySelectorAll('.who-chip.selected')].map(c => c.dataset.name);
+  hidden.value = selected.length ? selected.join(', ') : 'Everyone';
+}
+
+function getWhoValue(hiddenId) {
+  const el = document.getElementById(hiddenId);
+  return el ? el.value : 'Everyone';
 }
 
 function populateShopFavsPicker() {
@@ -2547,7 +2626,7 @@ async function saveModal() {
       const text = document.getElementById('new-todo-text').value.trim(); if (!text) return;
       const recur = document.getElementById('new-todo-recur').value;
       await window.fbSave('todos', { id, text,
-        who:   document.getElementById('new-todo-who').value,
+        who:   getWhoValue('new-todo-who'),
         type:  document.getElementById('new-todo-type').value,
         due:   document.getElementById('new-todo-due').value || null,
         recur: recur !== 'none' ? recur : null,
@@ -2594,7 +2673,7 @@ async function saveModal() {
       const text = document.getElementById('new-house-text').value.trim(); if (!text) return;
       await window.fbSave('household', { id, text,
         room:     document.getElementById('new-house-room').value,
-        who:      document.getElementById('new-house-who').value,
+        who:      getWhoValue('new-house-who'),
         priority: document.getElementById('new-house-priority').value,
         notes:    document.getElementById('new-house-notes').value || '',
         done:     false });
