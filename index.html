@@ -2537,6 +2537,25 @@ function toggleWhoChip(btn, containerId, hiddenId) {
   updateWhoHidden(containerId, hiddenId);
 }
 
+function renderWhoChipsWithValue(containerId, hiddenId, preSelected) {
+  const members = getFamilyMembers();
+  const all = ['Everyone', ...members.map(m => m.name)];
+  const memberColors = { Everyone: 'var(--cream-muted)' };
+  members.forEach(m => memberColors[m.name] = m.color);
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const selArr = preSelected ? preSelected.split(', ').map(s => s.trim()).filter(Boolean) : ['Everyone'];
+  container.innerHTML = all.map(name => {
+    const color = memberColors[name] || 'var(--cream-muted)';
+    const isSel = selArr.includes(name);
+    return `<button type="button" class="who-chip${isSel?' selected':''}"
+      data-name="${name}" style="color:${color};${isSel?'border-color:'+color+';background:'+color+'22':''}"
+      onclick="toggleWhoChip(this,'${containerId}','${hiddenId}')">${name}</button>`;
+  }).join('');
+  const hidden = document.getElementById(hiddenId);
+  if (hidden) hidden.value = selArr.join(', ') || 'Everyone';
+}
+
 function updateWhoHidden(containerId, hiddenId) {
   const container = document.getElementById(containerId);
   const hidden    = document.getElementById(hiddenId);
@@ -2710,9 +2729,8 @@ function openEditItem(type, id) {
       <div class="modal-field"><label class="modal-label">Task</label>
         <input class="modal-input" id="edit-todo-text" value="${t.text}"></div>
       <div class="modal-field"><label class="modal-label">Assigned to</label>
-        <select class="modal-select" id="edit-todo-who">
-          ${['Everyone','Giuseppe','Ross','Malachi','Mack','Rachel'].map(n=>`<option${n===t.who?' selected':''}>${n}</option>`).join('')}
-        </select></div>
+        <div id="edit-todo-who-chips" style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0"></div>
+        <input type="hidden" id="edit-todo-who" value="Everyone"></div>
       <div class="modal-field"><label class="modal-label">Type</label>
         <select class="modal-select" id="edit-todo-type">
           <option value="todo"${t.type==='todo'?' selected':''}>To-do</option>
@@ -2720,6 +2738,7 @@ function openEditItem(type, id) {
         </select></div>
       <div class="modal-field"><label class="modal-label">Due date (optional)</label>
         <input class="modal-input" id="edit-todo-due" type="date" value="${t.due||''}"></div>`;
+    renderWhoChipsWithValue('edit-todo-who-chips', 'edit-todo-who', t.who || 'Everyone');
   }
   if (type === 'shop') {
     const s = getShopping().find(x => String(x.id) === String(id)); if (!s) return;
@@ -2732,35 +2751,11 @@ function openEditItem(type, id) {
       <div class="modal-field"><label class="modal-label">Category</label>
         <select class="modal-select" id="edit-shop-cat">
           ${['Fridge & Fresh','Store Cupboard','Freezer','Household','Other'].map(c=>`<option${c===s.cat?' selected':''}>${c}</option>`).join('')}
-        </select></div>`;
-  }
-  if (type === 'household') {
-    const t = getHousehold().find(x => String(x.id) === String(id)); if (!t) return;
-    const priorityColor = { high: 'var(--rose)', medium: 'var(--amber)', low: 'var(--cream-muted)' };
-    content.innerHTML = `
-      <div style="margin-bottom:20px">
-        <div style="font-family:'Nunito',sans-serif;font-size:22px;font-weight:800;color:var(--cream);margin-bottom:8px">${t.text}</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <span style="font-size:12px;padding:3px 10px;border-radius:8px;background:rgba(255,255,255,0.06);color:var(--cream-muted);font-weight:600">${t.room||''}</span>
-          <span style="font-size:12px;padding:3px 10px;border-radius:8px;font-weight:700;color:${priorityColor[t.priority]||'var(--cream-muted)'}">${t.priority||''}</span>
-        </div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <div style="display:flex;gap:12px;align-items:center">
-          <span style="font-size:12px;color:var(--cream-muted);min-width:70px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Assigned</span>
-          <span class="who-${t.who}" style="font-size:15px;font-weight:600">${t.who||''}</span>
-        </div>
-        ${t.notes ? `<div style="display:flex;gap:12px;align-items:flex-start">
-          <span style="font-size:12px;color:var(--cream-muted);min-width:70px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Notes</span>
-          <span style="font-size:14px;color:var(--cream)">${t.notes}</span>
-        </div>` : ''}
-      </div>`;
-    actionBtn.textContent = t.done ? 'Mark incomplete' : 'Mark done ✓';
-    actionBtn.style.background = 'var(--sage)';
-    actionBtn.style.display = 'flex';
-    actionBtn.onclick = () => { toggleHousehold(id); closeDetailModal(); };
-    document.getElementById('detail-edit-btn').style.display = 'flex';
-    document.getElementById('detail-delete-btn').style.display = 'flex';
+        </select></div>
+      <div class="modal-field"><label class="modal-label">Added by</label>
+        <div id="edit-shop-who-chips" style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0"></div>
+        <input type="hidden" id="edit-shop-who" value="Everyone"></div>`;
+    renderWhoChipsWithValue('edit-shop-who-chips', 'edit-shop-who', s.who || 'Everyone');
   }
   if (type === 'household') {
     const t = getHousehold().find(x => String(x.id) === String(id)); if (!t) return;
@@ -2773,9 +2768,8 @@ function openEditItem(type, id) {
           ${['General','Kitchen','Living Room','Master Bedroom','Boys Room','Bathroom','Garden','Garage','Hallway','Other'].map(r=>`<option${r===t.room?' selected':''}>${r}</option>`).join('')}
         </select></div>
       <div class="modal-field"><label class="modal-label">Assigned to</label>
-        <select class="modal-select" id="edit-house-who">
-          ${['Everyone','Giuseppe','Ross','Malachi','Mack','Rachel'].map(n=>`<option${n===t.who?' selected':''}>${n}</option>`).join('')}
-        </select></div>
+        <div id="edit-house-who-chips" style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0"></div>
+        <input type="hidden" id="edit-house-who" value="Everyone"></div>
       <div class="modal-field"><label class="modal-label">Priority</label>
         <select class="modal-select" id="edit-house-priority">
           <option value="high"${t.priority==='high'?' selected':''}>High</option>
@@ -2784,6 +2778,7 @@ function openEditItem(type, id) {
         </select></div>
       <div class="modal-field"><label class="modal-label">Notes</label>
         <input class="modal-input" id="edit-house-notes" value="${t.notes||''}"></div>`;
+    renderWhoChipsWithValue('edit-house-who-chips', 'edit-house-who', t.who || 'Everyone');
   }
   if (type === 'meal') {
     const m = getMeals().find(x => String(x.id) === String(id)); if (!m) return;
@@ -2792,7 +2787,11 @@ function openEditItem(type, id) {
       <div class="modal-field"><label class="modal-label">Meal name</label>
         <input class="modal-input" id="edit-meal-name" value="${m.name}"></div>
       <div class="modal-field"><label class="modal-label">Notes</label>
-        <input class="modal-input" id="edit-meal-notes" value="${m.notes||''}"></div>`;
+        <input class="modal-input" id="edit-meal-notes" value="${m.notes||''}"></div>
+      <div class="modal-field"><label class="modal-label">Who's cooking?</label>
+        <div id="edit-meal-who-chips" style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0"></div>
+        <input type="hidden" id="edit-meal-who" value="Everyone"></div>`;
+    renderWhoChipsWithValue('edit-meal-who-chips', 'edit-meal-who', m.who || 'Everyone');
   }
   if (type === 'event') {
     const e = getEvents().find(x => String(x.id) === String(id)); if (!e) return;
@@ -2809,9 +2808,9 @@ function openEditItem(type, id) {
           <input class="modal-input" id="edit-event-end" type="time" value="${e.end||''}"></div>
       </div>
       <div class="modal-field"><label class="modal-label">Who</label>
-        <select class="modal-select" id="edit-event-who">
-          ${['Everyone','Giuseppe','Ross','Malachi','Mack','Rachel'].map(n=>`<option${n===e.who?' selected':''}>${n}</option>`).join('')}
-        </select></div>`;
+        <div id="edit-event-who-chips" style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0"></div>
+        <input type="hidden" id="edit-event-who" value="Everyone"></div>`;
+    renderWhoChipsWithValue('edit-event-who-chips', 'edit-event-who', e.who || 'Everyone');
   }
   overlay.classList.add('open');
 }
@@ -2827,7 +2826,7 @@ async function saveEditItem() {
     if (type === 'todo') {
       await window.fbUpdate('todos', id, {
         text: document.getElementById('edit-todo-text').value.trim(),
-        who:  document.getElementById('edit-todo-who').value,
+        who:  getWhoValue('edit-todo-who'),
         type: document.getElementById('edit-todo-type').value,
         due:  document.getElementById('edit-todo-due').value || null,
       });
@@ -2837,44 +2836,27 @@ async function saveEditItem() {
         name: document.getElementById('edit-shop-name').value.trim(),
         qty:  document.getElementById('edit-shop-qty').value,
         cat:  document.getElementById('edit-shop-cat').value,
+        who:  getWhoValue('edit-shop-who'),
       });
     }
     if (type === 'household') {
-    const t = getHousehold().find(x => String(x.id) === String(id)); if (!t) return;
-    const priorityColor = { high: 'var(--rose)', medium: 'var(--amber)', low: 'var(--cream-muted)' };
-    content.innerHTML = `
-      <div style="margin-bottom:20px">
-        <div style="font-family:'Nunito',sans-serif;font-size:22px;font-weight:800;color:var(--cream);margin-bottom:8px">${t.text}</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <span style="font-size:12px;padding:3px 10px;border-radius:8px;background:rgba(255,255,255,0.06);color:var(--cream-muted);font-weight:600">${t.room||''}</span>
-          <span style="font-size:12px;padding:3px 10px;border-radius:8px;font-weight:700;color:${priorityColor[t.priority]||'var(--cream-muted)'}">${t.priority||''}</span>
-        </div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <div style="display:flex;gap:12px;align-items:center">
-          <span style="font-size:12px;color:var(--cream-muted);min-width:70px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Assigned</span>
-          <span class="who-${t.who}" style="font-size:15px;font-weight:600">${t.who||''}</span>
-        </div>
-        ${t.notes ? `<div style="display:flex;gap:12px;align-items:flex-start">
-          <span style="font-size:12px;color:var(--cream-muted);min-width:70px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Notes</span>
-          <span style="font-size:14px;color:var(--cream)">${t.notes}</span>
-        </div>` : ''}
-      </div>`;
-    actionBtn.textContent = t.done ? 'Mark incomplete' : 'Mark done ✓';
-    actionBtn.style.background = 'var(--sage)';
-    actionBtn.style.display = 'flex';
-    actionBtn.onclick = () => { toggleHousehold(id); closeDetailModal(); };
-    document.getElementById('detail-edit-btn').style.display = 'flex';
-    document.getElementById('detail-delete-btn').style.display = 'flex';
-  }
-  if (type === 'meal') {
+      await window.fbUpdate('household', id, {
+        text:     document.getElementById('edit-house-text').value.trim(),
+        room:     document.getElementById('edit-house-room').value,
+        who:      getWhoValue('edit-house-who'),
+        priority: document.getElementById('edit-house-priority').value,
+        notes:    document.getElementById('edit-house-notes').value || '',
+      });
+    }
+    if (type === 'meal') {
       await window.fbUpdate('meals', id, {
         name:  document.getElementById('edit-meal-name').value.trim(),
         notes: document.getElementById('edit-meal-notes').value,
+        who:   getWhoValue('edit-meal-who'),
       });
     }
     if (type === 'event') {
-      const who = document.getElementById('edit-event-who').value;
+      const who = getWhoValue('edit-event-who');
       const colorMap = { Giuseppe:'#E8A838', Ross:'#E07070', Malachi:'#5B9BD5', Mack:'#2EC4B6', Rachel:'#B08BE8', Everyone:'#9B8BCC' };
       await window.fbUpdate('events', id, {
         name:  document.getElementById('edit-event-name').value.trim(),
@@ -3020,29 +3002,6 @@ function showDetail(type, id) {
     actionBtn.onclick = () => { toggleHousehold(id); closeDetailModal(); };
     document.getElementById('detail-edit-btn').style.display = 'flex';
     document.getElementById('detail-delete-btn').style.display = 'flex';
-  }
-  if (type === 'household') {
-    const t = getHousehold().find(x => String(x.id) === String(id)); if (!t) return;
-    title.textContent = 'Edit household task';
-    fields.innerHTML = `
-      <div class="modal-field"><label class="modal-label">Task</label>
-        <input class="modal-input" id="edit-house-text" value="${t.text}"></div>
-      <div class="modal-field"><label class="modal-label">Room</label>
-        <select class="modal-select" id="edit-house-room">
-          ${['General','Kitchen','Living Room','Master Bedroom','Boys Room','Bathroom','Garden','Garage','Hallway','Other'].map(r=>`<option${r===t.room?' selected':''}>${r}</option>`).join('')}
-        </select></div>
-      <div class="modal-field"><label class="modal-label">Assigned to</label>
-        <select class="modal-select" id="edit-house-who">
-          ${['Everyone','Giuseppe','Ross','Malachi','Mack','Rachel'].map(n=>`<option${n===t.who?' selected':''}>${n}</option>`).join('')}
-        </select></div>
-      <div class="modal-field"><label class="modal-label">Priority</label>
-        <select class="modal-select" id="edit-house-priority">
-          <option value="high"${t.priority==='high'?' selected':''}>High</option>
-          <option value="medium"${t.priority==='medium'?' selected':''}>Medium</option>
-          <option value="low"${t.priority==='low'?' selected':''}>Low</option>
-        </select></div>
-      <div class="modal-field"><label class="modal-label">Notes</label>
-        <input class="modal-input" id="edit-house-notes" value="${t.notes||''}"></div>`;
   }
   if (type === 'meal') {
     const m = getMeals().find(x => String(x.id) === String(id)); if (!m) return;

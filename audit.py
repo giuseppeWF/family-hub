@@ -103,7 +103,7 @@ for t in ['event', 'todo', 'shop', 'meal', 'household']:
 
 # ── 8. EDIT MODAL COVERAGE ────────────────────────────────────────────────────
 edit_start = content.find('function openEditItem')
-edit_fn    = content[edit_start:edit_start + 5000] if edit_start > 0 else ''
+edit_fn    = content[edit_start:edit_start + 8000] if edit_start > 0 else ''
 for t in ['todo', 'shop', 'meal', 'event', 'household']:
     check(f'openEditItem:{t}', f"if (type === '{t}')" in edit_fn,
           f"openEditItem() missing case for type '{t}'")
@@ -154,7 +154,7 @@ check('firebase:firestore-import',
       "Firestore SDK import missing")
 
 # ── 13. NO DUPLICATE IDS ─────────────────────────────────────────────────────
-ids = re.findall(r'id="([^"]+)"', content)
+ids = re.findall(r'(?<![a-z-])id="([^"]+)"', content)
 seen, dupes = set(), set()
 for id_ in ids:
     if id_ in seen:
