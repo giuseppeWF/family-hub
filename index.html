@@ -1410,6 +1410,16 @@
         <div class="dash-card-body" id="dash-meals"></div>
       </div>
 
+      <!-- Weather card (hidden by default) -->
+      <div class="dash-card hidden-card" data-card="weather" draggable="true">
+        <div class="dash-card-header" style="cursor:default">
+          <div class="dash-card-title">Weather — Bury</div>
+          <div class="dash-card-icon" style="opacity:0.4;font-size:15px">🌤</div>
+        </div>
+        <button class="card-remove-btn" onclick="removeCard('dash-weather', event)">✕</button>
+        <div class="dash-card-body" id="dash-weather" style="justify-content:center"></div>
+      </div>
+
       <!-- Household card (hidden by default) -->
       <div class="dash-card hidden-card" data-card="household" draggable="true">
         <div class="dash-card-header" onclick="switchView('household')" style="cursor:pointer">
@@ -3074,11 +3084,14 @@ const cardMeta = {
   shopping:  { title:"Shopping List",     icon:"🛒"  },
   meals:     { title:"This Week's Meals", icon:"🍽"  },
   household: { title:"Household Tasks",   icon:"🔧"  },
+  weather:   { title:"Weather — Bury",    icon:"🌤"  },
 };
 
 function applyCardState() {
-  const order  = JSON.parse(localStorage.getItem('cardOrder')  || '["events","todos","shopping","meals","household"]');
-  const hidden = JSON.parse(localStorage.getItem('cardHidden') || '["household"]');
+  let order  = JSON.parse(localStorage.getItem('cardOrder')  || '["events","todos","shopping","meals","household","weather"]');
+  let hidden = JSON.parse(localStorage.getItem('cardHidden') || '["household","weather"]');
+  // Migrate existing users: add weather card hidden by default if not yet tracked
+  if (!order.includes('weather'))  { order.push('weather'); hidden.push('weather'); }
   const grid   = document.getElementById('view-dashboard');
   order.forEach(id => {
     const card = document.querySelector('[data-card="' + id + '"]');
@@ -3107,7 +3120,7 @@ function toggleEditMode() {
 
 function removeCard(bodyId, e) {
   e.stopPropagation();
-  const cardMap = { 'dash-events':'events','dash-todos':'todos','dash-shop':'shopping','dash-meals':'meals','dash-household':'household' };
+  const cardMap = { 'dash-events':'events','dash-todos':'todos','dash-shop':'shopping','dash-meals':'meals','dash-household':'household','dash-weather':'weather' };
   const card = document.querySelector('[data-card="' + cardMap[bodyId] + '"]');
   if (card) { card.classList.add('hidden-card'); saveCardState(); refreshTray(); }
 }
@@ -3377,6 +3390,55 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+// ── WEATHER ───────────────────────────────────────────────────────────────────
+function weatherEmoji(code) {
+  if (code === 0)              return '☀️';
+  if (code <= 3)               return '⛅';
+  if (code <= 48)              return '🌫️';
+  if (code <= 67)              return '🌧️';
+  if (code <= 77)              return '❄️';
+  if (code <= 82)              return '🌦️';
+  if (code >= 95)              return '⛈️';
+  return '🌡️';
+}
+
+function renderWeatherCard() {
+  const el = document.getElementById('dash-weather');
+  if (!el) return;
+  const w = window._weatherData;
+  if (!w) {
+    el.innerHTML = '<div style="color:var(--cream-muted);font-size:13px;padding:8px 0;text-align:center">Weather unavailable</div>';
+    return;
+  }
+  const emoji = weatherEmoji(w.code);
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:16px;padding:4px 0">
+      <div style="font-size:44px;line-height:1">${emoji}</div>
+      <div>
+        <div style="font-family:'Nunito',sans-serif;font-size:38px;font-weight:800;color:var(--cream);line-height:1">${w.temp}°</div>
+        <div style="font-size:12px;color:var(--cream-muted);margin-top:4px">↑ ${w.high}° &nbsp; ↓ ${w.low}°</div>
+      </div>
+    </div>`;
+}
+
+async function fetchWeather() {
+  try {
+    const url = 'https://api.open-meteo.com/v1/forecast?latitude=53.59&longitude=-2.30&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=Europe%2FLondon';
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    window._weatherData = {
+      temp: Math.round(data.current.temperature_2m),
+      code: data.current.weather_code,
+      high: Math.round(data.daily.temperature_2m_max[0]),
+      low:  Math.round(data.daily.temperature_2m_min[0]),
+    };
+  } catch(e) {
+    window._weatherData = null;
+  }
+  renderWeatherCard();
+}
+
 // ── INIT ──────────────────────────────────────────────────────────────────────
 document.body.classList.add('on-dashboard');
 // Apply saved family member styles and hub name
@@ -3389,6 +3451,8 @@ if (savedHubName) {
 updateClock();
 initDrag();
 initTouchDrag();
+fetchWeather();
+setInterval(fetchWeather, 30 * 60 * 1000);
 
 // Seed sample data on first run (runs after Firebase module loads)
 window.addEventListener('load', () => {
