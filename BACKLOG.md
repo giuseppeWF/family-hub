@@ -112,7 +112,7 @@ The edit modals (openEditItem) still use plain text dropdowns for the "who" fiel
 ---
 
 ### S3-005 · Dog Walk Rota (Paloma & Otis)
-**Status:** DONE — 2026-06-27
+**Status:** REMOVED — not adding value, removed 2026-06-27
 **Priority:** Low
 **Category:** Feature — Dashboard
 
