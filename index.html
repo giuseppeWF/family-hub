@@ -1512,10 +1512,11 @@
   <div id="detail-overlay" onclick="closeDetail(event)" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center;padding:24px;">
     <div style="background:var(--navy-mid);border:1px solid var(--border-strong);border-radius:20px;padding:28px;width:100%;max-width:440px;" onclick="event.stopPropagation()">
       <div id="detail-content"></div>
-      <div style="display:flex;gap:12px;margin-top:24px;">
-        <button class="btn-cancel" onclick="closeDetailModal()">Close</button>
-        <button class="btn-save" id="detail-edit-btn" style="background:var(--blue-soft)" onclick="detailEdit()">✏️ Edit</button>
-        <button class="btn-save" id="detail-action-btn">Action</button>
+      <div style="display:flex;gap:8px;margin-top:24px;flex-wrap:wrap">
+        <button class="btn-cancel" onclick="closeDetailModal()" style="flex:1">Close</button>
+        <button class="btn-save" id="detail-delete-btn" style="background:var(--rose);flex:1" onclick="detailDelete()">🗑 Delete</button>
+        <button class="btn-save" id="detail-edit-btn" style="background:var(--blue-soft);flex:1" onclick="detailEdit()">✏️ Edit</button>
+        <button class="btn-save" id="detail-action-btn" style="flex:1.5">Action</button>
       </div>
     </div>
   </div>
@@ -1546,14 +1547,8 @@
         </div>
         <div class="modal-field">
           <label class="modal-label">Who</label>
-          <select class="modal-select" id="new-event-who" class="member-select">
-            <option>Everyone</option>
-            <option>Giuseppe</option>
-            <option>Ross</option>
-            <option>Malachi</option>
-            <option>Mack</option>
-            <option>Rachel</option>
-          </select>
+          <div id="new-event-who-chips" style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0"></div>
+          <input type="hidden" id="new-event-who" value="Everyone">
         </div>
         <div class="modal-field">
           <label class="modal-label">Repeat</label>
@@ -1630,6 +1625,11 @@
             <option>Other</option>
           </select>
         </div>
+        <div class="modal-field">
+          <label class="modal-label">Added by</label>
+          <div id="new-shop-who-chips" style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0"></div>
+          <input type="hidden" id="new-shop-who" value="Everyone">
+        </div>
         <div class="modal-field" style="display:flex;align-items:center;gap:10px">
           <input type="checkbox" id="new-shop-save-fav" style="width:16px;height:16px;accent-color:var(--sage)">
           <label for="new-shop-save-fav" style="font-size:13px;color:var(--cream-muted);cursor:pointer">Save as favourite</label>
@@ -1663,6 +1663,11 @@
         <div class="modal-field">
           <label class="modal-label">Notes (optional)</label>
           <input class="modal-input" id="new-meal-notes" placeholder="e.g. Kids prefer less spicy">
+        </div>
+        <div class="modal-field">
+          <label class="modal-label">Who's cooking?</label>
+          <div id="new-meal-who-chips" style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0"></div>
+          <input type="hidden" id="new-meal-who" value="Everyone">
         </div>
         <div class="modal-field" style="display:flex;align-items:center;gap:10px">
           <input type="checkbox" id="new-meal-save-fav" style="width:16px;height:16px;accent-color:var(--sage)">
@@ -2475,10 +2480,11 @@ function openModal(type) {
     document.getElementById('modal-'+t+'-fields').style.display = t === type ? 'block' : 'none';
   });
   if (type === 'event') document.getElementById('new-event-date').value = (calViewMode === 'month' && selectedMonthDay) ? selectedMonthDay : todayStr;
-  if (type === 'todo')  renderWhoChips('new-todo-who-chips', 'new-todo-who');
+  if (type === 'event')     renderWhoChips('new-event-who-chips', 'new-event-who');
+  if (type === 'todo')      renderWhoChips('new-todo-who-chips',  'new-todo-who');
+  if (type === 'shop')    { renderWhoChips('new-shop-who-chips',  'new-shop-who'); populateShopFavsPicker(); }
+  if (type === 'meal')    { renderWhoChips('new-meal-who-chips',  'new-meal-who'); populateMealFavsPicker('All'); }
   if (type === 'household') renderWhoChips('new-house-who-chips', 'new-house-who');
-  if (type === 'shop')  populateShopFavsPicker();
-  if (type === 'meal')  populateMealFavsPicker('All');
   document.getElementById('modal-overlay').classList.add('open');
 }
 
@@ -2616,7 +2622,7 @@ async function saveModal() {
     const id = 'id_' + Date.now();
     if (currentModal === 'event') {
       const name = document.getElementById('new-event-name').value.trim(); if (!name) return;
-      const who   = document.getElementById('new-event-who').value;
+      const who   = getWhoValue('new-event-who');
       const recur = document.getElementById('new-event-recur').value;
       const colorMap = { Giuseppe:'#E8A838', Ross:'#E07070', Malachi:'#5B9BD5', Mack:'#2EC4B6', Rachel:'#B08BE8', Everyone:'#9B8BCC' };
       await window.fbSave('events', { id, name, date: document.getElementById('new-event-date').value || todayStr,
@@ -2644,7 +2650,7 @@ async function saveModal() {
       const name = document.getElementById('new-shop-name').value.trim(); if (!name) return;
       const qty  = document.getElementById('new-shop-qty').value || '1';
       const cat  = document.getElementById('new-shop-cat').value;
-      await window.fbSave('shopping', { id, name, qty, cat, done: false });
+      await window.fbSave('shopping', { id, name, qty, cat, who: getWhoValue('new-shop-who'), done: false });
       // Save as favourite if ticked
       if (document.getElementById('new-shop-save-fav').checked) {
         const favId = 'sf_' + Date.now();
@@ -2662,7 +2668,7 @@ async function saveModal() {
       const notes = document.getElementById('new-meal-notes').value || '';
       const existing = getMeals().find(m => m.day === day);
       if (existing) await window.fbDelete('meals', existing.id);
-      await window.fbSave('meals', { id, day, name, notes, tag: 'New' });
+      await window.fbSave('meals', { id, day, name, notes, who: getWhoValue('new-meal-who'), tag: 'New' });
       // Save as favourite if ticked
       if (document.getElementById('new-meal-save-fav').checked) {
         const favId = 'mf_' + Date.now();
@@ -2751,8 +2757,10 @@ function openEditItem(type, id) {
       </div>`;
     actionBtn.textContent = t.done ? 'Mark incomplete' : 'Mark done ✓';
     actionBtn.style.background = 'var(--sage)';
+    actionBtn.style.display = 'flex';
     actionBtn.onclick = () => { toggleHousehold(id); closeDetailModal(); };
     document.getElementById('detail-edit-btn').style.display = 'flex';
+    document.getElementById('detail-delete-btn').style.display = 'flex';
   }
   if (type === 'household') {
     const t = getHousehold().find(x => String(x.id) === String(id)); if (!t) return;
@@ -2854,8 +2862,10 @@ async function saveEditItem() {
       </div>`;
     actionBtn.textContent = t.done ? 'Mark incomplete' : 'Mark done ✓';
     actionBtn.style.background = 'var(--sage)';
+    actionBtn.style.display = 'flex';
     actionBtn.onclick = () => { toggleHousehold(id); closeDetailModal(); };
     document.getElementById('detail-edit-btn').style.display = 'flex';
+    document.getElementById('detail-delete-btn').style.display = 'flex';
   }
   if (type === 'meal') {
       await window.fbUpdate('meals', id, {
@@ -2886,11 +2896,13 @@ function showDetail(type, id) {
   const overlay   = document.getElementById('detail-overlay');
   const content   = document.getElementById('detail-content');
   const actionBtn = document.getElementById('detail-action-btn');
-  // Reset edit button and copy button
-  const editBtn = document.getElementById('detail-edit-btn');
-  if (editBtn) editBtn.style.display = 'none';
-  const copyBtn = document.getElementById('detail-copy-btn');
-  if (copyBtn) copyBtn.style.display = 'none';
+  // Reset buttons — each type configures them
+  const editBtn   = document.getElementById('detail-edit-btn');
+  const deleteBtn = document.getElementById('detail-delete-btn');
+  const copyBtn   = document.getElementById('detail-copy-btn');
+  if (editBtn)   editBtn.style.display   = 'none';
+  if (deleteBtn) deleteBtn.style.display = 'none';
+  if (copyBtn)   copyBtn.style.display   = 'none';
 
   if (type === 'event') {
     const e = getEvents().find(x => String(x.id) === String(id)); if (!e) return;
@@ -2912,10 +2924,9 @@ function showDetail(type, id) {
           <span class="who-${e.who}" style="font-size:15px;font-weight:600">${e.who||''}</span>
         </div>
       </div>`;
-    actionBtn.textContent = 'Go to Calendar';
-    actionBtn.style.background = e.color;
-    actionBtn.onclick = () => { closeDetailModal(); switchView('calendar'); };
+    actionBtn.style.display = 'none';
     document.getElementById('detail-edit-btn').style.display = 'flex';
+    document.getElementById('detail-delete-btn').style.display = 'flex';
   }
   if (type === 'todo') {
     const t = getTodos().find(x => String(x.id) === String(id)); if (!t) return;
@@ -2940,19 +2951,21 @@ function showDetail(type, id) {
       </div>`;
     actionBtn.textContent = t.done ? 'Mark undone' : 'Mark done';
     actionBtn.style.background = 'var(--sage)';
+    actionBtn.style.display = 'flex';
     actionBtn.onclick = () => { toggleTodo(id); closeDetailModal(); };
     document.getElementById('detail-edit-btn').style.display = 'flex';
-    // Add copy button dynamically
+    document.getElementById('detail-delete-btn').style.display = 'flex';
+    // Copy button
     let copyBtn = document.getElementById('detail-copy-btn');
     if (!copyBtn) {
       copyBtn = document.createElement('button');
       copyBtn.id = 'detail-copy-btn';
       copyBtn.className = 'btn-save';
-      copyBtn.style.background = 'var(--amber)';
       copyBtn.style.flex = '1';
-      document.querySelector('#detail-overlay .modal-actions').insertBefore(copyBtn, actionBtn);
+      document.querySelector('#detail-overlay .modal-actions').appendChild(copyBtn);
     }
     copyBtn.textContent = '📋 Copy';
+    copyBtn.style.background = 'var(--amber)';
     copyBtn.style.display = 'flex';
     copyBtn.onclick = () => openCopyTask(id);
   }
@@ -2975,8 +2988,10 @@ function showDetail(type, id) {
       </div>`;
     actionBtn.textContent = s.done ? 'Mark needed' : 'Mark got it';
     actionBtn.style.background = 'var(--blue-soft)';
+    actionBtn.style.display = 'flex';
     actionBtn.onclick = () => { toggleShop(id); closeDetailModal(); };
     document.getElementById('detail-edit-btn').style.display = 'flex';
+    document.getElementById('detail-delete-btn').style.display = 'flex';
   }
   if (type === 'household') {
     const t = getHousehold().find(x => String(x.id) === String(id)); if (!t) return;
@@ -3001,8 +3016,10 @@ function showDetail(type, id) {
       </div>`;
     actionBtn.textContent = t.done ? 'Mark incomplete' : 'Mark done ✓';
     actionBtn.style.background = 'var(--sage)';
+    actionBtn.style.display = 'flex';
     actionBtn.onclick = () => { toggleHousehold(id); closeDetailModal(); };
     document.getElementById('detail-edit-btn').style.display = 'flex';
+    document.getElementById('detail-delete-btn').style.display = 'flex';
   }
   if (type === 'household') {
     const t = getHousehold().find(x => String(x.id) === String(id)); if (!t) return;
@@ -3035,10 +3052,9 @@ function showDetail(type, id) {
         <div style="font-size:14px;color:var(--cream-muted)">${m.day||''}</div>
       </div>
       ${m.notes?`<div style="padding:14px;background:var(--navy-card);border-radius:10px;font-size:14px;color:var(--cream-muted)">${m.notes}</div>`:''}`;
-    actionBtn.textContent = 'Go to Meals';
-    actionBtn.style.background = 'var(--sage)';
-    actionBtn.onclick = () => { closeDetailModal(); switchView('meals'); };
+    actionBtn.style.display = 'none';
     document.getElementById('detail-edit-btn').style.display = 'flex';
+    document.getElementById('detail-delete-btn').style.display = 'flex';
   }
   overlay.style.display = 'flex';
 }
@@ -3050,6 +3066,16 @@ function detailEdit() {
   if (!detailContext) return;
   closeDetailModal();
   openEditItem(detailContext.type, detailContext.id);
+}
+
+function detailDelete() {
+  if (!detailContext) return;
+  const { type, id } = detailContext;
+  const colMap = { event:'events', todo:'todos', shop:'shopping', meal:'meals', household:'household' };
+  const col = colMap[type];
+  if (!col) return;
+  closeDetailModal();
+  deleteItem(col, id);
 }
 
 // ── WIDGET DRAG/DROP ──────────────────────────────────────────────────────────
