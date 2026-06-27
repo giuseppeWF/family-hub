@@ -1908,6 +1908,7 @@ let connected = false;
 window.addEventListener('fb-data', () => {
   if (!connected) { connected = true; setSyncStatus('live'); }
   if (typeof renderAll === 'function') renderAll();
+  processRecurringEvents();
 });
 window.addEventListener('fb-saved', () => {
   setSyncStatus('live');
@@ -1939,6 +1940,52 @@ function switchView(name) {
   // Show arrange button only on dashboard
   document.body.classList.toggle('on-dashboard', name === 'dashboard');
   renderAll();
+}
+
+// ── RECURRING EVENTS — AUTO-GENERATE NEXT OCCURRENCE ─────────────────────────
+let recurCheckDone = false;
+
+async function processRecurringEvents() {
+  if (recurCheckDone) return;
+  recurCheckDone = true;
+
+  const events = getEvents();
+  const cap = new Date(todayStr + 'T00:00:00');
+  cap.setDate(cap.getDate() + 28);
+  const capStr = fmt(cap);
+
+  for (const e of events) {
+    // Skip: no recur, already processed, or date is today/future
+    if (!e.recur || e.recur === 'none' || e.pastRecurring) continue;
+    if (e.date >= todayStr) continue;
+
+    // Advance to the first future occurrence
+    let nextDate = nextOccurrence(e.date, e.recur);
+    while (nextDate < todayStr) nextDate = nextOccurrence(nextDate, e.recur);
+
+    // Don't generate more than 4 weeks ahead
+    if (nextDate > capStr) {
+      try { await window.fbUpdate('events', e.id, { pastRecurring: true }); } catch(_) {}
+      continue;
+    }
+
+    // Avoid duplicate if a matching future event already exists
+    const exists = events.some(x =>
+      x.name === e.name && x.date === nextDate && String(x.id) !== String(e.id) && !x.pastRecurring
+    );
+    if (exists) {
+      try { await window.fbUpdate('events', e.id, { pastRecurring: true }); } catch(_) {}
+      continue;
+    }
+
+    setSyncStatus('saving');
+    try {
+      const newId = 'id_' + Date.now();
+      const { pastRecurring: _p, ...rest } = e;
+      await window.fbSave('events', { ...rest, id: newId, date: nextDate });
+      await window.fbUpdate('events', e.id, { pastRecurring: true });
+    } catch(err) { setSyncStatus('error'); }
+  }
 }
 
 // ── RECURRING HELPER ─────────────────────────────────────────────────────────

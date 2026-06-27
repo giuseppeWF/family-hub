@@ -37,7 +37,7 @@ Add a weather widget to the dashboard overview that shows current conditions for
 ---
 
 ### S3-002 · Recurring Events — Auto-generate next occurrence
-**Status:** TODO
+**Status:** DONE — 2026-06-27
 **Priority:** High
 **Category:** Feature — Calendar
 
