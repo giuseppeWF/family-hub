@@ -864,6 +864,72 @@
   .who-tag-Mack { background: rgba(46,196,182,0.15); color: var(--sage); }
   .who-tag-Rachel { background: rgba(176,139,232,0.15); color: #B08BE8; }
 
+  /* ── MONTH VIEW ─────────────────────────────────── */
+  .month-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+  }
+
+  .month-day-header {
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--cream-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 6px 0;
+  }
+
+  .month-day {
+    background: var(--navy-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 4px;
+    min-height: 56px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+    position: relative;
+  }
+
+  .month-day:hover { border-color: var(--border-strong); }
+  .month-day.today { border-color: var(--sage); }
+  .month-day.selected { border-color: var(--amber); background: rgba(232,168,56,0.06); }
+  .month-day.other-month { opacity: 0.35; }
+
+  .month-day-num {
+    font-family: 'Nunito', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--cream);
+    text-align: center;
+    line-height: 1;
+    margin-bottom: 3px;
+  }
+
+  .month-day.today .month-day-num {
+    color: var(--sage);
+  }
+
+  .month-event-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    margin: 1px auto;
+  }
+
+  .month-event-pill {
+    font-size: 9px;
+    padding: 1px 4px;
+    border-radius: 3px;
+    color: white;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 1px;
+    display: block;
+  }
+
   /* ── PORTRAIT / MOBILE LAYOUT ──────────────────────────── */
   @media (max-width: 768px) {
 
@@ -1214,7 +1280,10 @@
       <div id="clock">00:00</div>
       <div id="date-str">Loading...</div>
     </div>
-    <div id="header-center">🏠 The Family Hub 🏠</div>
+    <div id="header-center" style="display:flex;align-items:center;gap:10px">
+      <span>🏠 The Family Hub 🏠</span>
+      <button onclick="openSettings()" title="Settings" style="background:transparent;border:none;cursor:pointer;font-size:16px;opacity:0.5;padding:0;line-height:1">⚙️</button>
+    </div>
     <div id="sync-status" style="font-size:11px;color:var(--cream-muted);display:flex;align-items:center;gap:5px">
       <div id="sync-dot" style="width:7px;height:7px;border-radius:50%;background:var(--amber)"></div>
       <span id="sync-label">Connecting…</span>
@@ -1337,9 +1406,28 @@
         <div class="view-title" style="margin-bottom:0">Calendar</div>
         <div class="add-btn" onclick="openModal('event')" style="width:auto;margin-top:0;padding:10px 18px">+ Add event</div>
       </div>
-      <div class="view-subtitle" id="cal-subtitle">This week at a glance</div>
-      <div class="cal-week-strip" id="week-strip"></div>
-      <div class="cal-events-list" id="cal-events-full"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <div class="view-subtitle" id="cal-subtitle" style="margin-bottom:0">This week at a glance</div>
+        <div style="display:flex;gap:0;border:1px solid var(--border-strong);border-radius:8px;overflow:hidden">
+          <button id="cal-week-btn" onclick="setCalView('week')" style="padding:6px 14px;font-size:12px;font-weight:700;font-family:'Nunito',sans-serif;border:none;cursor:pointer;background:var(--sage);color:var(--navy)">Week</button>
+          <button id="cal-month-btn" onclick="setCalView('month')" style="padding:6px 14px;font-size:12px;font-weight:700;font-family:'Nunito',sans-serif;border:none;cursor:pointer;background:transparent;color:var(--cream-muted)">Month</button>
+        </div>
+      </div>
+      <!-- Week view -->
+      <div id="cal-week-view">
+        <div class="cal-week-strip" id="week-strip"></div>
+        <div class="cal-events-list" id="cal-events-full"></div>
+      </div>
+      <!-- Month view -->
+      <div id="cal-month-view" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <button onclick="changeMonth(-1)" style="background:var(--navy-card);border:1px solid var(--border-strong);border-radius:8px;padding:6px 12px;color:var(--cream);cursor:pointer;font-size:16px">‹</button>
+          <div id="month-label" style="font-family:'Nunito',sans-serif;font-size:18px;font-weight:800;color:var(--cream)"></div>
+          <button onclick="changeMonth(1)"  style="background:var(--navy-card);border:1px solid var(--border-strong);border-radius:8px;padding:6px 12px;color:var(--cream);cursor:pointer;font-size:16px">›</button>
+        </div>
+        <div id="month-grid"></div>
+        <div id="month-day-events" style="margin-top:16px"></div>
+      </div>
       <div class="add-btn" onclick="openModal('event')">+ Add event</div>
     </div>
 
@@ -1437,7 +1525,7 @@
         </div>
         <div class="modal-field">
           <label class="modal-label">Who</label>
-          <select class="modal-select" id="new-event-who">
+          <select class="modal-select" id="new-event-who" class="member-select">
             <option>Everyone</option>
             <option>Giuseppe</option>
             <option>Ross</option>
@@ -1578,7 +1666,7 @@
         </div>
         <div class="modal-field">
           <label class="modal-label">Assigned to</label>
-          <select class="modal-select" id="new-house-who">
+          <select class="modal-select" id="new-house-who" class="member-select">
             <option>Everyone</option>
             <option>Giuseppe</option>
             <option>Ross</option>
@@ -1605,6 +1693,34 @@
         <button class="btn-cancel" onclick="closeModal()">Cancel</button>
         <button class="btn-save" onclick="saveModal()">Save</button>
       </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS OVERLAY -->
+  <div id="settings-overlay" onclick="closeSettingsIfBg(event)" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.7);z-index:250;align-items:flex-start;justify-content:flex-end;padding:70px 20px 20px">
+    <div style="background:var(--navy-mid);border:1px solid var(--border-strong);border-radius:20px;padding:24px;width:320px;max-height:80vh;overflow-y:auto" onclick="event.stopPropagation()">
+      <div style="font-family:'Nunito',sans-serif;font-size:18px;font-weight:800;color:var(--cream);margin-bottom:20px">⚙️ Settings</div>
+
+      <!-- Family members -->
+      <div style="font-size:12px;font-weight:700;color:var(--cream-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">Family Members</div>
+      <div id="settings-members-list" style="margin-bottom:12px"></div>
+      <div style="display:flex;gap:8px">
+        <input class="modal-input" id="new-member-name" placeholder="Name" style="flex:1;padding:10px 12px;font-size:14px">
+        <input class="modal-input" id="new-member-colour" type="color" value="#7EB898" style="width:44px;height:44px;padding:4px;border-radius:10px;cursor:pointer">
+        <button onclick="addFamilyMember()" style="background:var(--sage);border:none;border-radius:10px;color:var(--navy);font-weight:800;font-family:'Nunito',sans-serif;padding:0 14px;cursor:pointer;font-size:14px">Add</button>
+      </div>
+
+      <div style="height:1px;background:var(--border);margin:20px 0"></div>
+
+      <!-- Hub name -->
+      <div style="font-size:12px;font-weight:700;color:var(--cream-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">Hub Name</div>
+      <div style="display:flex;gap:8px">
+        <input class="modal-input" id="settings-hub-name" placeholder="e.g. The Family Hub" style="flex:1;padding:10px 12px;font-size:14px">
+        <button onclick="saveHubName()" style="background:var(--sage);border:none;border-radius:10px;color:var(--navy);font-weight:800;font-family:'Nunito',sans-serif;padding:0 14px;cursor:pointer;font-size:14px">Save</button>
+      </div>
+
+      <div style="height:1px;background:var(--border);margin:20px 0"></div>
+      <button onclick="closeSettings()" style="width:100%;padding:12px;background:transparent;border:1px solid var(--border-strong);border-radius:10px;color:var(--cream-muted);font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;cursor:pointer">Close</button>
     </div>
   </div>
 
@@ -1994,7 +2110,7 @@ function renderDashboard() {
         <div class="event-dot" style="background:${e.color||'#2EC4B6'}"></div>
         <div><div class="event-label">${e.name}</div><div class="event-who">${e.who||''}</div></div>
       </div>`).join('')
-    : '<div style="color:var(--cream-muted);font-size:14px;padding-top:8px">Nothing scheduled today 🎉</div>';
+    : '<div style="text-align:center;padding:16px 0"><div style="font-size:28px;margin-bottom:6px">🎉</div><div style="color:var(--cream-muted);font-size:13px">Nothing scheduled today</div><div style="font-size:11px;color:var(--cream-muted);opacity:0.6;margin-top:3px">Tap + to add an event</div></div>';
 
   // Todos
   const pending = todos.filter(t => !t.done).slice(0,5);
@@ -2005,7 +2121,7 @@ function renderDashboard() {
         <div class="task-text">${t.text}</div>
         <span class="task-tag who-tag-${t.who}" style="font-size:11px;padding:2px 7px;border-radius:6px;font-weight:600">${t.who}</span>
       </div>`).join('')
-    : '<div style="color:var(--cream-muted);font-size:14px;padding-top:8px">All done! 🙌</div>';
+    : '<div style="text-align:center;padding:16px 0"><div style="font-size:28px;margin-bottom:6px">🙌</div><div style="color:var(--cream-muted);font-size:13px">All tasks done!</div><div style="font-size:11px;color:var(--cream-muted);opacity:0.6;margin-top:3px">Great work everyone</div></div>';
 
   // Shopping
   const items = shopping.filter(s => !s.done).slice(0,6);
@@ -2016,7 +2132,7 @@ function renderDashboard() {
         <div class="shop-item-name">${s.name}</div>
         <div class="shop-item-qty">${s.qty||''}</div>
       </div>`).join('')
-    : '<div style="color:var(--cream-muted);font-size:14px;padding-top:8px">List is empty 👍</div>';
+    : '<div style="text-align:center;padding:16px 0"><div style="font-size:28px;margin-bottom:6px">🛒</div><div style="color:var(--cream-muted);font-size:13px">Shopping list is empty</div><div style="font-size:11px;color:var(--cream-muted);opacity:0.6;margin-top:3px">Tap + to add items</div></div>';
 
   // Meals
   const dayOrder = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
@@ -2040,11 +2156,12 @@ function renderDashboard() {
           ${m.notes ? '<div style="font-size:11px;color:var(--cream-muted);margin-top:2px">' + m.notes + '</div>' : ''}
         </div>
       </div>`).join('')
-    : '<div style="color:var(--cream-muted);font-size:14px;padding-top:8px">No meals planned yet</div>';
+    : '<div style="text-align:center;padding:16px 0"><div style="font-size:28px;margin-bottom:6px">🍽</div><div style="color:var(--cream-muted);font-size:13px">No meals planned yet</div><div style="font-size:11px;color:var(--cream-muted);opacity:0.6;margin-top:3px">Tap + to plan the week</div></div>';
 }
 
 // ── CALENDAR ──────────────────────────────────────────────────────────────────
 function renderCalendar() {
+  if (calViewMode === 'month') { renderMonthView(); return; }
   const events = getEvents();
   const strip = document.getElementById('week-strip');
   strip.innerHTML = weekDates.map((d, i) => {
@@ -2078,7 +2195,114 @@ function renderCalendar() {
         </div>
       </div>
     </div>`;
-  }).join('') || '<div style="color:var(--cream-muted);font-size:14px;padding:12px 0">Nothing this week yet</div>';
+  }).join('') || '<div style="text-align:center;padding:20px 0"><div style="font-size:32px;margin-bottom:8px">📅</div><div style="color:var(--cream-muted);font-size:14px;font-weight:600">Nothing this week yet</div><div style="font-size:12px;color:var(--cream-muted);opacity:0.6;margin-top:4px">Tap + to add an event</div></div>';
+}
+
+// ── MONTH VIEW ────────────────────────────────────────────────────────────────
+let calViewMode = 'week';
+let monthOffset = 0;
+let selectedMonthDay = null;
+
+function setCalView(mode) {
+  calViewMode = mode;
+  document.getElementById('cal-week-view').style.display  = mode === 'week'  ? 'block' : 'none';
+  document.getElementById('cal-month-view').style.display = mode === 'month' ? 'block' : 'none';
+  document.getElementById('cal-week-btn').style.background  = mode === 'week'  ? 'var(--sage)' : 'transparent';
+  document.getElementById('cal-week-btn').style.color       = mode === 'week'  ? 'var(--navy)' : 'var(--cream-muted)';
+  document.getElementById('cal-month-btn').style.background = mode === 'month' ? 'var(--sage)' : 'transparent';
+  document.getElementById('cal-month-btn').style.color      = mode === 'month' ? 'var(--navy)' : 'var(--cream-muted)';
+  if (mode === 'month') renderMonthView();
+}
+
+function changeMonth(dir) {
+  monthOffset += dir;
+  renderMonthView();
+}
+
+function renderMonthView() {
+  const events = getEvents();
+  const base = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1);
+  const year = base.getFullYear(), month = base.getMonth();
+
+  document.getElementById('month-label').textContent =
+    base.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+
+  // Build grid
+  const firstDay = new Date(year, month, 1);
+  const lastDay  = new Date(year, month + 1, 0);
+  // Start from Monday
+  let startDow = firstDay.getDay(); // 0=Sun
+  startDow = startDow === 0 ? 6 : startDow - 1; // convert to Mon=0
+
+  const dayHeaders = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  let html = '<div class="month-grid">';
+  // Headers
+  html += dayHeaders.map(d => `<div class="month-day-header">${d}</div>`).join('');
+
+  // Blank cells before month start
+  for (let i = 0; i < startDow; i++) {
+    const prevDate = new Date(year, month, -startDow + i + 1);
+    html += `<div class="month-day other-month"><div class="month-day-num">${prevDate.getDate()}</div></div>`;
+  }
+
+  // Days of month
+  for (let d = 1; d <= lastDay.getDate(); d++) {
+    const dateObj  = new Date(year, month, d);
+    const dStr     = fmt(dateObj);
+    const isToday  = dStr === todayStr;
+    const isSelected = dStr === selectedMonthDay;
+    const dayEvts  = events.filter(e => e.date === dStr);
+    const classes  = ['month-day', isToday?'today':'', isSelected?'selected':''].filter(Boolean).join(' ');
+
+    html += `<div class="${classes}" onclick="selectMonthDay('${dStr}')">
+      <div class="month-day-num">${d}</div>
+      ${dayEvts.slice(0,2).map(e =>
+        `<div class="month-event-pill" style="background:${e.color||'#2EC4B6'}">${e.name}</div>`
+      ).join('')}
+      ${dayEvts.length > 2 ? `<div style="font-size:9px;color:var(--cream-muted);text-align:center">+${dayEvts.length-2}</div>` : ''}
+    </div>`;
+  }
+
+  // Trailing blank cells
+  const totalCells = startDow + lastDay.getDate();
+  const remainder  = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+  for (let i = 1; i <= remainder; i++) {
+    html += `<div class="month-day other-month"><div class="month-day-num">${i}</div></div>`;
+  }
+  html += '</div>';
+
+  document.getElementById('month-grid').innerHTML = html;
+
+  // If a day is selected show its events
+  if (selectedMonthDay) showMonthDayEvents(selectedMonthDay);
+  else document.getElementById('month-day-events').innerHTML = '';
+}
+
+function selectMonthDay(dStr) {
+  selectedMonthDay = dStr;
+  renderMonthView();
+}
+
+function showMonthDayEvents(dStr) {
+  const events = getEvents();
+  const dayEvts = events.filter(e => e.date === dStr).sort((a,b)=>(a.start||'').localeCompare(b.start||''));
+  const d = new Date(dStr + 'T12:00:00');
+  const label = d.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long' });
+  const el = document.getElementById('month-day-events');
+  el.innerHTML = `<div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--cream);margin-bottom:10px">${label}</div>` +
+    (dayEvts.length
+      ? dayEvts.map(e => `<div class="cal-event-card" onclick="showDetail('event','${e.id}')" style="cursor:pointer;margin-bottom:8px">
+          <div class="cal-event-time-col">
+            <div class="cal-event-time-start">${e.start||''}</div>
+            <div class="cal-event-time-end">${e.end||''}</div>
+          </div>
+          <div class="cal-event-bar" style="background:${e.color||'#2EC4B6'}"></div>
+          <div class="cal-event-info">
+            <div class="cal-event-name">${e.name}</div>
+            <div class="cal-event-meta who-${e.who}">${e.who||''}</div>
+          </div>
+        </div>`).join('')
+      : '<div style="color:var(--cream-muted);font-size:14px;padding:8px 0">Nothing on this day — tap + to add an event</div>');
 }
 
 function filterCalDay(dStr) {
@@ -2119,7 +2343,7 @@ function renderTodos() {
           ${actionBtns('todos', t.id, 'todo')}
         </div>
       </div>`)
-  ).join('') || '<div style="color:var(--cream-muted);font-size:14px;padding:12px 0">All tasks done! 🎉</div>';
+  ).join('') || '<div style="text-align:center;padding:20px 0"><div style="font-size:32px;margin-bottom:8px">🎉</div><div style="color:var(--cream-muted);font-size:14px;font-weight:600">All tasks done!</div><div style="font-size:12px;color:var(--cream-muted);opacity:0.6;margin-top:4px">Tap + to add a new task or chore</div></div>';
 
   document.getElementById('todo-done-label').style.display = done.length ? 'block' : 'none';
   document.getElementById('todos-done').innerHTML = done.map(t =>
@@ -2578,9 +2802,11 @@ function showDetail(type, id) {
   const overlay   = document.getElementById('detail-overlay');
   const content   = document.getElementById('detail-content');
   const actionBtn = document.getElementById('detail-action-btn');
-  // Reset edit button — each type will show it if relevant
+  // Reset edit button and copy button
   const editBtn = document.getElementById('detail-edit-btn');
   if (editBtn) editBtn.style.display = 'none';
+  const copyBtn = document.getElementById('detail-copy-btn');
+  if (copyBtn) copyBtn.style.display = 'none';
 
   if (type === 'event') {
     const e = getEvents().find(x => String(x.id) === String(id)); if (!e) return;
@@ -2632,6 +2858,19 @@ function showDetail(type, id) {
     actionBtn.style.background = 'var(--sage)';
     actionBtn.onclick = () => { toggleTodo(id); closeDetailModal(); };
     document.getElementById('detail-edit-btn').style.display = 'flex';
+    // Add copy button dynamically
+    let copyBtn = document.getElementById('detail-copy-btn');
+    if (!copyBtn) {
+      copyBtn = document.createElement('button');
+      copyBtn.id = 'detail-copy-btn';
+      copyBtn.className = 'btn-save';
+      copyBtn.style.background = 'var(--amber)';
+      copyBtn.style.flex = '1';
+      document.querySelector('#detail-overlay .modal-actions').insertBefore(copyBtn, actionBtn);
+    }
+    copyBtn.textContent = '📋 Copy';
+    copyBtn.style.display = 'flex';
+    copyBtn.onclick = () => openCopyTask(id);
   }
   if (type === 'shop') {
     const s = getShopping().find(x => String(x.id) === String(id)); if (!s) return;
@@ -2803,6 +3042,160 @@ function initTouchDrag() {
   grid.addEventListener('touchend',   e=>{ if(!touchDragCard)return; const t=e.changedTouches[0]; const el=document.elementFromPoint(t.clientX,t.clientY); const tgt=el&&el.closest('[data-card]'); if(tgt&&tgt!==touchDragCard){const cs=[...grid.querySelectorAll('[data-card]')]; cs.indexOf(touchDragCard)<cs.indexOf(tgt)?grid.insertBefore(touchDragCard,tgt.nextSibling):grid.insertBefore(touchDragCard,tgt); tgt.classList.remove('drag-over'); saveCardState();} touchDragCard=null; });
 }
 
+// ── SETTINGS & FAMILY MEMBERS ────────────────────────────────────────────────
+// Default family members — loaded from localStorage if customised
+const DEFAULT_MEMBERS = [
+  { name:'Giuseppe', color:'#E8A838' },
+  { name:'Ross',     color:'#E07070' },
+  { name:'Malachi',  color:'#5B9BD5' },
+  { name:'Mack',     color:'#2EC4B6' },
+  { name:'Rachel',   color:'#B08BE8' },
+];
+
+function getFamilyMembers() {
+  try {
+    const saved = localStorage.getItem('fh_members');
+    return saved ? JSON.parse(saved) : DEFAULT_MEMBERS;
+  } catch(e) { return DEFAULT_MEMBERS; }
+}
+
+function saveFamilyMembers(members) {
+  localStorage.setItem('fh_members', JSON.stringify(members));
+  injectMemberStyles(members);
+  refreshAllDropdowns(members);
+}
+
+function injectMemberStyles(members) {
+  let el = document.getElementById('dynamic-member-styles');
+  if (!el) { el = document.createElement('style'); el.id = 'dynamic-member-styles'; document.head.appendChild(el); }
+  el.textContent = members.map(m =>
+    `.who-${m.name} { color: ${m.color}; }
+     .who-tag-${m.name} { background: ${m.color}22; color: ${m.color}; }`
+  ).join('
+');
+}
+
+function refreshAllDropdowns(members) {
+  const opts = ['Everyone', ...members.map(m => m.name)];
+  document.querySelectorAll('.member-select').forEach(sel => {
+    const current = sel.value;
+    sel.innerHTML = opts.map(n => `<option${n===current?' selected':''}>${n}</option>`).join('');
+  });
+}
+
+function openSettings() {
+  const overlay = document.getElementById('settings-overlay');
+  const members = getFamilyMembers();
+  // Hub name
+  document.getElementById('settings-hub-name').value =
+    localStorage.getItem('fh_hub_name') || 'The Family Hub';
+  // Members list
+  renderSettingsMembers(members);
+  overlay.style.display = 'flex';
+}
+
+function renderSettingsMembers(members) {
+  document.getElementById('settings-members-list').innerHTML = members.map((m, i) =>
+    `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="width:10px;height:10px;border-radius:50%;background:${m.color};flex-shrink:0"></div>
+      <span style="flex:1;font-size:14px;color:var(--cream)">${m.name}</span>
+      <button onclick="removeFamilyMember(${i})" style="background:rgba(224,112,112,0.15);border:none;border-radius:6px;color:var(--rose);font-size:12px;padding:3px 8px;cursor:pointer;font-weight:700">Remove</button>
+    </div>`
+  ).join('');
+}
+
+function addFamilyMember() {
+  const name   = document.getElementById('new-member-name').value.trim();
+  const color  = document.getElementById('new-member-colour').value;
+  if (!name) return;
+  const members = getFamilyMembers();
+  if (members.find(m => m.name.toLowerCase() === name.toLowerCase())) {
+    alert('That name is already in the family list.');
+    return;
+  }
+  members.push({ name, color });
+  saveFamilyMembers(members);
+  renderSettingsMembers(members);
+  document.getElementById('new-member-name').value = '';
+}
+
+function removeFamilyMember(idx) {
+  const members = getFamilyMembers();
+  if (!confirm(`Remove ${members[idx].name} from the family list?`)) return;
+  members.splice(idx, 1);
+  saveFamilyMembers(members);
+  renderSettingsMembers(members);
+}
+
+function saveHubName() {
+  const name = document.getElementById('settings-hub-name').value.trim();
+  if (!name) return;
+  localStorage.setItem('fh_hub_name', name);
+  document.querySelector('#header-center span').textContent = '🏠 ' + name + ' 🏠';
+  closeSettings();
+}
+
+function closeSettings() { document.getElementById('settings-overlay').style.display = 'none'; }
+function closeSettingsIfBg(e) { if (e.target === document.getElementById('settings-overlay')) closeSettings(); }
+
+// ── COPY TASK ─────────────────────────────────────────────────────────────────
+function openCopyTask(id) {
+  const t = getTodos().find(x => String(x.id) === String(id));
+  if (!t) return;
+  closeDetailModal();
+  const overlay = document.createElement('div');
+  overlay.id = 'copy-task-overlay';
+  overlay.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,0.6);z-index:300;display:flex;align-items:center;justify-content:center;padding:24px';
+  overlay.innerHTML = `
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-title">Copy task</div>
+      <div style="font-size:14px;color:var(--cream-muted);margin-bottom:20px">"${t.text}"</div>
+      <div class="modal-field">
+        <label class="modal-label">Copy to</label>
+        <select class="modal-select" id="copy-task-when">
+          <option value="tomorrow">Tomorrow</option>
+          <option value="nextweek">Next week (same day)</option>
+          <option value="custom">Choose a date…</option>
+        </select>
+      </div>
+      <div class="modal-field" id="copy-custom-date-field" style="display:none">
+        <label class="modal-label">Date</label>
+        <input class="modal-input" id="copy-custom-date" type="date" value="${todayStr}">
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="document.getElementById('copy-task-overlay').remove()">Cancel</button>
+        <button class="btn-save" onclick="confirmCopyTask('${id}')">Copy</button>
+      </div>
+    </div>`;
+  overlay.querySelector('#copy-task-when').addEventListener('change', function() {
+    document.getElementById('copy-custom-date-field').style.display = this.value === 'custom' ? 'block' : 'none';
+  });
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  document.getElementById('app').appendChild(overlay);
+}
+
+async function confirmCopyTask(id) {
+  const t = getTodos().find(x => String(x.id) === String(id));
+  if (!t) return;
+  const when = document.getElementById('copy-task-when').value;
+  let newDue;
+  if (when === 'tomorrow') {
+    const d = new Date(todayStr + 'T00:00:00'); d.setDate(d.getDate() + 1);
+    newDue = fmt(d);
+  } else if (when === 'nextweek') {
+    const d = new Date(todayStr + 'T00:00:00'); d.setDate(d.getDate() + 7);
+    newDue = fmt(d);
+  } else {
+    newDue = document.getElementById('copy-custom-date').value || todayStr;
+  }
+  const newId = 'id_' + Date.now();
+  setSyncStatus('saving');
+  try {
+    await window.fbSave('todos', { ...t, id: newId, done: false, due: newDue });
+    document.getElementById('copy-task-overlay').remove();
+  } catch(e) { setSyncStatus('error'); }
+}
+
 // ── QA CHECK ──────────────────────────────────────────────────────────────────
 function runQA() {
   const results = [];
@@ -2890,6 +3283,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 document.body.classList.add('on-dashboard');
+// Apply saved family member styles and hub name
+injectMemberStyles(getFamilyMembers());
+const savedHubName = localStorage.getItem('fh_hub_name');
+if (savedHubName) {
+  const hcSpan = document.querySelector('#header-center span');
+  if (hcSpan) hcSpan.textContent = '🏠 ' + savedHubName + ' 🏠';
+}
 updateClock();
 initDrag();
 initTouchDrag();
