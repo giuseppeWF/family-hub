@@ -3069,10 +3069,8 @@ function injectMemberStyles(members) {
   let el = document.getElementById('dynamic-member-styles');
   if (!el) { el = document.createElement('style'); el.id = 'dynamic-member-styles'; document.head.appendChild(el); }
   el.textContent = members.map(m =>
-    `.who-${m.name} { color: ${m.color}; }
-     .who-tag-${m.name} { background: ${m.color}22; color: ${m.color}; }`
-  ).join('
-');
+    `.who-${m.name} { color: ${m.color}; } .who-tag-${m.name} { background: ${m.color}22; color: ${m.color}; }`
+  ).join(' ');
 }
 
 function refreshAllDropdowns(members) {
