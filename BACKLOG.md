@@ -317,6 +317,68 @@ Forward an email to a shared family address and it automatically creates an even
 
 ---
 
+---
+
+### S3-007 · Edit Modal — Multi-person Who Chip Selector
+**Status:** TODO
+**Priority:** High
+**Category:** Bug / Consistency
+
+**Description:**
+The edit modals (`openEditItem`) still use plain dropdown selects for the "who" field on all item types. This is inconsistent with the add modals which use the chip selector. All edit modals must use the same chip interaction as the add modals.
+
+**Implementation notes:**
+- Add a new helper function `renderWhoChipsWithValue(containerId, hiddenId, preSelected)` that accepts a pre-selected value (may be comma-separated e.g. "Giuseppe, Ross") and renders the chips with those already highlighted
+- Replace the who `<select>` in the innerHTML of each `openEditItem` case with a chips container div + hidden input
+- Call `renderWhoChipsWithValue` after setting innerHTML for: todo, event, shop, meal, household edit cases
+- On save, read value via `getWhoValue(hiddenId)` — already used in saveEditItem for some fields
+- Test: open an item assigned to multiple people → edit → chips should reflect current assignment → change → save → verify update
+
+**Acceptance criteria:**
+- [ ] Edit modal for todos shows chip selector, not dropdown
+- [ ] Edit modal for events shows chip selector, not dropdown
+- [ ] Edit modal for shopping items shows chip selector, not dropdown
+- [ ] Edit modal for meals shows chip selector, not dropdown
+- [ ] Edit modal for household tasks shows chip selector, not dropdown
+- [ ] Current assignee(s) pre-selected when edit modal opens
+- [ ] Multi-person values (comma-separated) correctly pre-select multiple chips
+- [ ] Value saved correctly after editing
+- [ ] Audit passes with zero issues
+
+---
+
+### S3-008 · Checked Items — Move to Done Section on Completion
+**Status:** TODO
+**Priority:** High
+**Category:** UX
+
+**Description:**
+When an item is ticked/completed, it should move out of the active list rather than staying in place. The behaviour should be consistent but contextually appropriate per tab:
+
+- **To-dos & Chores:** Completed items animate down into the existing "Done" section at the bottom. Done section is visible but visually muted. Items can be un-ticked from there.
+- **Shopping:** Ticked items stay visible but move to the bottom of their category group (useful while shopping to see what's in the trolley). Shown with strikethrough.
+- **Household Tasks:** Completed tasks move to the existing "Completed" section at the bottom, same as todos.
+- **Meals:** No concept of done — no change needed.
+- **Calendar:** No concept of done — no change needed.
+
+**Implementation notes:**
+- For todos/household: the Done section already exists — ensure ticking an item triggers a re-render that moves it. The Firestore listener already calls `renderAll()` after any update so this may be mostly working — check if the issue is the render not being called promptly enough, or items not being sorted correctly in the render function
+- For shopping: sort items within each category so `done: false` items appear first, `done: true` items appear at bottom with strikethrough
+- Add a smooth CSS transition: `transition: opacity 0.3s, transform 0.3s` on list items so the movement feels satisfying rather than jarring
+- "Clear completed" button should appear in shopping when any items are ticked (to bulk-delete done items after a shop)
+- Consider: show count of done items in the Done section header e.g. "Done (3)"
+
+**Acceptance criteria:**
+- [ ] Ticking a todo moves it to Done section (not stays in place)
+- [ ] Ticking a household task moves it to Completed section
+- [ ] Ticking a shopping item moves it to bottom of its category
+- [ ] "Clear completed" button appears in shopping when items are ticked
+- [ ] Done section header shows count e.g. "Done (3)"
+- [ ] Items can be un-ticked from Done section
+- [ ] Smooth visual transition when item moves
+- [ ] Audit passes with zero issues
+
+---
 ## ✅ COMPLETED
 
 | ID | Feature | Sprint | Completed |
