@@ -984,6 +984,7 @@
     #header-center { font-size: 14px; letter-spacing: 0; }
     #today-summary { max-width: 160px; font-size: 11px; }
     #sync-status { display: none; }
+    #settings-btn { width: 30px; height: 30px; }
 
     /* Nav — smaller text, fit 5 tabs */
     .nav-tab {
@@ -1327,11 +1328,15 @@
     </div>
     <div id="header-center" style="display:flex;align-items:center;gap:10px">
       <span>🏠 The Family Hub 🏠</span>
-      <button onclick="openSettings()" title="Settings" style="background:transparent;border:none;cursor:pointer;font-size:16px;opacity:0.5;padding:0;line-height:1">⚙️</button>
     </div>
-    <div id="sync-status" style="font-size:11px;color:var(--cream-muted);display:flex;align-items:center;gap:5px">
-      <div id="sync-dot" style="width:7px;height:7px;border-radius:50%;background:var(--amber)"></div>
-      <span id="sync-label">Connecting…</span>
+    <div id="header-right" style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+      <div id="sync-status" style="font-size:11px;color:var(--cream-muted);display:flex;align-items:center;gap:5px">
+        <div id="sync-dot" style="width:7px;height:7px;border-radius:50%;background:var(--amber)"></div>
+        <span id="sync-label">Connecting…</span>
+      </div>
+      <button onclick="openSettings()" id="settings-btn" title="Settings" style="background:rgba(255,255,255,0.08);border:none;border-radius:50%;width:34px;height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--cream-muted);flex-shrink:0;transition:background 0.2s">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 15.5A3.5 3.5 0 0 1 8.5 12 3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5m7.43-2.92c.04-.3.07-.62.07-.94v-.94l2.04-1.59-2-3.48-2.44.99c-.49-.38-1-.71-1.57-.97L14.91 2h-4l-.73 2.63c-.57.26-1.08.59-1.57.97L6.17 4.6l-2 3.48L6.2 9.67c-.04.31-.07.63-.07.95v.94l-2.04 1.59 2 3.48 2.44-.99c.49.38 1 .71 1.57.97L11.09 22h4l.73-2.63c.57-.26 1.08-.59 1.57-.97l2.44.99 2-3.48-2.04-1.59z"/></svg>
+      </button>
     </div>
   </div>
   <!-- OFFLINE BANNER -->
@@ -3580,8 +3585,122 @@ if ('serviceWorker' in navigator) {
     .catch(() => {}); // silently fails on browsers that block blob: SW registration
 }
 
+// ── PWA ICON + MANIFEST ───────────────────────────────────────────────────────
+function buildRoundedRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y, x + w, y + r, r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h);
+  ctx.arcTo(x, y + h, x, y + h - r, r);
+  ctx.lineTo(x, y + r);
+  ctx.arcTo(x, y, x + r, y, r);
+  ctx.closePath();
+}
+
+function generatePwaIcon() {
+  const S = 512;
+  const c = document.createElement('canvas');
+  c.width = c.height = S;
+  const ctx = c.getContext('2d');
+
+  // Background: deep navy to rich teal gradient
+  const bg = ctx.createLinearGradient(0, 0, S, S);
+  bg.addColorStop(0, '#0f2030');
+  bg.addColorStop(1, '#0d4040');
+  buildRoundedRect(ctx, 0, 0, S, S, 108);
+  ctx.fillStyle = bg;
+  ctx.fill();
+
+  // Roof triangle — bold amber
+  ctx.beginPath();
+  ctx.moveTo(256, 60);
+  ctx.lineTo(454, 268);
+  ctx.lineTo(58, 268);
+  ctx.closePath();
+  ctx.fillStyle = '#E8A838';
+  ctx.fill();
+
+  // Chimney — rose
+  ctx.fillStyle = '#E07070';
+  buildRoundedRect(ctx, 316, 88, 44, 100, 6);
+  ctx.fill();
+
+  // House body — soft cream
+  ctx.fillStyle = '#F0EBE1';
+  ctx.fillRect(76, 254, 360, 218);
+
+  // Left window — teal
+  ctx.fillStyle = '#2EC4B6';
+  buildRoundedRect(ctx, 106, 282, 88, 72, 10);
+  ctx.fill();
+
+  // Right window — teal
+  buildRoundedRect(ctx, 318, 282, 88, 72, 10);
+  ctx.fill();
+
+  // Door — navy
+  ctx.fillStyle = '#0f2030';
+  buildRoundedRect(ctx, 207, 336, 98, 136, 12);
+  ctx.fill();
+
+  // Doorknob — amber
+  ctx.beginPath();
+  ctx.arc(294, 408, 7, 0, Math.PI * 2);
+  ctx.fillStyle = '#E8A838';
+  ctx.fill();
+
+  // Five family member dots along bottom strip
+  const dots = ['#E8A838','#E07070','#5B9BD5','#2EC4B6','#B08BE8'];
+  const xs    = [116, 180, 256, 332, 396];
+  dots.forEach((col, i) => {
+    ctx.beginPath();
+    ctx.arc(xs[i], 438, 20, 0, Math.PI * 2);
+    ctx.fillStyle = col;
+    ctx.fill();
+  });
+
+  return c.toDataURL('image/png');
+}
+
+function setupPwa() {
+  const iconUrl = generatePwaIcon();
+  const hubName = localStorage.getItem('fh_hub_name') || 'Family Hub';
+
+  // Favicon
+  let favicon = document.querySelector('link[rel="icon"]');
+  if (!favicon) { favicon = document.createElement('link'); favicon.rel = 'icon'; document.head.appendChild(favicon); }
+  favicon.type = 'image/png';
+  favicon.href = iconUrl;
+
+  // Apple touch icon (iOS / Android save-to-home)
+  let touchIcon = document.querySelector('link[rel="apple-touch-icon"]');
+  if (!touchIcon) { touchIcon = document.createElement('link'); touchIcon.rel = 'apple-touch-icon'; document.head.appendChild(touchIcon); }
+  touchIcon.href = iconUrl;
+
+  // Web App Manifest
+  const manifest = {
+    name: hubName,
+    short_name: 'Family Hub',
+    start_url: '/family-hub/',
+    scope: '/family-hub/',
+    display: 'standalone',
+    orientation: 'portrait',
+    background_color: '#0f2030',
+    theme_color: '#2EC4B6',
+    icons: [{ src: iconUrl, sizes: '512x512', type: 'image/png', purpose: 'any maskable' }]
+  };
+  const mblob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+  let mlink = document.querySelector('link[rel="manifest"]');
+  if (!mlink) { mlink = document.createElement('link'); mlink.rel = 'manifest'; document.head.appendChild(mlink); }
+  mlink.href = URL.createObjectURL(mblob);
+}
+
 // Seed sample data on first run (runs after Firebase module loads)
 window.addEventListener('load', () => {
+  setupPwa();
   setTimeout(async () => {
     if (typeof window.fbSeedIfEmpty === 'function') {
       await window.fbSeedIfEmpty('events',   sampleEvents);
