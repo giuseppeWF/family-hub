@@ -320,7 +320,7 @@ Forward an email to a shared family address and it automatically creates an even
 ---
 
 ### S3-007 · Edit Modal — Multi-person Who Chip Selector
-**Status:** TODO
+**Status:** DONE — 2026-06-27
 **Priority:** High
 **Category:** Bug / Consistency
 
@@ -348,7 +348,7 @@ The edit modals (`openEditItem`) still use plain dropdown selects for the "who" 
 ---
 
 ### S3-008 · Checked Items — Move to Done Section on Completion
-**Status:** TODO
+**Status:** DONE — 2026-06-27
 **Priority:** High
 **Category:** UX
 

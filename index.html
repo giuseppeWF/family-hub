@@ -1159,6 +1159,11 @@
   }
   .syncing { animation: pulse 1s infinite; }
 
+  /* ── ITEM COMPLETION TRANSITION ────────────── */
+  .todo-full-row, .shop-full-row, .meal-full-card {
+    transition: opacity 0.3s, transform 0.3s;
+  }
+
   /* ── SCROLLBAR ──────────────────────────── */
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -1474,6 +1479,7 @@
       </div>
       <div class="view-subtitle">Tap items to tick off as you shop</div>
       <div id="shop-lists"></div>
+      <div id="shop-clear-done"></div>
       <div class="add-btn" onclick="openModal('shop')">+ Add item</div>
     </div>
 
@@ -1999,7 +2005,9 @@ function renderHousehold() {
       '</div>')
   ).join('') || '<div style="color:var(--cream-muted);font-size:14px;padding:12px 0">No tasks yet — add your first house project 🔧</div>';
 
-  document.getElementById('household-done-label').style.display = done.length ? 'block' : 'none';
+  const houseDoneLabel = document.getElementById('household-done-label');
+  houseDoneLabel.style.display = done.length ? 'block' : 'none';
+  houseDoneLabel.textContent = done.length ? `Completed (${done.length})` : 'Completed';
   document.getElementById('household-done').innerHTML = done.map(t =>
     swipeRow(t, 'household', 'household',
       '<div class="todo-full-row" style="opacity:0.5" onclick="toggleHousehold(\'' + t.id + '\')">' +
@@ -2370,7 +2378,9 @@ function renderTodos() {
       </div>`)
   ).join('') || '<div style="text-align:center;padding:20px 0"><div style="font-size:32px;margin-bottom:8px">🎉</div><div style="color:var(--cream-muted);font-size:14px;font-weight:600">All tasks done!</div><div style="font-size:12px;color:var(--cream-muted);opacity:0.6;margin-top:4px">Tap + to add a new task or chore</div></div>';
 
-  document.getElementById('todo-done-label').style.display = done.length ? 'block' : 'none';
+  const todoDoneLabel = document.getElementById('todo-done-label');
+  todoDoneLabel.style.display = done.length ? 'block' : 'none';
+  todoDoneLabel.textContent = done.length ? `Done (${done.length})` : 'Done';
   document.getElementById('todos-done').innerHTML = done.map(t =>
     swipeRow(t, 'todos', 'todo',
       `<div class="todo-full-row" style="opacity:0.5" onclick="toggleTodo('${t.id}')">
@@ -2408,7 +2418,8 @@ function renderShopping() {
   const shopping = getShopping();
   const cats = [...new Set(shopping.map(s => s.cat))];
   document.getElementById('shop-lists').innerHTML = cats.map(cat => {
-    const items = shopping.filter(s => s.cat === cat);
+    const all = shopping.filter(s => s.cat === cat);
+    const items = [...all.filter(s => !s.done), ...all.filter(s => s.done)];
     return `<div class="shop-category">${cat}</div>` + items.map(s =>
       swipeRow(s, 'shopping', 'shop',
         `<div class="shop-full-row" onclick="toggleShop('${s.id}')">
@@ -2422,6 +2433,24 @@ function renderShopping() {
     ).join('');
   }).join('');
   document.querySelectorAll('#shop-lists .swipeable').forEach(initSwipe);
+
+  const doneItems = shopping.filter(s => s.done);
+  const clearEl = document.getElementById('shop-clear-done');
+  if (clearEl) {
+    clearEl.innerHTML = doneItems.length
+      ? `<button onclick="clearDoneShop()" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px;margin-top:8px;background:rgba(224,112,112,0.1);border:1px dashed rgba(224,112,112,0.4);border-radius:12px;font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;color:var(--rose);cursor:pointer">🗑 Clear ${doneItems.length} completed item${doneItems.length>1?'s':''}</button>`
+      : '';
+  }
+}
+
+async function clearDoneShop() {
+  const done = getShopping().filter(s => s.done);
+  if (!done.length) return;
+  if (!confirm(`Remove ${done.length} completed item${done.length>1?'s':''}?`)) return;
+  setSyncStatus('saving');
+  try {
+    for (const s of done) await window.fbDelete('shopping', s.id);
+  } catch(e) { setSyncStatus('error'); }
 }
 
 async function toggleShop(id) {
