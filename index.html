@@ -1555,6 +1555,16 @@
             <option>Rachel</option>
           </select>
         </div>
+        <div class="modal-field">
+          <label class="modal-label">Repeat</label>
+          <select class="modal-select" id="new-event-recur">
+            <option value="none">No repeat</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="fortnightly">Every 2 weeks</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </div>
       </div>
 
       <div id="modal-todo-fields" style="display:none">
@@ -1564,13 +1574,8 @@
         </div>
         <div class="modal-field">
           <label class="modal-label">Assigned to</label>
-          <select class="modal-select" id="new-todo-who">
-            <option>Everyone</option>
-            <option>Giuseppe</option>
-            <option>Ross</option>
-            <option>Malachi</option>
-            <option>Mack</option>
-          </select>
+          <div id="new-todo-who-chips" style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0"></div>
+          <input type="hidden" id="new-todo-who" value="Everyone">
         </div>
         <div class="modal-field">
           <label class="modal-label">Type</label>
