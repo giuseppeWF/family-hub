@@ -61,7 +61,7 @@ When a recurring event date passes, automatically generate the next occurrence i
 ---
 
 ### S3-003 · Offline Mode / Service Worker
-**Status:** TODO
+**Status:** DONE — 2026-06-27
 **Priority:** Medium
 **Category:** Infrastructure
 

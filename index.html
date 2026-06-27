@@ -1315,6 +1315,11 @@
       <span id="sync-label">Connecting…</span>
     </div>
   </div>
+  <!-- OFFLINE BANNER -->
+  <div id="offline-banner" style="display:none;background:var(--amber);color:var(--navy);text-align:center;font-size:13px;font-weight:700;padding:7px 28px;font-family:'Nunito',sans-serif;flex-shrink:0">
+    📴 Offline — showing last known data
+  </div>
+
   <!-- SUMMARY BANNER -->
   <div id="summary-banner" style="background:rgba(46,196,182,0.08);border-bottom:1px solid rgba(46,196,182,0.15);padding:7px 28px;display:flex;align-items:center;gap:8px;flex-shrink:0">
     <span style="font-size:12px;color:var(--sage);font-weight:700;text-transform:uppercase;letter-spacing:0.6px">Today</span>
@@ -3439,6 +3444,39 @@ if (savedHubName) {
 updateClock();
 initDrag();
 initTouchDrag();
+
+// ── OFFLINE DETECTION ─────────────────────────────────────────────────────────
+function setOfflineBanner(isOffline) {
+  const banner = document.getElementById('offline-banner');
+  if (banner) banner.style.display = isOffline ? 'block' : 'none';
+  if (isOffline) setSyncStatus('error');
+}
+window.addEventListener('offline', () => setOfflineBanner(true));
+window.addEventListener('online',  () => setOfflineBanner(false));
+if (!navigator.onLine) setOfflineBanner(true);
+
+// ── SERVICE WORKER (cache-first for assets, network-first for Firestore) ──────
+if ('serviceWorker' in navigator) {
+  const swLines = [
+    "const CACHE='fh-v1';",
+    "const PRE=['/family-hub/','https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap','https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js','https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js'];",
+    "self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(PRE)).catch(()=>{}));self.skipWaiting();});",
+    "self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim();});",
+    "self.addEventListener('fetch',e=>{",
+    "  const u=e.request.url;",
+    "  if(u.includes('firestore.googleapis.com')||u.includes('identitytoolkit')){",
+    "    e.respondWith(fetch(e.request).catch(()=>caches.match(e.request)));return;",
+    "  }",
+    "  e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(res=>{",
+    "    if(res&&res.ok){caches.open(CACHE).then(c=>c.put(e.request,res.clone()));}",
+    "    return res;",
+    "  })).catch(()=>caches.match('/family-hub/')));",
+    "});"
+  ];
+  const blob = new Blob([swLines.join('\n')], { type: 'application/javascript' });
+  navigator.serviceWorker.register(URL.createObjectURL(blob), { scope: '/family-hub/' })
+    .catch(() => {}); // silently fails on browsers that block blob: SW registration
+}
 
 // Seed sample data on first run (runs after Firebase module loads)
 window.addEventListener('load', () => {
