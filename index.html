@@ -700,6 +700,8 @@
     display: flex;
     align-items: flex-start;
     gap: 16px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .meal-day-col {
@@ -2067,7 +2069,7 @@ function renderHousehold() {
   houseDoneLabel.textContent = done.length ? `Completed (${done.length})` : 'Completed';
   document.getElementById('household-done').innerHTML = done.map(t =>
     swipeRow(t, 'household', 'household',
-      '<div class="todo-full-row" style="opacity:0.5" onclick="toggleHousehold(\'' + t.id + '\')">' +
+      '<div class="todo-full-row" style="opacity:0.5" onclick="showDetail(\'household\',\'' + t.id + '\')">' +
         '<div class="todo-full-check done">✓</div>' +
         '<div class="todo-full-text done">' + t.text + '</div>' +
         '<span style="font-size:11px;color:var(--cream-muted)">' + (t.room||'') + '</span>' +
@@ -2217,10 +2219,10 @@ function renderDashboard() {
   const items = shopping.filter(s => !s.done).slice(0,6);
   const shEl = document.getElementById('dash-shop');
   shEl.innerHTML = items.length
-    ? items.map(s => `<div class="shop-item" onclick="showDetail('shop','${s.id}')" style="cursor:pointer">
-        <div class="shop-item-dot"></div>
-        <div class="shop-item-name">${s.name}</div>
-        <div class="shop-item-qty">${s.qty||''}</div>
+    ? items.map(s => `<div class="task-row" onclick="showDetail('shop','${s.id}')">
+        <div class="task-check">✓</div>
+        <div class="task-text">${s.name}</div>
+        <span class="task-tag" style="color:var(--cream-muted)">${s.qty||''}</span>
       </div>`).join('')
     : '<div style="text-align:center;padding:16px 0"><div style="font-size:28px;margin-bottom:6px">🛒</div><div style="color:var(--cream-muted);font-size:13px">Shopping list is empty</div><div style="font-size:11px;color:var(--cream-muted);opacity:0.6;margin-top:3px">Tap + to add items</div></div>';
 
@@ -2440,7 +2442,7 @@ function renderTodos() {
   todoDoneLabel.textContent = done.length ? `Done (${done.length})` : 'Done';
   document.getElementById('todos-done').innerHTML = done.map(t =>
     swipeRow(t, 'todos', 'todo',
-      `<div class="todo-full-row" style="opacity:0.5" onclick="toggleTodo('${t.id}')">
+      `<div class="todo-full-row" style="opacity:0.5" onclick="showDetail('todo','${t.id}')">
         <div class="todo-full-check done">✓</div>
         <div class="todo-full-text done">${t.text}</div>
         <div style="display:flex;align-items:center;gap:6px">
@@ -2479,7 +2481,7 @@ function renderShopping() {
     const items = [...all.filter(s => !s.done), ...all.filter(s => s.done)];
     return `<div class="shop-category">${cat}</div>` + items.map(s =>
       swipeRow(s, 'shopping', 'shop',
-        `<div class="shop-full-row" onclick="toggleShop('${s.id}')">
+        `<div class="shop-full-row" onclick="showDetail('shop','${s.id}')">
           <div class="shop-check ${s.done?'done':''}">✓</div>
           <div class="shop-full-name ${s.done?'done':''}">${s.name}</div>
           <div style="display:flex;align-items:center;gap:8px">
@@ -2537,7 +2539,7 @@ function renderMeals() {
   document.getElementById('meals-list').innerHTML = sorted.map(m => {
     const tc = tagColors[m.tag] || 'rgba(255,255,255,0.1);color:var(--cream-muted)';
     return swipeRow(m, 'meals', 'meal',
-      `<div class="meal-full-card">
+      `<div class="meal-full-card" onclick="showDetail('meal','${m.id}')">
         <div class="meal-day-col">
           <div class="meal-day-name">${(m.day||'').substring(0,3)}</div>
           <div class="meal-day-date">${dateForDay(m.day)}</div>
@@ -3053,6 +3055,10 @@ function showDetail(type, id) {
           <span style="font-size:12px;color:var(--cream-muted);min-width:70px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Category</span>
           <span style="font-size:15px;color:var(--cream)">${s.cat||''}</span>
         </div>
+        <div style="display:flex;gap:12px;align-items:center">
+          <span style="font-size:12px;color:var(--cream-muted);min-width:70px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Assigned</span>
+          <span class="who-${s.who||'Everyone'}" style="font-size:15px;font-weight:600">${s.who||'Everyone'}</span>
+        </div>
       </div>`;
     actionBtn.textContent = s.done ? 'Mark needed' : 'Mark got it';
     actionBtn.style.background = 'var(--blue-soft)';
@@ -3093,10 +3099,22 @@ function showDetail(type, id) {
     const m = getMeals().find(x => String(x.id) === String(id)); if (!m) return;
     content.innerHTML = `
       <div style="margin-bottom:20px">
-        <div style="font-family:'Nunito',sans-serif;font-size:22px;font-weight:800;color:var(--cream);margin-bottom:6px">${m.name}</div>
-        <div style="font-size:14px;color:var(--cream-muted)">${m.day||''}</div>
+        <div style="font-family:'Nunito',sans-serif;font-size:22px;font-weight:800;color:var(--cream);margin-bottom:8px">${m.name}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <span style="font-size:12px;padding:3px 10px;border-radius:8px;background:rgba(255,255,255,0.06);color:var(--cream-muted);font-weight:600">${m.day||''}</span>
+          ${m.tag ? `<span style="font-size:12px;padding:3px 10px;border-radius:8px;background:rgba(46,196,182,0.12);color:var(--sage);font-weight:600">${m.tag}</span>` : ''}
+        </div>
       </div>
-      ${m.notes?`<div style="padding:14px;background:var(--navy-card);border-radius:10px;font-size:14px;color:var(--cream-muted)">${m.notes}</div>`:''}`;
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;gap:12px;align-items:center">
+          <span style="font-size:12px;color:var(--cream-muted);min-width:70px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Assigned</span>
+          <span class="who-${m.who||'Everyone'}" style="font-size:15px;font-weight:600">${m.who||'Everyone'}</span>
+        </div>
+        ${m.notes ? `<div style="display:flex;gap:12px;align-items:flex-start">
+          <span style="font-size:12px;color:var(--cream-muted);min-width:70px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Notes</span>
+          <span style="font-size:14px;color:var(--cream)">${m.notes}</span>
+        </div>` : ''}
+      </div>`;
     actionBtn.style.display = 'none';
     document.getElementById('detail-edit-btn').style.display = 'flex';
     document.getElementById('detail-delete-btn').style.display = 'flex';
