@@ -1303,6 +1303,14 @@
 
 <div id="app">
 
+  <!-- ONBOARDING OVERLAY -->
+  <div id="onboarding-overlay" style="display:none;position:absolute;inset:0;background:var(--navy);z-index:500;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;overflow-y:auto">
+    <div style="width:100%;max-width:420px">
+      <div id="ob-dots" style="display:flex;justify-content:center;gap:8px;margin-bottom:32px"></div>
+      <div id="ob-content"></div>
+    </div>
+  </div>
+
   <!-- HEADER -->
   <div id="header">
     <div id="header-left">
@@ -3455,6 +3463,132 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+// ── ONBOARDING ────────────────────────────────────────────────────────────────
+let _obStep = 0;
+let _obMembers = [];
+let _obColor = '#E8A838';
+const OB_COLORS = ['#E8A838','#E07070','#5B9BD5','#2EC4B6','#B08BE8','#68C46E','#F0804A','#C47AAA'];
+
+function initOnboarding() {
+  if (localStorage.getItem('fh_onboarded') || localStorage.getItem('fh_members')) return;
+  _obStep = 0; _obMembers = []; _obColor = OB_COLORS[0];
+  const ov = document.getElementById('onboarding-overlay');
+  if (ov) { ov.style.display = 'flex'; renderObStep(); }
+}
+
+function obSetColor(c) { _obColor = c; renderObStep(); }
+
+function obAddMember() {
+  const inp = document.getElementById('ob-member-name');
+  const name = inp ? inp.value.trim() : '';
+  if (!name) return;
+  if (_obMembers.find(m => m.name.toLowerCase() === name.toLowerCase())) return;
+  _obMembers.push({ name, color: _obColor });
+  const idx = OB_COLORS.indexOf(_obColor);
+  _obColor = OB_COLORS[(idx + 1) % OB_COLORS.length];
+  renderObStep();
+}
+
+function obRemoveMember(i) { _obMembers.splice(i, 1); renderObStep(); }
+function obBack() { if (_obStep > 0) { _obStep--; renderObStep(); } }
+
+function obNext() {
+  if (_obStep === 0) { _obStep = 1; renderObStep(); return; }
+  if (_obStep === 1) {
+    const inp = document.getElementById('ob-hub-name');
+    const name = (inp ? inp.value.trim() : '') || 'The Family Hub';
+    localStorage.setItem('fh_hub_name', name);
+    const hcSpan = document.querySelector('#header-center span');
+    if (hcSpan) hcSpan.textContent = '🏠 ' + name + ' 🏠';
+    _obStep = 2; renderObStep(); return;
+  }
+  if (_obStep === 2) { if (_obMembers.length) finishOnboarding(); }
+}
+
+function finishOnboarding() {
+  localStorage.setItem('fh_members', JSON.stringify(_obMembers));
+  localStorage.setItem('fh_onboarded', '1');
+  injectMemberStyles(_obMembers);
+  _obStep = 3; renderObStep();
+  setTimeout(() => {
+    const ov = document.getElementById('onboarding-overlay');
+    if (ov) ov.style.display = 'none';
+    if (typeof renderAll === 'function') renderAll();
+  }, 1800);
+}
+
+function renderObStep() {
+  const dots = document.getElementById('ob-dots');
+  const content = document.getElementById('ob-content');
+  if (!dots || !content) return;
+  dots.innerHTML = (_obStep === 0 || _obStep === 3) ? '' :
+    [1,2].map(i => '<div style="width:8px;height:8px;border-radius:50%;background:' +
+      (_obStep >= i ? 'var(--sage)' : 'rgba(255,255,255,0.2)') + '"></div>').join('');
+
+  if (_obStep === 0) {
+    content.innerHTML =
+      '<div style="text-align:center;padding:16px 0 40px">' +
+        '<div style="font-size:72px;margin-bottom:20px">🏠</div>' +
+        '<div style="font-family:\'Nunito\',sans-serif;font-size:30px;font-weight:800;color:var(--cream);line-height:1.2;margin-bottom:14px">Welcome to<br>Family Hub</div>' +
+        '<div style="font-size:15px;color:var(--cream-muted);line-height:1.6">Your family\'s command centre.<br>Set up in under 2 minutes.</div>' +
+      '</div>' +
+      '<button onclick="obNext()" style="width:100%;padding:18px;background:var(--sage);border:none;border-radius:16px;font-family:\'Nunito\',sans-serif;font-size:18px;font-weight:800;color:var(--navy);cursor:pointer;-webkit-tap-highlight-color:transparent">Get Started →</button>';
+
+  } else if (_obStep === 1) {
+    const saved = localStorage.getItem('fh_hub_name') || 'The Family Hub';
+    content.innerHTML =
+      '<div style="margin-bottom:28px">' +
+        '<div style="font-family:\'Nunito\',sans-serif;font-size:26px;font-weight:800;color:var(--cream);line-height:1.2;margin-bottom:8px">What\'s your<br>family hub called?</div>' +
+        '<div style="font-size:14px;color:var(--cream-muted)">This name appears at the top of every screen.</div>' +
+      '</div>' +
+      '<input id="ob-hub-name" class="modal-input" placeholder="e.g. The Smith Family Hub" value="' + saved.replace(/"/g,'&quot;') + '" style="width:100%;margin-bottom:28px;font-size:16px">' +
+      '<div style="display:flex;gap:10px">' +
+        '<button onclick="obBack()" style="flex:1;padding:15px;background:rgba(255,255,255,0.06);border:1px solid var(--border-strong);border-radius:14px;font-family:\'Nunito\',sans-serif;font-size:15px;font-weight:700;color:var(--cream-muted);cursor:pointer">← Back</button>' +
+        '<button onclick="obNext()" style="flex:2;padding:15px;background:var(--sage);border:none;border-radius:14px;font-family:\'Nunito\',sans-serif;font-size:16px;font-weight:800;color:var(--navy);cursor:pointer">Next →</button>' +
+      '</div>';
+
+  } else if (_obStep === 2) {
+    const swatches = OB_COLORS.map(c =>
+      '<div onclick="obSetColor(\'' + c + '\')" style="width:30px;height:30px;border-radius:50%;background:' + c +
+      ';cursor:pointer;flex-shrink:0;box-sizing:border-box;border:3px solid ' + (_obColor === c ? 'white' : 'transparent') + '"></div>'
+    ).join('');
+    const rows = _obMembers.map((m, i) =>
+      '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">' +
+        '<div style="width:10px;height:10px;border-radius:50%;background:' + m.color + ';flex-shrink:0"></div>' +
+        '<span style="flex:1;font-size:15px;color:var(--cream);font-weight:600">' + m.name + '</span>' +
+        '<button onclick="obRemoveMember(' + i + ')" style="background:none;border:none;color:var(--cream-muted);font-size:20px;cursor:pointer;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center">×</button>' +
+      '</div>'
+    ).join('');
+    const canGo = _obMembers.length > 0;
+    content.innerHTML =
+      '<div style="margin-bottom:22px">' +
+        '<div style="font-family:\'Nunito\',sans-serif;font-size:26px;font-weight:800;color:var(--cream);line-height:1.2;margin-bottom:8px">Who\'s in<br>the family?</div>' +
+        '<div style="font-size:14px;color:var(--cream-muted)">Add at least one person to continue.</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">' + swatches + '</div>' +
+      '<div style="display:flex;gap:8px;margin-bottom:16px">' +
+        '<input id="ob-member-name" class="modal-input" placeholder="Name" style="flex:1;font-size:15px" onkeydown="if(event.key===\'Enter\')obAddMember()">' +
+        '<button onclick="obAddMember()" style="padding:0 18px;background:rgba(46,196,182,0.12);border:1px solid rgba(46,196,182,0.25);border-radius:10px;font-family:\'Nunito\',sans-serif;font-size:14px;font-weight:700;color:var(--sage);cursor:pointer;white-space:nowrap;min-height:44px">Add +</button>' +
+      '</div>' +
+      (rows ? '<div style="margin-bottom:16px">' + rows + '</div>' : '') +
+      '<div style="display:flex;gap:10px;margin-top:8px">' +
+        '<button onclick="obBack()" style="flex:1;padding:15px;background:rgba(255,255,255,0.06);border:1px solid var(--border-strong);border-radius:14px;font-family:\'Nunito\',sans-serif;font-size:15px;font-weight:700;color:var(--cream-muted);cursor:pointer">← Back</button>' +
+        '<button onclick="obNext()" style="flex:2;padding:15px;background:' + (canGo ? 'var(--sage)' : 'rgba(255,255,255,0.1)') + ';border:none;border-radius:14px;font-family:\'Nunito\',sans-serif;font-size:16px;font-weight:800;color:' + (canGo ? 'var(--navy)' : 'var(--cream-muted)') + ';cursor:' + (canGo ? 'pointer' : 'default') + '">Let\'s go! →</button>' +
+      '</div>';
+    setTimeout(() => { const inp = document.getElementById('ob-member-name'); if (inp) inp.focus(); }, 50);
+
+  } else if (_obStep === 3) {
+    const hubName = localStorage.getItem('fh_hub_name') || 'Family Hub';
+    content.innerHTML =
+      '<div style="text-align:center;padding:24px 0">' +
+        '<div style="font-size:72px;margin-bottom:16px">🎉</div>' +
+        '<div style="font-family:\'Nunito\',sans-serif;font-size:28px;font-weight:800;color:var(--cream);margin-bottom:10px">You\'re all set!</div>' +
+        '<div style="font-size:16px;color:var(--sage);font-weight:700;margin-bottom:6px">' + hubName + '</div>' +
+        '<div style="font-size:14px;color:var(--cream-muted)">' + _obMembers.map(m => m.name).join(' · ') + '</div>' +
+      '</div>';
+  }
+}
+
 // ── INIT ──────────────────────────────────────────────────────────────────────
 document.body.classList.add('on-dashboard');
 // Apply saved family member styles and hub name
@@ -3467,6 +3601,7 @@ if (savedHubName) {
 updateClock();
 initDrag();
 initTouchDrag();
+initOnboarding();
 
 // ── OFFLINE DETECTION ─────────────────────────────────────────────────────────
 function setOfflineBanner(isOffline) {
@@ -3621,6 +3756,8 @@ function setupPwa() {
 window.addEventListener('load', () => {
   setupPwa();
   setTimeout(async () => {
+    const obOv = document.getElementById('onboarding-overlay');
+    if (obOv && obOv.style.display !== 'none') return;
     if (typeof window.fbSeedIfEmpty === 'function') {
       await window.fbSeedIfEmpty('events',   sampleEvents);
       await window.fbSeedIfEmpty('household',  sampleHousehold);
