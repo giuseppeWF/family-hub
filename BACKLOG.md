@@ -136,7 +136,7 @@ A simple rotating dog walk rota. Shows who walks Paloma & Otis this morning and 
 ---
 
 ### S3-006 · Onboarding / First Run Setup
-**Status:** TODO
+**Status:** DONE — 2026-06-28
 **Priority:** Medium
 **Category:** UX
 
