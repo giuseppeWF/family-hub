@@ -3030,7 +3030,7 @@ function showDetail(type, id) {
       copyBtn.id = 'detail-copy-btn';
       copyBtn.className = 'btn-save';
       copyBtn.style.flex = '1';
-      document.querySelector('#detail-overlay .modal-actions').appendChild(copyBtn);
+      document.getElementById('detail-action-btn').parentElement.appendChild(copyBtn);
     }
     copyBtn.textContent = '📋 Copy';
     copyBtn.style.background = 'var(--amber)';
@@ -3463,19 +3463,22 @@ if (!navigator.onLine) setOfflineBanner(true);
 // ── SERVICE WORKER (cache-first for assets, network-first for Firestore) ──────
 if ('serviceWorker' in navigator) {
   const swLines = [
-    "const CACHE='fh-v1';",
-    "const PRE=['/family-hub/','https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap','https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js','https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js'];",
+    "const CACHE='fh-v2';",
+    "const PRE=['https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap','https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js','https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js'];",
     "self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(PRE)).catch(()=>{}));self.skipWaiting();});",
     "self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim();});",
     "self.addEventListener('fetch',e=>{",
     "  const u=e.request.url;",
     "  if(u.includes('firestore.googleapis.com')||u.includes('identitytoolkit')){",
-    "    e.respondWith(fetch(e.request).catch(()=>caches.match(e.request)));return;",
+    "    e.respondWith(fetch(e.request).catch(()=>caches.match(e.request)||new Response('',{status:503})));return;",
+    "  }",
+    "  if(u.includes('/family-hub/')){",
+    "    e.respondWith(fetch(e.request).then(res=>{if(res&&res.ok)caches.open(CACHE).then(c=>c.put(e.request,res.clone()));return res;}).catch(()=>caches.match(e.request)));return;",
     "  }",
     "  e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(res=>{",
     "    if(res&&res.ok){caches.open(CACHE).then(c=>c.put(e.request,res.clone()));}",
     "    return res;",
-    "  })).catch(()=>caches.match('/family-hub/')));",
+    "  })).catch(()=>new Response('',{status:503})));",
     "});"
   ];
   const blob = new Blob([swLines.join('\n')], { type: 'application/javascript' });
