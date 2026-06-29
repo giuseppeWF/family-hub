@@ -1166,6 +1166,11 @@
   .todo-full-row, .shop-full-row, .meal-full-card {
     transition: opacity 0.3s, transform 0.3s;
   }
+  @keyframes doneSlideIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .item-done-enter { animation: doneSlideIn 0.35s cubic-bezier(0.22, 1, 0.36, 1); }
 
   /* ── SCROLLBAR ──────────────────────────── */
   ::-webkit-scrollbar { width: 4px; }
@@ -1771,7 +1776,34 @@
       </div>
 
       <div style="height:1px;background:var(--border);margin:20px 0"></div>
+
+      <!-- Privacy & Data -->
+      <div style="font-size:12px;font-weight:700;color:var(--cream-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">Privacy &amp; Data</div>
+      <button onclick="openPrivacyPolicy()" style="width:100%;padding:12px;background:transparent;border:1px solid var(--border-strong);border-radius:10px;color:var(--cream);font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;text-align:left">📋 View privacy policy</button>
+      <button onclick="deleteAllMyData()" style="width:100%;padding:12px;background:rgba(224,112,112,0.08);border:1px solid rgba(224,112,112,0.3);border-radius:10px;color:var(--rose);font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;cursor:pointer;text-align:left">🗑 Delete all family data</button>
+
+      <div style="height:1px;background:var(--border);margin:20px 0"></div>
       <button onclick="closeSettings()" style="width:100%;padding:12px;background:transparent;border:1px solid var(--border-strong);border-radius:10px;color:var(--cream-muted);font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;cursor:pointer">Close</button>
+    </div>
+  </div>
+
+  <!-- PRIVACY POLICY OVERLAY -->
+  <div id="privacy-overlay" onclick="closePrivacy()" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.82);z-index:300;align-items:flex-start;justify-content:center;padding:60px 20px 20px;overflow-y:auto">
+    <div style="background:var(--navy-mid);border:1px solid var(--border-strong);border-radius:20px;padding:24px;width:100%;max-width:400px" onclick="event.stopPropagation()">
+      <div style="font-family:'Nunito',sans-serif;font-size:18px;font-weight:800;color:var(--cream);margin-bottom:20px">📋 Privacy Policy</div>
+      <div style="font-size:14px;color:var(--cream-muted);line-height:1.7">
+        <div style="font-weight:700;color:var(--cream);margin-bottom:4px">What we store</div>
+        <div style="margin-bottom:14px">Family events, to-dos, shopping lists, meal plans, household tasks, and saved favourites. Family member names and colours are kept locally on this device.</div>
+        <div style="font-weight:700;color:var(--cream);margin-bottom:4px">Where it lives</div>
+        <div style="margin-bottom:14px">All data is stored in Firebase Firestore (Google Cloud) on a project you control. Nothing is sent to any other service.</div>
+        <div style="font-weight:700;color:var(--cream);margin-bottom:4px">Who can see it</div>
+        <div style="margin-bottom:14px">Anyone with the URL to your Family Hub can view and edit data. Keep the link within your family.</div>
+        <div style="font-weight:700;color:var(--cream);margin-bottom:4px">Tracking &amp; ads</div>
+        <div style="margin-bottom:14px">None. No cookies, no analytics, no advertising, no third-party data sharing.</div>
+        <div style="font-weight:700;color:var(--cream);margin-bottom:4px">Deleting your data</div>
+        <div>Use the "Delete all family data" button in Settings → Privacy &amp; Data to permanently remove everything from Firestore and this device.</div>
+      </div>
+      <button onclick="closePrivacy()" style="width:100%;margin-top:24px;padding:14px;background:transparent;border:1px solid var(--border-strong);border-radius:12px;color:var(--cream-muted);font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;cursor:pointer">Close</button>
     </div>
   </div>
 
@@ -2086,6 +2118,12 @@ function renderHousehold() {
 
   document.querySelectorAll('#household-pending .swipeable, #household-done .swipeable').forEach(initSwipe);
 
+  if (_justDone && _justDone.col === 'household') {
+    const el = document.getElementById('row-household-' + _justDone.id);
+    if (el) el.classList.add('item-done-enter');
+    _justDone = null;
+  }
+
   // Render dashboard card if present
   const dashEl = document.getElementById('dash-household');
   if (dashEl) {
@@ -2119,6 +2157,7 @@ function setRoomFilter(room) {
 async function toggleHousehold(id) {
   const t = getHousehold().find(x => String(x.id) === String(id));
   if (!t) return;
+  if (!t.done) _justDone = { col: 'household', id };
   setSyncStatus('saving');
   try { await window.fbUpdate('household', id, { done: !t.done }); } catch(e) { setSyncStatus('error'); }
 }
@@ -2460,6 +2499,12 @@ function renderTodos() {
       </div>`)
   ).join('');
 
+  if (_justDone && _justDone.col === 'todos') {
+    const el = document.getElementById('row-todos-' + _justDone.id);
+    if (el) el.classList.add('item-done-enter');
+    _justDone = null;
+  }
+
   // Init swipe on all rows
   document.querySelectorAll('#todos-pending .swipeable, #todos-done .swipeable').forEach(initSwipe);
 }
@@ -2467,6 +2512,7 @@ function renderTodos() {
 async function toggleTodo(id) {
   const t = getTodos().find(x => String(x.id) === String(id));
   if (!t) return;
+  if (!t.done) _justDone = { col: 'todos', id };
   setSyncStatus('saving');
   try {
     const nowDone = !t.done;
@@ -2501,6 +2547,12 @@ function renderShopping() {
   }).join('');
   document.querySelectorAll('#shop-lists .swipeable').forEach(initSwipe);
 
+  if (_justDone && _justDone.col === 'shopping') {
+    const el = document.getElementById('row-shopping-' + _justDone.id);
+    if (el) el.classList.add('item-done-enter');
+    _justDone = null;
+  }
+
   const doneItems = shopping.filter(s => s.done);
   const clearEl = document.getElementById('shop-clear-done');
   if (clearEl) {
@@ -2523,6 +2575,7 @@ async function clearDoneShop() {
 async function toggleShop(id) {
   const s = getShopping().find(x => String(x.id) === String(id));
   if (!s) return;
+  if (!s.done) _justDone = { col: 'shopping', id };
   setSyncStatus('saving');
   try { await window.fbUpdate('shopping', id, { done: !s.done }); } catch(e) { setSyncStatus('error'); }
 }
@@ -3320,6 +3373,33 @@ function saveHubName() {
 function closeSettings() { document.getElementById('settings-overlay').style.display = 'none'; }
 function closeSettingsIfBg(e) { if (e.target === document.getElementById('settings-overlay')) closeSettings(); }
 
+function openPrivacyPolicy() { document.getElementById('privacy-overlay').style.display = 'flex'; }
+function closePrivacy() { document.getElementById('privacy-overlay').style.display = 'none'; }
+
+async function deleteAllMyData() {
+  if (!confirm('Delete ALL family data?\n\nThis will permanently remove all events, to-dos, shopping, meals, household tasks, and saved favourites from Firestore.\n\nThis cannot be undone.')) return;
+  setSyncStatus('saving');
+  try {
+    const toDelete = [
+      ['events',    getEvents()],
+      ['todos',     getTodos()],
+      ['shopping',  getShopping()],
+      ['meals',     getMeals()],
+      ['household', getHousehold()],
+      ['shopfavs',  window.fbShopFavs  || []],
+      ['mealfavs',  window.fbMealFavs  || []],
+    ];
+    for (const [col, items] of toDelete) {
+      for (const item of items) await window.fbDelete(col, item.id);
+    }
+    ['fh_members','fh_hub_name','fh_onboarded','cardOrder','cardHidden'].forEach(k => localStorage.removeItem(k));
+    location.reload();
+  } catch(e) {
+    setSyncStatus('error');
+    alert('Failed to delete all data. Please try again.');
+  }
+}
+
 // ── COPY TASK ─────────────────────────────────────────────────────────────────
 function openCopyTask(id) {
   const t = getTodos().find(x => String(x.id) === String(id));
@@ -3464,6 +3544,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ── ONBOARDING ────────────────────────────────────────────────────────────────
+let _justDone = null; // { col, id } — set when item is marked done; cleared after animation applied
 let _obStep = 0;
 let _obMembers = [];
 let _obColor = '#E8A838';
