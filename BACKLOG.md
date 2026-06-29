@@ -231,7 +231,7 @@ Review all empty states across all tabs. Make sure they're friendly, have an emo
 ---
 
 ### S3-009 · Onboarding Flow — Fixes & Polish
-**Status:** TODO
+**Status:** DONE — 2026-06-29
 **Priority:** Critical
 **Category:** Bug / UX
 
