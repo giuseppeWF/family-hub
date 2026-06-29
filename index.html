@@ -1777,6 +1777,14 @@
 
       <div style="height:1px;background:var(--border);margin:20px 0"></div>
 
+      <!-- Share -->
+      <div style="font-size:12px;font-weight:700;color:var(--cream-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">Invite Family</div>
+      <button onclick="shareHubLink('settings-share-fallback')" style="width:100%;padding:12px;background:rgba(46,196,182,0.08);border:1px solid rgba(46,196,182,0.25);border-radius:10px;color:var(--sage);font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;text-align:left">🔗 Share hub link</button>
+      <div id="settings-share-fallback" style="display:none;gap:6px;margin-bottom:8px">
+        <input class="modal-input" value="https://giuseppewf.github.io/family-hub/" readonly style="flex:1;font-size:12px">
+        <button onclick="copyShareLink()" class="copy-share-btn" style="padding:0 14px;background:var(--sage);border:none;border-radius:10px;color:var(--navy);font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer;min-height:44px">Copy</button>
+      </div>
+
       <!-- Privacy & Data -->
       <div style="font-size:12px;font-weight:700;color:var(--cream-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">Privacy &amp; Data</div>
       <button onclick="openPrivacyPolicy()" style="width:100%;padding:12px;background:transparent;border:1px solid var(--border-strong);border-radius:10px;color:var(--cream);font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;text-align:left">📋 View privacy policy</button>
@@ -3557,7 +3565,15 @@ function initOnboarding() {
   if (ov) { ov.style.display = 'flex'; renderObStep(); }
 }
 
-function obSetColor(c) { _obColor = c; renderObStep(); }
+function obSetColor(c) {
+  _obColor = c;
+  // Update swatch ring in-place — preserves name input value without full re-render
+  document.querySelectorAll('.ob-swatch').forEach(el => {
+    el.style.borderColor = el.dataset.color === c ? 'white' : 'transparent';
+  });
+  const fp = document.getElementById('ob-free-color');
+  if (fp) fp.value = c;
+}
 
 function obAddMember() {
   const inp = document.getElementById('ob-member-name');
@@ -3591,11 +3607,33 @@ function finishOnboarding() {
   localStorage.setItem('fh_onboarded', '1');
   injectMemberStyles(_obMembers);
   _obStep = 3; renderObStep();
-  setTimeout(() => {
-    const ov = document.getElementById('onboarding-overlay');
-    if (ov) ov.style.display = 'none';
-    if (typeof renderAll === 'function') renderAll();
-  }, 1800);
+  // No auto-close — user dismisses via "Open Family Hub" button (gives time to share link)
+}
+
+function closeOnboarding() {
+  const ov = document.getElementById('onboarding-overlay');
+  if (ov) ov.style.display = 'none';
+  if (typeof renderAll === 'function') renderAll();
+}
+
+function shareHubLink(fallbackId) {
+  const url = 'https://giuseppewf.github.io/family-hub/';
+  const hubName = localStorage.getItem('fh_hub_name') || 'Family Hub';
+  if (navigator.share) {
+    navigator.share({ title: hubName, text: 'Join our ' + hubName + ' — tap to get started', url }).catch(() => {});
+  } else {
+    const el = document.getElementById(fallbackId);
+    if (el) el.style.display = 'flex';
+  }
+}
+
+function copyShareLink() {
+  const url = 'https://giuseppewf.github.io/family-hub/';
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(() => {
+      document.querySelectorAll('.copy-share-btn').forEach(b => { b.textContent = '✓ Copied'; setTimeout(() => { b.textContent = 'Copy'; }, 2000); });
+    }).catch(() => {});
+  }
 }
 
 function renderObStep() {
@@ -3630,7 +3668,7 @@ function renderObStep() {
 
   } else if (_obStep === 2) {
     const swatches = OB_COLORS.map(c =>
-      '<div onclick="obSetColor(\'' + c + '\')" style="width:30px;height:30px;border-radius:50%;background:' + c +
+      '<div class="ob-swatch" data-color="' + c + '" onclick="obSetColor(\'' + c + '\')" style="width:28px;height:28px;border-radius:50%;background:' + c +
       ';cursor:pointer;flex-shrink:0;box-sizing:border-box;border:3px solid ' + (_obColor === c ? 'white' : 'transparent') + '"></div>'
     ).join('');
     const rows = _obMembers.map((m, i) =>
@@ -3642,14 +3680,19 @@ function renderObStep() {
     ).join('');
     const canGo = _obMembers.length > 0;
     content.innerHTML =
-      '<div style="margin-bottom:22px">' +
+      '<div style="margin-bottom:20px">' +
         '<div style="font-family:\'Nunito\',sans-serif;font-size:26px;font-weight:800;color:var(--cream);line-height:1.2;margin-bottom:8px">Who\'s in<br>the family?</div>' +
         '<div style="font-size:14px;color:var(--cream-muted)">Add at least one person to continue.</div>' +
       '</div>' +
-      '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">' + swatches + '</div>' +
-      '<div style="display:flex;gap:8px;margin-bottom:16px">' +
+      '<div style="display:flex;gap:8px;margin-bottom:12px">' +
         '<input id="ob-member-name" class="modal-input" placeholder="Name" style="flex:1;font-size:15px" onkeydown="if(event.key===\'Enter\')obAddMember()">' +
         '<button onclick="obAddMember()" style="padding:0 18px;background:rgba(46,196,182,0.12);border:1px solid rgba(46,196,182,0.25);border-radius:10px;font-family:\'Nunito\',sans-serif;font-size:14px;font-weight:700;color:var(--sage);cursor:pointer;white-space:nowrap;min-height:44px">Add +</button>' +
+      '</div>' +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:16px">' +
+        swatches +
+        '<label style="display:flex;align-items:center;cursor:pointer;min-width:44px;min-height:44px;justify-content:center" title="Pick any colour">' +
+          '<input type="color" id="ob-free-color" value="' + _obColor + '" oninput="obSetColor(this.value)" style="width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid var(--border-strong);padding:1px;background:none">' +
+        '</label>' +
       '</div>' +
       (rows ? '<div style="margin-bottom:16px">' + rows + '</div>' : '') +
       '<div style="display:flex;gap:10px;margin-top:8px">' +
@@ -3661,12 +3704,19 @@ function renderObStep() {
   } else if (_obStep === 3) {
     const hubName = localStorage.getItem('fh_hub_name') || 'Family Hub';
     content.innerHTML =
-      '<div style="text-align:center;padding:24px 0">' +
-        '<div style="font-size:72px;margin-bottom:16px">🎉</div>' +
-        '<div style="font-family:\'Nunito\',sans-serif;font-size:28px;font-weight:800;color:var(--cream);margin-bottom:10px">You\'re all set!</div>' +
-        '<div style="font-size:16px;color:var(--sage);font-weight:700;margin-bottom:6px">' + hubName + '</div>' +
-        '<div style="font-size:14px;color:var(--cream-muted)">' + _obMembers.map(m => m.name).join(' · ') + '</div>' +
-      '</div>';
+      '<div style="text-align:center;padding:16px 0 28px">' +
+        '<div style="font-size:64px;margin-bottom:14px">🎉</div>' +
+        '<div style="font-family:\'Nunito\',sans-serif;font-size:28px;font-weight:800;color:var(--cream);margin-bottom:8px">You\'re all set!</div>' +
+        '<div style="font-size:16px;color:var(--sage);font-weight:700;margin-bottom:4px">' + hubName + '</div>' +
+        '<div style="font-size:14px;color:var(--cream-muted);margin-bottom:24px">' + _obMembers.map(m => m.name).join(' · ') + '</div>' +
+        '<button onclick="shareHubLink(\'ob-share-fallback\')" style="width:100%;padding:14px;background:rgba(46,196,182,0.12);border:1px solid rgba(46,196,182,0.3);border-radius:14px;font-family:\'Nunito\',sans-serif;font-size:15px;font-weight:700;color:var(--sage);cursor:pointer;margin-bottom:8px">👥 Invite your family</button>' +
+        '<div id="ob-share-fallback" style="display:none;gap:6px;margin-bottom:12px">' +
+          '<input class="modal-input" value="https://giuseppewf.github.io/family-hub/" readonly style="flex:1;font-size:12px">' +
+          '<button onclick="copyShareLink()" class="copy-share-btn" style="padding:0 14px;background:var(--sage);border:none;border-radius:10px;color:var(--navy);font-family:\'Nunito\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;min-height:44px">Copy</button>' +
+        '</div>' +
+      '</div>' +
+      '<button onclick="closeOnboarding()" style="width:100%;padding:16px;background:var(--sage);border:none;border-radius:16px;font-family:\'Nunito\',sans-serif;font-size:17px;font-weight:800;color:var(--navy);cursor:pointer">Open Family Hub →</button>';
+    dots.innerHTML = '';
   }
 }
 
