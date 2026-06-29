@@ -203,7 +203,7 @@
   .nav-tab .badge {
     background: var(--amber);
     color: var(--navy);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 800;
     padding: 1px 6px;
     border-radius: 10px;
@@ -345,7 +345,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 11px;
+    font-size: 12px;
     transition: background 0.15s, border-color 0.15s;
   }
 
@@ -367,7 +367,7 @@
   }
 
   .task-tag {
-    font-size: 11px;
+    font-size: 12px;
     padding: 2px 8px;
     border-radius: 6px;
     font-weight: 600;
@@ -467,7 +467,7 @@
   }
 
   .cal-day-pill .day-name {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--cream-muted);
     font-weight: 600;
     text-transform: uppercase;
@@ -711,7 +711,7 @@
   }
 
   .meal-day-name {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--cream-muted);
     font-weight: 600;
     text-transform: uppercase;
@@ -741,7 +741,7 @@
   }
 
   .meal-tag {
-    font-size: 11px;
+    font-size: 12px;
     padding: 3px 10px;
     border-radius: 8px;
     font-weight: 700;
@@ -896,7 +896,7 @@
 
   .month-day-header {
     text-align: center;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
     color: var(--cream-muted);
     text-transform: uppercase;
@@ -942,7 +942,7 @@
   }
 
   .month-event-pill {
-    font-size: 9px;
+    font-size: 12px;
     padding: 1px 4px;
     border-radius: 3px;
     color: white;
@@ -965,19 +965,19 @@
     #clock { font-size: 24px; }
     #date-str { font-size: 12px; padding-left: 8px; }
     #header-center { font-size: 14px; letter-spacing: 0; }
-    #today-summary { max-width: 160px; font-size: 11px; }
+    #today-summary { max-width: 160px; font-size: 12px; }
     #sync-status { display: none; }
     #settings-btn { width: 30px; height: 30px; }
 
     /* Nav — smaller text, fit 5 tabs */
     .nav-tab {
-      font-size: 11px;
+      font-size: 12px;
       padding: 10px 0;
       gap: 4px;
       flex-direction: column;
     }
     .nav-tab .tab-icon { font-size: 18px; }
-    .nav-tab .badge { font-size: 10px; padding: 1px 5px; }
+    .nav-tab .badge { font-size: 12px; padding: 1px 5px; }
 
     /* Dashboard — single column stack */
     #view-dashboard.active {
@@ -1003,7 +1003,7 @@
     /* Calendar week strip — smaller pills */
     .cal-day-pill { padding: 8px 4px; border-radius: 10px; }
     .cal-day-pill .day-num { font-size: 18px; }
-    .cal-day-pill .day-name { font-size: 10px; }
+    .cal-day-pill .day-name { font-size: 12px; }
     .cal-week-strip { gap: 5px; margin-bottom: 16px; }
 
     /* Todo rows — slightly more compact */
@@ -1042,7 +1042,7 @@
     .nav-tab { padding: 12px 0; }
 
     .dash-card { min-height: 140px; max-height: 190px; }
-    .dash-card-title { font-size: 11px; }
+    .dash-card-title { font-size: 12px; }
     .event-label, .task-text, .shop-item-name, .meal-name { font-size: 13px; }
   }
 
@@ -1280,7 +1280,7 @@
   #hidden-tray.visible { display: block; }
 
   .tray-title {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
     color: var(--cream-muted);
     text-transform: uppercase;
@@ -1326,7 +1326,7 @@
       <span>🏠 The Family Hub 🏠</span>
     </div>
     <div id="header-right" style="display:flex;align-items:center;gap:10px;flex-shrink:0">
-      <div id="sync-status" style="font-size:11px;color:var(--cream-muted);display:flex;align-items:center;gap:5px">
+      <div id="sync-status" style="font-size:12px;color:var(--cream-muted);display:flex;align-items:center;gap:5px">
         <div id="sync-dot" style="width:7px;height:7px;border-radius:50%;background:var(--amber)"></div>
         <span id="sync-label">Connecting…</span>
       </div>
@@ -2129,7 +2129,7 @@ function nextOccurrence(doneDate, freq) {
 function recurBadge(freq) {
   if (!freq || freq === 'none') return '';
   const labels = { daily:'Daily', weekly:'Weekly', fortnightly:'Fortnightly', monthly:'Monthly' };
-  return '<span style="font-size:10px;padding:2px 6px;border-radius:5px;background:rgba(176,139,232,0.15);color:#B08BE8;font-weight:700">↻ ' + (labels[freq]||freq) + '</span>';
+  return '<span style="font-size:12px;padding:2px 6px;border-radius:5px;background:rgba(176,139,232,0.15);color:#B08BE8;font-weight:700">↻ ' + (labels[freq]||freq) + '</span>';
 }
 
 // ── DUE DATE HELPER ───────────────────────────────────────────────────────────
@@ -2138,10 +2138,10 @@ function dueBadge(due) {
   const d    = new Date(due + 'T00:00:00');
   const t    = new Date(todayStr + 'T00:00:00');
   const diff = Math.round((d - t) / 86400000);
-  if (diff < 0)   return '<span style="font-size:11px;padding:2px 7px;border-radius:6px;background:rgba(224,112,112,0.2);color:var(--rose);font-weight:700">Overdue</span>';
-  if (diff === 0) return '<span style="font-size:11px;padding:2px 7px;border-radius:6px;background:rgba(232,168,56,0.2);color:var(--amber);font-weight:700">Today</span>';
-  if (diff <= 3)  return '<span style="font-size:11px;padding:2px 7px;border-radius:6px;background:rgba(232,168,56,0.1);color:var(--amber);font-weight:600">' + d.toLocaleDateString('en-GB',{day:'numeric',month:'short'}) + '</span>';
-  return '<span style="font-size:11px;padding:2px 7px;border-radius:6px;background:rgba(255,255,255,0.05);color:var(--cream-muted);font-weight:600">' + d.toLocaleDateString('en-GB',{day:'numeric',month:'short'}) + '</span>';
+  if (diff < 0)   return '<span style="font-size:12px;padding:2px 7px;border-radius:6px;background:rgba(224,112,112,0.2);color:var(--rose);font-weight:700">Overdue</span>';
+  if (diff === 0) return '<span style="font-size:12px;padding:2px 7px;border-radius:6px;background:rgba(232,168,56,0.2);color:var(--amber);font-weight:700">Today</span>';
+  if (diff <= 3)  return '<span style="font-size:12px;padding:2px 7px;border-radius:6px;background:rgba(232,168,56,0.1);color:var(--amber);font-weight:600">' + d.toLocaleDateString('en-GB',{day:'numeric',month:'short'}) + '</span>';
+  return '<span style="font-size:12px;padding:2px 7px;border-radius:6px;background:rgba(255,255,255,0.05);color:var(--cream-muted);font-weight:600">' + d.toLocaleDateString('en-GB',{day:'numeric',month:'short'}) + '</span>';
 }
 
 // ── RENDER ────────────────────────────────────────────────────────────────────
@@ -2169,12 +2169,12 @@ function renderHousehold() {
         '<div style="display:flex;width:100%;align-items:center;gap:10px">' +
           '<div class="todo-full-check">✓</div>' +
           '<div class="todo-full-text" style="flex:1">' + t.text + '</div>' +
-          '<span style="font-size:10px;font-weight:700;color:' + (priorityColor[t.priority]||'var(--cream-muted)') + ';text-transform:uppercase">' + (t.priority||'') + '</span>' +
+          '<span style="font-size:12px;font-weight:700;color:' + (priorityColor[t.priority]||'var(--cream-muted)') + ';text-transform:uppercase">' + (t.priority||'') + '</span>' +
           actionBtns('household', t.id, 'household') +
         '</div>' +
         '<div style="display:flex;gap:8px;padding-left:34px">' +
-          '<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:rgba(255,255,255,0.06);color:var(--cream-muted)">' + (t.room||'') + '</span>' +
-          '<span class="who-' + t.who + '" style="font-size:11px;font-weight:600">' + (t.who||'') + '</span>' +
+          '<span style="font-size:12px;padding:2px 8px;border-radius:6px;background:rgba(255,255,255,0.06);color:var(--cream-muted)">' + (t.room||'') + '</span>' +
+          '<span class="who-' + t.who + '" style="font-size:12px;font-weight:600">' + (t.who||'') + '</span>' +
         '</div>' +
         (t.notes ? '<div style="font-size:12px;color:var(--cream-muted);padding-left:34px">' + t.notes + '</div>' : '') +
       '</div>')
@@ -2188,7 +2188,7 @@ function renderHousehold() {
       '<div class="todo-full-row" style="opacity:0.5" onclick="showDetail(\'household\',\'' + t.id + '\')">' +
         '<div class="todo-full-check done">✓</div>' +
         '<div class="todo-full-text done">' + t.text + '</div>' +
-        '<span style="font-size:11px;color:var(--cream-muted)">' + (t.room||'') + '</span>' +
+        '<span style="font-size:12px;color:var(--cream-muted)">' + (t.room||'') + '</span>' +
       '</div>')
   ).join('');
 
@@ -2208,12 +2208,12 @@ function renderHousehold() {
       ? highPriority.map(t => `<div class="task-row" onclick="showDetail('household','${t.id}')" style="cursor:pointer">
           <div class="task-check">✓</div>
           <div class="task-text">${t.text}</div>
-          <span style="font-size:10px;font-weight:700;color:var(--rose);text-transform:uppercase">${t.room||''}</span>
+          <span style="font-size:12px;font-weight:700;color:var(--rose);text-transform:uppercase">${t.room||''}</span>
         </div>`).join('')
       : pending.slice(0,4).map(t => `<div class="task-row" onclick="showDetail('household','${t.id}')" style="cursor:pointer">
           <div class="task-check">✓</div>
           <div class="task-text">${t.text}</div>
-          <span style="font-size:10px;color:var(--cream-muted)">${t.room||''}</span>
+          <span style="font-size:12px;color:var(--cream-muted)">${t.room||''}</span>
         </div>`).join('')
       || '<div style="color:var(--cream-muted);font-size:14px;padding-top:8px">No tasks yet 🔧</div>';
   }
@@ -2325,7 +2325,7 @@ function renderDashboard() {
         <div class="event-dot" style="background:${e.color||'#2EC4B6'}"></div>
         <div><div class="event-label">${e.name}</div><div class="event-who">${e.who||''}</div></div>
       </div>`).join('')
-    : '<div style="text-align:center;padding:16px 0"><div style="font-size:28px;margin-bottom:6px">🎉</div><div style="color:var(--cream-muted);font-size:13px">Nothing scheduled today</div><div style="font-size:11px;color:var(--cream-muted);opacity:0.6;margin-top:3px">Tap + to add an event</div></div>';
+    : '<div style="text-align:center;padding:16px 0"><div style="font-size:28px;margin-bottom:6px">🎉</div><div style="color:var(--cream-muted);font-size:13px">Nothing scheduled today</div><div style="font-size:12px;color:var(--cream-muted);opacity:0.6;margin-top:3px">Tap + to add an event</div></div>';
 
   // Todos
   const pending = todos.filter(t => !t.done).slice(0,5);
@@ -2334,9 +2334,9 @@ function renderDashboard() {
     ? pending.map(t => `<div class="task-row" onclick="showDetail('todo','${t.id}')">
         <div class="task-check">✓</div>
         <div class="task-text">${t.text}</div>
-        <span class="task-tag who-tag-${t.who}" style="font-size:11px;padding:2px 7px;border-radius:6px;font-weight:600">${t.who}</span>
+        <span class="task-tag who-tag-${t.who}" style="font-size:12px;padding:2px 7px;border-radius:6px;font-weight:600">${t.who}</span>
       </div>`).join('')
-    : '<div style="text-align:center;padding:16px 0"><div style="font-size:28px;margin-bottom:6px">🙌</div><div style="color:var(--cream-muted);font-size:13px">All tasks done!</div><div style="font-size:11px;color:var(--cream-muted);opacity:0.6;margin-top:3px">Great work everyone</div></div>';
+    : '<div style="text-align:center;padding:16px 0"><div style="font-size:28px;margin-bottom:6px">🙌</div><div style="color:var(--cream-muted);font-size:13px">All tasks done!</div><div style="font-size:12px;color:var(--cream-muted);opacity:0.6;margin-top:3px">Great work everyone</div></div>';
 
   // Shopping
   const items = shopping.filter(s => !s.done).slice(0,6);
@@ -2346,10 +2346,10 @@ function renderDashboard() {
         const members = getFamilyMembers();
         const mc = members.find(m => m.name === s.who);
         const whoChip = mc
-          ? `<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:600;color:${mc.color}"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${mc.color}"></span>${s.who}</span>`
+          ? `<span style="display:inline-flex;align-items:center;gap:3px;font-size:12px;font-weight:600;color:${mc.color}"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${mc.color}"></span>${s.who}</span>`
           : '';
         const storeChip = s.store
-          ? `<span style="font-size:10px;color:var(--cream-muted);background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:5px;padding:1px 5px">${s.store}</span>`
+          ? `<span style="font-size:12px;color:var(--cream-muted);background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:5px;padding:1px 5px">${s.store}</span>`
           : '';
         const meta = (whoChip || storeChip)
           ? `<div style="display:flex;align-items:center;gap:5px;margin-top:2px">${whoChip}${storeChip}</div>`
@@ -2363,7 +2363,7 @@ function renderDashboard() {
           <span class="task-tag" style="color:var(--cream-muted);margin-top:2px">${s.qty||''}</span>
         </div>`;
       }).join('')
-    : '<div style="text-align:center;padding:16px 0"><div style="font-size:28px;margin-bottom:6px">🛒</div><div style="color:var(--cream-muted);font-size:13px">Shopping list is empty</div><div style="font-size:11px;color:var(--cream-muted);opacity:0.6;margin-top:3px">Tap + to add items</div></div>';
+    : '<div style="text-align:center;padding:16px 0"><div style="font-size:28px;margin-bottom:6px">🛒</div><div style="color:var(--cream-muted);font-size:13px">Shopping list is empty</div><div style="font-size:12px;color:var(--cream-muted);opacity:0.6;margin-top:3px">Tap + to add items</div></div>';
 
   // Meals
   const dayOrder = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
@@ -2384,10 +2384,10 @@ function renderDashboard() {
         <div class="meal-day">${(m.day||'').substring(0,3)}</div>
         <div style="flex:1">
           <div class="meal-name">${m.name}</div>
-          ${m.notes ? '<div style="font-size:11px;color:var(--cream-muted);margin-top:2px">' + m.notes + '</div>' : ''}
+          ${m.notes ? '<div style="font-size:12px;color:var(--cream-muted);margin-top:2px">' + m.notes + '</div>' : ''}
         </div>
       </div>`).join('')
-    : '<div style="text-align:center;padding:16px 0"><div style="font-size:28px;margin-bottom:6px">🍽</div><div style="color:var(--cream-muted);font-size:13px">No meals planned yet</div><div style="font-size:11px;color:var(--cream-muted);opacity:0.6;margin-top:3px">Tap + to plan the week</div></div>';
+    : '<div style="text-align:center;padding:16px 0"><div style="font-size:28px;margin-bottom:6px">🍽</div><div style="color:var(--cream-muted);font-size:13px">No meals planned yet</div><div style="font-size:12px;color:var(--cream-muted);opacity:0.6;margin-top:3px">Tap + to plan the week</div></div>';
 }
 
 // ── CALENDAR ──────────────────────────────────────────────────────────────────
@@ -2415,7 +2415,7 @@ function renderCalendar() {
       <div class="cal-event-time-col">
         <div class="cal-event-time-start">${e.start||''}</div>
         <div class="cal-event-time-end">${e.end||''}</div>
-        <div style="font-size:11px;color:var(--cream-muted);margin-top:4px">${d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric'})}</div>
+        <div style="font-size:12px;color:var(--cream-muted);margin-top:4px">${d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric'})}</div>
       </div>
       <div class="cal-event-bar" style="background:${e.color||'#2EC4B6'}"></div>
       <div class="cal-event-info">
@@ -2490,7 +2490,7 @@ function renderMonthView() {
       ${dayEvts.slice(0,2).map(e =>
         `<div class="month-event-pill" style="background:${e.color||'#2EC4B6'}">${e.name}</div>`
       ).join('')}
-      ${dayEvts.length > 2 ? `<div style="font-size:9px;color:var(--cream-muted);text-align:center">+${dayEvts.length-2}</div>` : ''}
+      ${dayEvts.length > 2 ? `<div style="font-size:12px;color:var(--cream-muted);text-align:center">+${dayEvts.length-2}</div>` : ''}
     </div>`;
   }
 
@@ -2570,7 +2570,7 @@ function renderTodos() {
           ${dueBadge(t.due)}
           ${recurBadge(t.recur)}
           <div style="display:flex;gap:4px;flex-wrap:wrap">${(t.who||'Everyone').split(', ').map(w=>'<span class="todo-full-who who-'+w+'">'+w+'</span>').join('')}</div>
-          <span style="font-size:11px;padding:2px 8px;border-radius:6px;background:${t.type==='chore'?'rgba(232,168,56,0.15)':'rgba(91,155,213,0.15)'};color:${t.type==='chore'?'var(--amber)':'var(--blue-soft)'};font-weight:600">${t.type||'todo'}</span>
+          <span style="font-size:12px;padding:2px 8px;border-radius:6px;background:${t.type==='chore'?'rgba(232,168,56,0.15)':'rgba(91,155,213,0.15)'};color:${t.type==='chore'?'var(--amber)':'var(--blue-soft)'};font-weight:600">${t.type||'todo'}</span>
           ${actionBtns('todos', t.id, 'todo')}
         </div>
       </div>`)
@@ -2627,10 +2627,10 @@ function _shopItemHtml(s) {
     ? `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${whoColor};flex-shrink:0;margin-left:2px" title="${s.who}"></span>`
     : '';
   const whoTag = s.who && s.who !== 'Everyone'
-    ? `<span class="who-tag-${s.who}" style="font-size:11px;padding:2px 7px;border-radius:6px;font-weight:600;margin-right:4px">${s.who}</span>`
+    ? `<span class="who-tag-${s.who}" style="font-size:12px;padding:2px 7px;border-radius:6px;font-weight:600;margin-right:4px">${s.who}</span>`
     : '';
   const storeTag = s.store
-    ? `<span style="font-size:11px;color:var(--cream-muted);background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:6px;padding:2px 6px;white-space:nowrap">${s.store}</span>`
+    ? `<span style="font-size:12px;color:var(--cream-muted);background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:6px;padding:2px 6px;white-space:nowrap">${s.store}</span>`
     : '';
   return swipeRow(s, 'shopping', 'shop',
     `<div class="shop-full-row" onclick="showDetail('shop','${s.id}')">
@@ -2900,7 +2900,7 @@ function shopAutocomplete(val) {
   const favs = getShopFavs().filter(f => f.name.toLowerCase().includes(val.toLowerCase()));
   if (!favs.length) { ac.style.display = 'none'; return; }
   ac.style.display = 'block';
-  ac.innerHTML = favs.map(f => `<div onclick="pickShopFav('${f.id}')" style="padding:10px 14px;cursor:pointer;font-size:14px;color:var(--cream);border-bottom:1px solid var(--border)">${f.name} <span style="font-size:11px;color:var(--cream-muted)">${f.qty||''}</span></div>`).join('');
+  ac.innerHTML = favs.map(f => `<div onclick="pickShopFav('${f.id}')" style="padding:10px 14px;cursor:pointer;font-size:14px;color:var(--cream);border-bottom:1px solid var(--border)">${f.name} <span style="font-size:12px;color:var(--cream-muted)">${f.qty||''}</span></div>`).join('');
 }
 
 function populateMealFavsPicker(filterCat) {
@@ -2908,7 +2908,7 @@ function populateMealFavsPicker(filterCat) {
   const cats = ['All', ...new Set(favs.map(f => f.category).filter(Boolean))];
   const catEl = document.getElementById('meal-cat-filter');
   if (catEl) {
-    catEl.innerHTML = cats.map(c => `<button onclick="populateMealFavsPicker('${c}')" style="padding:4px 10px;border-radius:16px;border:1px solid ${c===filterCat?'var(--sage)':'var(--border-strong)'};background:${c===filterCat?'rgba(46,196,182,0.15)':'transparent'};color:${c===filterCat?'var(--sage)':'var(--cream-muted)'};font-size:11px;font-weight:700;cursor:pointer">${c}</button>`).join('');
+    catEl.innerHTML = cats.map(c => `<button onclick="populateMealFavsPicker('${c}')" style="padding:4px 10px;border-radius:16px;border:1px solid ${c===filterCat?'var(--sage)':'var(--border-strong)'};background:${c===filterCat?'rgba(46,196,182,0.15)':'transparent'};color:${c===filterCat?'var(--sage)':'var(--cream-muted)'};font-size:12px;font-weight:700;cursor:pointer">${c}</button>`).join('');
   }
   const filtered = filterCat === 'All' ? favs : favs.filter(f => f.category === filterCat);
   const picker = document.getElementById('meal-favs-picker');
@@ -2932,7 +2932,7 @@ function mealAutocomplete(val) {
   const favs = getMealFavs().filter(f => f.name.toLowerCase().includes(val.toLowerCase()));
   if (!favs.length) { ac.style.display = 'none'; return; }
   ac.style.display = 'block';
-  ac.innerHTML = favs.map(f => `<div onclick="pickMealFav('${f.id}')" style="padding:10px 14px;cursor:pointer;font-size:14px;color:var(--cream);border-bottom:1px solid var(--border)">${f.name} <span style="font-size:11px;color:var(--cream-muted)">${f.category||''}</span></div>`).join('');
+  ac.innerHTML = favs.map(f => `<div onclick="pickMealFav('${f.id}')" style="padding:10px 14px;cursor:pointer;font-size:14px;color:var(--cream);border-bottom:1px solid var(--border)">${f.name} <span style="font-size:12px;color:var(--cream-muted)">${f.category||''}</span></div>`).join('');
 }
 
 function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
@@ -3674,6 +3674,8 @@ function runQA() {
   });
 
   // Check global consistency
+  const totalFirestoreItems = (window.fbEvents||[]).length + (window.fbTodos||[]).length +
+    (window.fbShopping||[]).length + (window.fbMeals||[]).length + (window.fbHousehold||[]).length;
   const globalChecks = {
     'All modals have cancel + save': ['event','todo','shop','meal','household'].every(t => {
       const f = document.getElementById('modal-' + t + '-fields');
@@ -3684,6 +3686,11 @@ function runQA() {
     'Summary banner present':    !!document.getElementById('summary-banner'),
     'Sync status present':       !!document.getElementById('sync-status'),
     'Arrange button present':    !!document.getElementById('edit-mode-btn'),
+    'Onboarding skipped for existing hub': (
+      !!localStorage.getItem('fh_onboarded') ||
+      !!localStorage.getItem('fh_members') ||
+      totalFirestoreItems > 0
+    ),
   };
 
   const globalFailed = Object.entries(globalChecks).filter(([,v]) => !v).map(([k]) => k);
