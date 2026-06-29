@@ -215,6 +215,7 @@
     flex: 1;
     overflow: hidden;
     position: relative;
+    min-height: 0;
   }
 
   .view {
@@ -956,47 +957,86 @@
   /* ── PORTRAIT / MOBILE LAYOUT ──────────────────────────── */
   @media (max-width: 768px) {
 
-    /* Header — tighter */
+    /* Header — tighter, single row */
     #header {
-      padding: 0 16px;
-      height: 60px;
+      padding: 0 12px;
+      height: 56px;
     }
 
-    #clock { font-size: 24px; }
-    #date-str { font-size: 12px; padding-left: 8px; }
-    #header-center { font-size: 14px; letter-spacing: 0; }
+    #clock { font-size: 22px; }
+    #date-str { font-size: 12px; padding-left: 6px; }
+    #header-center {
+      font-size: 13px;
+      letter-spacing: 0;
+      max-width: 40%;
+      flex: 1;
+    }
+    .hub-emoji-r { display: none; }
     #today-summary { max-width: 160px; font-size: 12px; }
     #sync-status { display: none; }
     #settings-btn { width: 30px; height: 30px; }
 
-    /* Nav — smaller text, fit 5 tabs */
+    /* Summary banner — no wrap */
+    #summary-banner {
+      padding: 6px 16px;
+      overflow: hidden;
+    }
+    #summary-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Nav — icons only, badges superscript */
     .nav-tab {
       font-size: 12px;
       padding: 10px 0;
-      gap: 4px;
+      gap: 0;
       flex-direction: column;
+      position: relative;
     }
-    .nav-tab .tab-icon { font-size: 18px; }
-    .nav-tab .badge { font-size: 12px; padding: 1px 5px; }
+    .nav-tab .tab-icon { font-size: 20px; }
+    .tab-label { display: none; }
+    .nav-tab .badge {
+      position: absolute;
+      top: 5px;
+      right: calc(50% - 20px);
+      font-size: 12px;
+      min-width: 16px;
+      height: 16px;
+      padding: 0 4px;
+      line-height: 16px;
+      text-align: center;
+      border-radius: 8px;
+    }
 
-    /* Dashboard — single column stack */
+    /* Dashboard — scrollable single column */
     #view-dashboard.active {
       display: flex;
       flex-direction: column;
       gap: 14px;
-      padding: 16px;
+      padding: 14px;
       overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
       height: 100%;
     }
 
     .dash-card {
-      min-height: 160px;
-      max-height: 220px;
+      min-height: 150px;
+      max-height: 210px;
       flex-shrink: 0;
     }
 
+    /* Arrange button — above nav so it never overlaps content */
+    #edit-mode-btn {
+      padding: 8px 14px;
+      font-size: 12px;
+      bottom: 70px;
+      right: 14px;
+    }
+
     /* Full views — tighter padding */
-    .view { padding: 16px; }
+    .view { padding: 14px; }
     .view-title { font-size: 22px; }
     .view-subtitle { font-size: 13px; margin-bottom: 16px; }
 
@@ -1006,7 +1046,7 @@
     .cal-day-pill .day-name { font-size: 12px; }
     .cal-week-strip { gap: 5px; margin-bottom: 16px; }
 
-    /* Todo rows — slightly more compact */
+    /* Todo rows */
     .todo-full-row { padding: 12px 14px; }
     .todo-full-text { font-size: 14px; }
 
@@ -1023,24 +1063,20 @@
     .modal-title { font-size: 18px; margin-bottom: 16px; }
     .modal-input, .modal-select { padding: 10px 12px; font-size: 14px; }
 
-    /* Edit mode button — smaller */
-    #edit-mode-btn { padding: 8px 14px; font-size: 12px; bottom: 14px; right: 14px; }
-
     /* Hide desktop action buttons on touch */
     .item-actions { display: none !important; }
+  }
+
+  /* ── HIDE HUB NAME ENTIRELY ON VERY NARROW SCREENS ───── */
+  @media (max-width: 380px) {
+    #header-center { display: none; }
   }
 
   /* ── SYNCGO PORTRAIT (narrow Android tablet ~600px) ─── */
   @media (max-width: 620px) {
     #header-center { display: none; }
     #today-summary { max-width: 200px; }
-
-    .nav-tab span:not(.tab-icon):not(.badge) {
-      display: none;
-    }
-
     .nav-tab { padding: 12px 0; }
-
     .dash-card { min-height: 140px; max-height: 190px; }
     .dash-card-title { font-size: 12px; }
     .event-label, .task-text, .shop-item-name, .meal-name { font-size: 13px; }
@@ -1322,8 +1358,8 @@
       <div id="clock">00:00</div>
       <div id="date-str">Loading...</div>
     </div>
-    <div id="header-center" style="display:flex;align-items:center;gap:10px">
-      <span>🏠 The Family Hub 🏠</span>
+    <div id="header-center" style="display:flex;align-items:center;gap:6px;min-width:0;overflow:hidden">
+      <span class="hub-emoji-l">🏠</span><span class="hub-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">The Family Hub</span><span class="hub-emoji-r">🏠</span>
     </div>
     <div id="header-right" style="display:flex;align-items:center;gap:10px;flex-shrink:0">
       <div id="sync-status" style="font-size:12px;color:var(--cream-muted);display:flex;align-items:center;gap:5px">
@@ -1350,25 +1386,25 @@
   <!-- NAV -->
   <div id="nav">
     <div class="nav-tab active" data-view="dashboard" onclick="switchView('dashboard')">
-      <span class="tab-icon">⊞</span> Overview
+      <span class="tab-icon">⊞</span><span class="tab-label"> Overview</span>
     </div>
     <div class="nav-tab" data-view="calendar" onclick="switchView('calendar')">
-      <span class="tab-icon">📅</span> Calendar
+      <span class="tab-icon">📅</span><span class="tab-label"> Calendar</span>
       <span class="badge" id="badge-cal">0</span>
     </div>
     <div class="nav-tab" data-view="todos" onclick="switchView('todos')">
-      <span class="tab-icon">✓</span> To-dos &amp; Chores
+      <span class="tab-icon">✓</span><span class="tab-label"> To-dos</span>
       <span class="badge" id="badge-todo">0</span>
     </div>
     <div class="nav-tab" data-view="shopping" onclick="switchView('shopping')">
-      <span class="tab-icon">🛒</span> Shopping
+      <span class="tab-icon">🛒</span><span class="tab-label"> Shopping</span>
       <span class="badge" id="badge-shop">0</span>
     </div>
     <div class="nav-tab" data-view="meals" onclick="switchView('meals')">
-      <span class="tab-icon">🍽</span> Meals
+      <span class="tab-icon">🍽</span><span class="tab-label"> Meals</span>
     </div>
     <div class="nav-tab" data-view="household" onclick="switchView('household')">
-      <span class="tab-icon">🔧</span> House
+      <span class="tab-icon">🔧</span><span class="tab-label"> House</span>
       <span class="badge" id="badge-house" style="display:none">0</span>
     </div>
   </div>
@@ -3534,7 +3570,7 @@ function saveHubName() {
   const name = document.getElementById('settings-hub-name').value.trim();
   if (!name) return;
   localStorage.setItem('fh_hub_name', name);
-  document.querySelector('#header-center span').textContent = '🏠 ' + name + ' 🏠';
+  document.querySelector('#header-center .hub-name').textContent = name;
   closeSettings();
 }
 
@@ -3784,8 +3820,8 @@ function obNext() {
     const inp = document.getElementById('ob-hub-name');
     const name = (inp ? inp.value.trim() : '') || 'The Family Hub';
     localStorage.setItem('fh_hub_name', name);
-    const hcSpan = document.querySelector('#header-center span');
-    if (hcSpan) hcSpan.textContent = '🏠 ' + name + ' 🏠';
+    const hcSpan = document.querySelector('#header-center .hub-name');
+    if (hcSpan) hcSpan.textContent = name;
     _obStep = 2; renderObStep(); return;
   }
   if (_obStep === 2) { if (_obMembers.length) finishOnboarding(); }
@@ -3915,8 +3951,8 @@ document.body.classList.add('on-dashboard');
 injectMemberStyles(getFamilyMembers());
 const savedHubName = localStorage.getItem('fh_hub_name');
 if (savedHubName) {
-  const hcSpan = document.querySelector('#header-center span');
-  if (hcSpan) hcSpan.textContent = '🏠 ' + savedHubName + ' 🏠';
+  const hcSpan = document.querySelector('#header-center .hub-name');
+  if (hcSpan) hcSpan.textContent = savedHubName;
 }
 updateClock();
 initDrag();
