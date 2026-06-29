@@ -715,6 +715,96 @@ A `guide.html` page hosted alongside the app on GitHub Pages at `https://giusepp
 - [ ] Short and friendly — not a wall of text
 
 
+---
+
+### S3-013 · Mobile Layout Polish Pass
+**Status:** TODO
+**Priority:** High
+**Category:** Design / UX
+
+**Description:**
+A focused mobile layout fix based on real device testing (iPhone, portrait ~390px wide). The app renders but several areas look unbalanced or broken on mobile. Fix all of the following in one pass.
+
+**Reference screenshot:** Family_Hub.png (attached in repo — add it to /docs/ folder for reference)
+
+**Issues to fix:**
+
+**1. Header — hub name wrapping and layout balance**
+- Hub name ("THE LUCARELLI HUB") is wrapping to two lines on mobile, pushing the house emojis to stack vertically
+- Fix: on screens under 768px, reduce hub name font size to 13px and remove one house emoji (keep left one only, or show just 🏠 without text on very narrow screens)
+- Header should be a clean single row: [clock + date] | [hub name] | [live dot + settings cog]
+- Max height: 60px on mobile
+- If hub name still wraps below 380px: hide it entirely and show only the 🏠 emoji
+
+**2. Nav tabs — badge positioning and label wrapping**
+- Badges (numbers showing count) are dropping below the tab label inconsistently
+- "To-dos & Chores" wraps to two lines, making that tab taller than others
+- Fix: on mobile, show icon only in nav tabs — hide text labels entirely below 600px. Badges should appear as superscript on the icon, not below the label
+- Badge styling: small circle, top-right of icon, absolute positioned
+- This is already partially done for very narrow screens — extend the breakpoint to 768px
+
+```css
+@media (max-width: 768px) {
+  .nav-tab span:not(.tab-icon):not(.badge) { display: none; }
+  .nav-tab { position: relative; padding: 12px 0; }
+  .badge { 
+    position: absolute;
+    top: 6px;
+    right: calc(50% - 18px);
+    font-size: 10px;
+    min-width: 16px;
+    height: 16px;
+    border-radius: 8px;
+  }
+}
+```
+
+**3. Overview widgets — enable vertical scrolling**
+- Dashboard cards on mobile are clipping — content below the fold is not reachable
+- Fix: `#view-dashboard.active` on mobile should be `overflow-y: auto` with `-webkit-overflow-scrolling: touch`
+- Cards should stack in a single column (already done) but the container must scroll
+- Each card should have a `max-height` of ~200px on mobile with internal scroll if content overflows
+- Remove any `overflow: hidden` on the dashboard container that prevents scrolling
+
+**4. "Arrange" button positioning on mobile**
+- Currently floating bottom-right but overlapping content on mobile
+- Fix: on mobile, move Arrange button to be inline in the Overview header area rather than floating
+- Or: show it only when in Overview tab, positioned above the nav bar (not over content)
+
+**5. Minimum font size compliance**
+- Enforce 12px minimum across all text on mobile
+- Check: event-time, event-who, task-tag, shop-item-qty, meal-day, badge text, summary text
+- Any text currently below 12px should be raised to 12px
+- Exception: badge numbers inside nav tabs can be 10px as they are supplementary indicators
+
+**6. Summary banner on mobile**
+- "TODAY | 4 tasks to do · 8 items to get" — this is working well, keep it
+- But ensure it doesn't wrap to two lines on very narrow screens
+- Fix: truncate with ellipsis if needed, or reduce to just counts: "4 tasks · 8 items"
+
+**Implementation notes:**
+- Test at 390px width (iPhone 14 standard) and 375px (iPhone SE)
+- All fixes should be in `@media (max-width: 768px)` blocks
+- Do not change desktop layout — only mobile breakpoints
+- The `@media (max-width: 620px)` block for SyncGo portrait should also be reviewed
+- After implementing, check that the QA audit still passes (it checks for class names, not layout)
+
+**Acceptance criteria:**
+- [ ] Header fits on one line at 390px width
+- [ ] Hub name does not wrap to two lines on mobile
+- [ ] Nav tabs show icon only on mobile (no wrapping text)
+- [ ] Badges appear as superscript on icons, not below labels
+- [ ] All tabs same height in nav bar
+- [ ] Overview cards scroll vertically on mobile
+- [ ] No content clipped below the fold on overview tab
+- [ ] Arrange button does not overlap content on mobile
+- [ ] All text is minimum 12px (10px allowed for badge numbers only)
+- [ ] Summary banner fits on one line at 390px
+- [ ] SyncGo portrait layout (620px) still renders correctly
+- [ ] Desktop layout (1024px+) unchanged
+- [ ] Audit passes with zero issues
+
+
 ## 💡 FUTURE / COMMERCIAL
 
 ### F-001 · Multi-household Support
