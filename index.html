@@ -1647,14 +1647,35 @@
           <input class="modal-input" id="new-shop-qty" placeholder="e.g. 2 bottles">
         </div>
         <div class="modal-field">
+          <label class="modal-label">Store (optional)</label>
+          <input class="modal-input" id="new-shop-store" placeholder="e.g. Lidl, Home Bargains, Amazon">
+        </div>
+        <div class="modal-field">
           <label class="modal-label">Category</label>
           <select class="modal-select" id="new-shop-cat">
-            <option>Fridge &amp; Fresh</option>
-            <option>Store Cupboard</option>
-            <option>Freezer</option>
+            <option>Produce</option>
+            <option>Dairy &amp; Eggs</option>
+            <option>Meat</option>
+            <option>Seafood</option>
+            <option>Bakery</option>
+            <option>Frozen Foods</option>
+            <option>Canned Goods</option>
+            <option>Dry Goods &amp; Pasta</option>
+            <option>Snacks &amp; Sweets</option>
+            <option>Beverages</option>
+            <option>Alcohol</option>
+            <option>Condiments &amp; Sauces</option>
             <option>Household</option>
+            <option>Personal Care</option>
+            <option>Baby</option>
+            <option>Pet Supplies</option>
             <option>Other</option>
+            <option value="__custom__">+ Custom category…</option>
           </select>
+        </div>
+        <div class="modal-field" id="new-shop-custom-field" style="display:none">
+          <label class="modal-label">Custom category name</label>
+          <input class="modal-input" id="new-shop-custom-cat" placeholder="Enter category name">
         </div>
         <div class="modal-field">
           <label class="modal-label">Added by</label>
@@ -1827,6 +1848,16 @@
     </div>
   </div>
 
+  <!-- WHAT'S NEW OVERLAY -->
+  <div id="whats-new-overlay" onclick="closeWhatsNew()" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.82);z-index:400;align-items:center;justify-content:center;padding:20px">
+    <div style="background:var(--navy-mid);border:1px solid var(--border-strong);border-radius:20px;padding:24px;width:100%;max-width:400px;max-height:80vh;overflow-y:auto" onclick="event.stopPropagation()">
+      <div style="font-family:'Nunito',sans-serif;font-size:20px;font-weight:800;color:var(--cream);margin-bottom:4px">🎉 What's New</div>
+      <div id="whats-new-version" style="font-size:12px;color:var(--cream-muted);margin-bottom:20px"></div>
+      <div id="whats-new-features"></div>
+      <button onclick="closeWhatsNew()" style="width:100%;padding:14px;background:var(--sage);border:none;border-radius:14px;font-family:'Nunito',sans-serif;font-size:15px;font-weight:800;color:var(--navy);cursor:pointer;margin-top:20px">Got it 👍</button>
+    </div>
+  </div>
+
   <!-- EDIT MODE CONTROLS -->
   <button id="edit-mode-btn" onclick="toggleEditMode()">⠿ Arrange</button>
   <div id="hidden-tray">
@@ -1854,6 +1885,31 @@ function getMeals()     { return window.fbMeals     || []; }
 function getHousehold()  { return window.fbHousehold  || []; }
 function getShopFavs()   { return window.fbShopFavs   || []; }
 function getMealFavs()   { return window.fbMealFavs   || []; }
+
+// ── APP VERSION & WHAT'S NEW ──────────────────────────────────────────────────
+const APP_VERSION = '3.1';
+const WHATS_NEW = {
+  version: '3.1',
+  features: [
+    { icon: '🏪', name: 'Store labels on shopping', desc: 'Tag items with the store — Lidl, Home Bargains, Amazon etc.', videoUrl: null },
+    { icon: '👥', name: 'See who added what', desc: 'Shopping items now show who added them', videoUrl: null },
+    { icon: '📋', name: 'Better shopping categories', desc: 'Apple-standard categories plus custom ones you define', videoUrl: null },
+    { icon: '🎉', name: "What's New announcements", desc: 'See what changed each time the app updates', videoUrl: null },
+  ]
+};
+
+// ── SHOPPING CONFIG ───────────────────────────────────────────────────────────
+const SHOP_CATS = [
+  'Produce','Dairy & Eggs','Meat','Seafood','Bakery','Frozen Foods',
+  'Canned Goods','Dry Goods & Pasta','Snacks & Sweets','Beverages',
+  'Alcohol','Condiments & Sauces','Household','Personal Care',
+  'Baby','Pet Supplies','Other'
+];
+function getShopCategories() {
+  const custom = JSON.parse(localStorage.getItem('fh_custom_categories') || '[]');
+  return [...SHOP_CATS, ...custom.filter(c => !SHOP_CATS.includes(c))];
+}
+let _shopViewMode = 'category'; // 'category' | 'store'
 
 // ── DATE HELPERS ──────────────────────────────────────────────────────────────
 const today    = new Date();
@@ -2274,11 +2330,17 @@ function renderDashboard() {
   const items = shopping.filter(s => !s.done).slice(0,6);
   const shEl = document.getElementById('dash-shop');
   shEl.innerHTML = items.length
-    ? items.map(s => `<div class="task-row" onclick="showDetail('shop','${s.id}')">
-        <div class="task-check">✓</div>
-        <div class="task-text">${s.name}</div>
-        <span class="task-tag" style="color:var(--cream-muted)">${s.qty||''}</span>
-      </div>`).join('')
+    ? items.map(s => {
+        const members = getFamilyMembers();
+        const mc = members.find(m => m.name === s.who);
+        const dot = mc ? `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${mc.color};flex-shrink:0" title="${s.who}"></span>` : '';
+        const storeLabel = s.store ? `<span style="font-size:10px;color:var(--cream-muted)">${s.store}</span>` : '';
+        return `<div class="task-row" onclick="showDetail('shop','${s.id}')">
+          <div class="task-check">✓</div>
+          <div class="task-text" style="display:flex;align-items:center;gap:5px">${s.name}${dot}${storeLabel}</div>
+          <span class="task-tag" style="color:var(--cream-muted)">${s.qty||''}</span>
+        </div>`;
+      }).join('')
     : '<div style="text-align:center;padding:16px 0"><div style="font-size:28px;margin-bottom:6px">🛒</div><div style="color:var(--cream-muted);font-size:13px">Shopping list is empty</div><div style="font-size:11px;color:var(--cream-muted);opacity:0.6;margin-top:3px">Tap + to add items</div></div>';
 
   // Meals
@@ -2535,24 +2597,68 @@ async function toggleTodo(id) {
 }
 
 // ── SHOPPING ──────────────────────────────────────────────────────────────────
+function _shopItemHtml(s) {
+  const members = getFamilyMembers();
+  const memberColor = members.find(m => m.name === s.who);
+  const whoColor = memberColor ? memberColor.color : 'var(--cream-muted)';
+  const whoDot = s.who && s.who !== 'Everyone'
+    ? `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${whoColor};flex-shrink:0;margin-left:2px" title="${s.who}"></span>`
+    : '';
+  const whoTag = s.who && s.who !== 'Everyone'
+    ? `<span class="who-tag-${s.who}" style="font-size:11px;padding:2px 7px;border-radius:6px;font-weight:600;margin-right:4px">${s.who}</span>`
+    : '';
+  const storeTag = s.store
+    ? `<span style="font-size:11px;color:var(--cream-muted);background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:6px;padding:2px 6px;white-space:nowrap">${s.store}</span>`
+    : '';
+  return swipeRow(s, 'shopping', 'shop',
+    `<div class="shop-full-row" onclick="showDetail('shop','${s.id}')">
+      <div class="shop-check ${s.done?'done':''}">✓</div>
+      <div style="flex:1;min-width:0">
+        <div class="shop-full-name ${s.done?'done':''}" style="display:flex;align-items:center;gap:5px">${s.name}${whoDot}</div>
+        ${storeTag ? '<div style="margin-top:2px">' + storeTag + '</div>' : ''}
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        ${whoTag}
+        <div class="shop-full-qty">${s.qty||''}</div>
+        ${actionBtns('shopping', s.id, 'shop')}
+      </div>
+    </div>`);
+}
+
 function renderShopping() {
   const shopping = getShopping();
-  const cats = [...new Set(shopping.map(s => s.cat))];
-  document.getElementById('shop-lists').innerHTML = cats.map(cat => {
-    const all = shopping.filter(s => s.cat === cat);
-    const items = [...all.filter(s => !s.done), ...all.filter(s => s.done)];
-    return `<div class="shop-category">${cat}</div>` + items.map(s =>
-      swipeRow(s, 'shopping', 'shop',
-        `<div class="shop-full-row" onclick="showDetail('shop','${s.id}')">
-          <div class="shop-check ${s.done?'done':''}">✓</div>
-          <div class="shop-full-name ${s.done?'done':''}">${s.name}</div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <div class="shop-full-qty">${s.qty||''}</div>
-            ${actionBtns('shopping', s.id, 'shop')}
-          </div>
-        </div>`)
-    ).join('');
-  }).join('');
+  const knownCats = getShopCategories();
+  const hasStores = shopping.some(s => s.store);
+
+  // Toggle bar (only shown when at least one item has a store)
+  const toggleHtml = hasStores
+    ? `<div style="display:flex;gap:6px;margin-bottom:14px">
+        <button onclick="_shopViewMode='category';renderShopping()" style="flex:1;padding:8px;border-radius:10px;font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer;border:1px solid var(--border-strong);background:${_shopViewMode==='category'?'var(--sage)':'transparent'};color:${_shopViewMode==='category'?'var(--navy)':'var(--cream-muted)'}">By Category</button>
+        <button onclick="_shopViewMode='store';renderShopping()" style="flex:1;padding:8px;border-radius:10px;font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer;border:1px solid var(--border-strong);background:${_shopViewMode==='store'?'var(--sage)':'transparent'};color:${_shopViewMode==='store'?'var(--navy)':'var(--cream-muted)'}">By Store</button>
+      </div>`
+    : '';
+
+  let listsHtml = '';
+  if (_shopViewMode === 'store' && hasStores) {
+    const stores = [...new Set(shopping.map(s => s.store || 'No store'))].sort();
+    listsHtml = stores.map(store => {
+      const all = shopping.filter(s => (s.store || 'No store') === store);
+      const items = [...all.filter(s => !s.done), ...all.filter(s => s.done)];
+      return `<div class="shop-category">${store}</div>` + items.map(_shopItemHtml).join('');
+    }).join('');
+  } else {
+    // By category — use canonical order, map unknown cats to Other
+    const normalise = cat => knownCats.includes(cat) ? cat : 'Other';
+    const activeCats = [...new Set(shopping.map(s => normalise(s.cat || 'Other')))];
+    const orderedCats = [...knownCats.filter(c => activeCats.includes(c)), ...activeCats.filter(c => !knownCats.includes(c))];
+    listsHtml = orderedCats.map(cat => {
+      const all = shopping.filter(s => normalise(s.cat || 'Other') === cat);
+      const items = [...all.filter(s => !s.done), ...all.filter(s => s.done)];
+      return `<div class="shop-category">${cat}</div>` + items.map(_shopItemHtml).join('');
+    }).join('');
+  }
+
+  document.getElementById('shop-lists').innerHTML = toggleHtml + listsHtml;
   document.querySelectorAll('#shop-lists .swipeable').forEach(initSwipe);
 
   if (_justDone && _justDone.col === 'shopping') {
@@ -2639,7 +2745,25 @@ function openModal(type) {
   if (type === 'event') document.getElementById('new-event-date').value = (calViewMode === 'month' && selectedMonthDay) ? selectedMonthDay : todayStr;
   if (type === 'event')     renderWhoChips('new-event-who-chips', 'new-event-who');
   if (type === 'todo')      renderWhoChips('new-todo-who-chips',  'new-todo-who');
-  if (type === 'shop')    { renderWhoChips('new-shop-who-chips',  'new-shop-who'); populateShopFavsPicker(); }
+  if (type === 'shop')    {
+    renderWhoChips('new-shop-who-chips',  'new-shop-who');
+    populateShopFavsPicker();
+    // Populate category select with any custom categories
+    const catSel = document.getElementById('new-shop-cat');
+    if (catSel) {
+      const custom = JSON.parse(localStorage.getItem('fh_custom_categories') || '[]');
+      const existing = Array.from(catSel.options).map(o => o.value);
+      custom.forEach(c => { if (!existing.includes(c)) { const o = new Option(c, c); catSel.insertBefore(o, catSel.querySelector('[value="__custom__"]')); } });
+    }
+    const catEl = document.getElementById('new-shop-cat');
+    if (catEl) catEl.onchange = function() {
+      const cf = document.getElementById('new-shop-custom-field');
+      if (cf) cf.style.display = this.value === '__custom__' ? 'block' : 'none';
+    };
+    document.getElementById('new-shop-store').value = '';
+    document.getElementById('new-shop-custom-cat').value = '';
+    document.getElementById('new-shop-custom-field').style.display = 'none';
+  }
   if (type === 'meal')    { renderWhoChips('new-meal-who-chips',  'new-meal-who'); populateMealFavsPicker('All'); }
   if (type === 'household') renderWhoChips('new-house-who-chips', 'new-house-who');
   document.getElementById('modal-overlay').classList.add('open');
@@ -2825,8 +2949,16 @@ async function saveModal() {
     if (currentModal === 'shop') {
       const name = document.getElementById('new-shop-name').value.trim(); if (!name) return;
       const qty  = document.getElementById('new-shop-qty').value || '1';
-      const cat  = document.getElementById('new-shop-cat').value;
-      await window.fbSave('shopping', { id, name, qty, cat, who: getWhoValue('new-shop-who'), done: false });
+      let cat    = document.getElementById('new-shop-cat').value;
+      if (cat === '__custom__') {
+        cat = document.getElementById('new-shop-custom-cat').value.trim() || 'Other';
+        if (cat !== 'Other') {
+          const custom = JSON.parse(localStorage.getItem('fh_custom_categories') || '[]');
+          if (!custom.includes(cat)) { custom.push(cat); localStorage.setItem('fh_custom_categories', JSON.stringify(custom)); }
+        }
+      }
+      const store = (document.getElementById('new-shop-store').value || '').trim() || null;
+      await window.fbSave('shopping', { id, name, qty, cat, store, who: getWhoValue('new-shop-who'), done: false });
       // Save as favourite if ticked
       if (document.getElementById('new-shop-save-fav').checked) {
         const favId = 'sf_' + Date.now();
@@ -2835,6 +2967,7 @@ async function saveModal() {
       }
       document.getElementById('new-shop-name').value = '';
       document.getElementById('new-shop-qty').value  = '';
+      document.getElementById('new-shop-store').value = '';
       document.getElementById('new-shop-save-fav').checked = false;
       document.getElementById('shop-autocomplete').style.display = 'none';
     }
@@ -2900,14 +3033,18 @@ function openEditItem(type, id) {
   if (type === 'shop') {
     const s = getShopping().find(x => String(x.id) === String(id)); if (!s) return;
     title.textContent = 'Edit shopping item';
+    const allCats = getShopCategories();
+    const catOpts = allCats.map(c => `<option${c===s.cat?' selected':''}>${c}</option>`).join('');
     fields.innerHTML = `
       <div class="modal-field"><label class="modal-label">Item</label>
         <input class="modal-input" id="edit-shop-name" value="${s.name}"></div>
       <div class="modal-field"><label class="modal-label">Quantity</label>
         <input class="modal-input" id="edit-shop-qty" value="${s.qty||''}"></div>
+      <div class="modal-field"><label class="modal-label">Store (optional)</label>
+        <input class="modal-input" id="edit-shop-store" value="${s.store||''}" placeholder="e.g. Lidl, Home Bargains, Amazon"></div>
       <div class="modal-field"><label class="modal-label">Category</label>
         <select class="modal-select" id="edit-shop-cat">
-          ${['Fridge & Fresh','Store Cupboard','Freezer','Household','Other'].map(c=>`<option${c===s.cat?' selected':''}>${c}</option>`).join('')}
+          ${catOpts}
         </select></div>
       <div class="modal-field"><label class="modal-label">Added by</label>
         <div id="edit-shop-who-chips" style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0"></div>
@@ -2990,10 +3127,11 @@ async function saveEditItem() {
     }
     if (type === 'shop') {
       await window.fbUpdate('shopping', id, {
-        name: document.getElementById('edit-shop-name').value.trim(),
-        qty:  document.getElementById('edit-shop-qty').value,
-        cat:  document.getElementById('edit-shop-cat').value,
-        who:  getWhoValue('edit-shop-who'),
+        name:  document.getElementById('edit-shop-name').value.trim(),
+        qty:   document.getElementById('edit-shop-qty').value,
+        cat:   document.getElementById('edit-shop-cat').value,
+        store: (document.getElementById('edit-shop-store').value || '').trim() || null,
+        who:   getWhoValue('edit-shop-who'),
       });
     }
     if (type === 'household') {
@@ -3384,6 +3522,28 @@ function closeSettingsIfBg(e) { if (e.target === document.getElementById('settin
 function openPrivacyPolicy() { document.getElementById('privacy-overlay').style.display = 'flex'; }
 function closePrivacy() { document.getElementById('privacy-overlay').style.display = 'none'; }
 
+function checkWhatsNew() {
+  const seen = localStorage.getItem('fh_seen_version');
+  if (seen === APP_VERSION) return;
+  const ov = document.getElementById('whats-new-overlay');
+  if (!ov) return;
+  document.getElementById('whats-new-version').textContent = 'Version ' + WHATS_NEW.version;
+  document.getElementById('whats-new-features').innerHTML = WHATS_NEW.features.map(f =>
+    `<div style="display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--border)">
+      <div style="font-size:22px;flex-shrink:0">${f.icon}</div>
+      <div>
+        <div style="font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;color:var(--cream);margin-bottom:2px">${f.name}</div>
+        <div style="font-size:13px;color:var(--cream-muted)">${f.desc}</div>
+      </div>
+    </div>`
+  ).join('');
+  ov.style.display = 'flex';
+}
+function closeWhatsNew() {
+  localStorage.setItem('fh_seen_version', APP_VERSION);
+  document.getElementById('whats-new-overlay').style.display = 'none';
+}
+
 async function deleteAllMyData() {
   if (!confirm('Delete ALL family data?\n\nThis will permanently remove all events, to-dos, shopping, meals, household tasks, and saved favourites from Firestore.\n\nThis cannot be undone.')) return;
   setSyncStatus('saving');
@@ -3733,6 +3893,7 @@ updateClock();
 initDrag();
 initTouchDrag();
 initOnboarding();
+setTimeout(checkWhatsNew, 1000);
 
 // ── OFFLINE DETECTION ─────────────────────────────────────────────────────────
 function setOfflineBanner(isOffline) {
