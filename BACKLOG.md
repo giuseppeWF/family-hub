@@ -554,7 +554,7 @@ Sign Google's Data Processing Agreement (DPA) to formalise Firebase's role as a 
 ---
 
 ### S3-010 · Shopping List — Who Added + Store + Better Categories
-**Status:** TODO
+**Status:** DONE — 2026-06-29
 **Priority:** High
 **Category:** Feature / UX
 
@@ -627,7 +627,7 @@ Also add ability to create a custom category — free text input that appears as
 ---
 
 ### S3-011 · "What's New" Feature Announcement System
-**Status:** TODO
+**Status:** DONE — 2026-06-29
 **Priority:** Medium
 **Category:** UX / Engagement
 
