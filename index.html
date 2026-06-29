@@ -2333,12 +2333,22 @@ function renderDashboard() {
     ? items.map(s => {
         const members = getFamilyMembers();
         const mc = members.find(m => m.name === s.who);
-        const dot = mc ? `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${mc.color};flex-shrink:0" title="${s.who}"></span>` : '';
-        const storeLabel = s.store ? `<span style="font-size:10px;color:var(--cream-muted)">${s.store}</span>` : '';
-        return `<div class="task-row" onclick="showDetail('shop','${s.id}')">
-          <div class="task-check">✓</div>
-          <div class="task-text" style="display:flex;align-items:center;gap:5px">${s.name}${dot}${storeLabel}</div>
-          <span class="task-tag" style="color:var(--cream-muted)">${s.qty||''}</span>
+        const whoChip = mc
+          ? `<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:600;color:${mc.color}"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${mc.color}"></span>${s.who}</span>`
+          : '';
+        const storeChip = s.store
+          ? `<span style="font-size:10px;color:var(--cream-muted);background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:5px;padding:1px 5px">${s.store}</span>`
+          : '';
+        const meta = (whoChip || storeChip)
+          ? `<div style="display:flex;align-items:center;gap:5px;margin-top:2px">${whoChip}${storeChip}</div>`
+          : '';
+        return `<div class="task-row" onclick="showDetail('shop','${s.id}')" style="align-items:flex-start;padding:7px 0">
+          <div class="task-check" style="margin-top:2px">✓</div>
+          <div style="flex:1;min-width:0">
+            <div class="task-text">${s.name}</div>
+            ${meta}
+          </div>
+          <span class="task-tag" style="color:var(--cream-muted);margin-top:2px">${s.qty||''}</span>
         </div>`;
       }).join('')
     : '<div style="text-align:center;padding:16px 0"><div style="font-size:28px;margin-bottom:6px">🛒</div><div style="color:var(--cream-muted);font-size:13px">Shopping list is empty</div><div style="font-size:11px;color:var(--cream-muted);opacity:0.6;margin-top:3px">Tap + to add items</div></div>';
