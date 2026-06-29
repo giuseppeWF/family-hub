@@ -2023,6 +2023,18 @@ function setSyncStatus(state) {
 let connected = false;
 window.addEventListener('fb-data', () => {
   if (!connected) { connected = true; setSyncStatus('live'); }
+  // If this device has never done setup but Firestore already has data,
+  // this is an existing hub being accessed on a new device — skip onboarding.
+  if (!localStorage.getItem('fh_onboarded') && !localStorage.getItem('fh_members')) {
+    const totalItems = (window.fbEvents||[]).length + (window.fbTodos||[]).length +
+                       (window.fbShopping||[]).length + (window.fbMeals||[]).length +
+                       (window.fbHousehold||[]).length;
+    if (totalItems > 0) {
+      localStorage.setItem('fh_onboarded', '1');
+      const ov = document.getElementById('onboarding-overlay');
+      if (ov) ov.style.display = 'none';
+    }
+  }
   if (typeof renderAll === 'function') renderAll();
   processRecurringEvents();
 });
