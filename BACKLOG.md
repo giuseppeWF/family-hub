@@ -230,6 +230,45 @@ Review all empty states across all tabs. Make sure they're friendly, have an emo
 
 ---
 
+### S3-009 · Onboarding Flow — Fixes & Polish
+**Status:** TODO
+**Priority:** Critical
+**Category:** Bug / UX
+
+**Description:**
+The onboarding flow built in S3-006 has several issues that must be fixed before family members use it. Fix all of the following in one pass.
+
+**Bug fixes:**
+
+1. **Username disappears when colour changes** — the name input is losing its value on re-render when a colour swatch is tapped. Fix: store name in a JS variable on every `oninput` event and restore it after any re-render. Do not re-render the entire form when a colour is selected — only update the colour preview.
+
+2. **Pre-populate existing members** — if `fh_members` already exists in localStorage, skip the "add members" step entirely and go straight to the hub. Only show onboarding if it is a genuine first run (no members AND no `fh_onboarded` flag). Add a "Edit family" option in Settings instead for returning users.
+
+3. **Colour picker order** — name should be entered first, colour chosen second. Reorder the fields so name input appears above colour selection in the add-member form.
+
+5. **Free colour picker** — alongside any preset colour swatches, add an `<input type="color">` so users can pick any colour they want, not just presets. The selected colour should update the chip preview in real time.
+
+6. **Share link at end of onboarding** — on the final "You're all set" screen, add a share button that calls `navigator.share()` with the hub URL (`https://giuseppewf.github.io/family-hub/`) and message "Join our Family Hub — tap this link to get started". On browsers that don't support `navigator.share()`, fall back to showing a copyable URL input field. Label: "Invite your family".
+
+**Implementation notes:**
+- The share button should also be available in Settings (not just onboarding) so the admin can share the link at any time
+- `navigator.share()` works on iOS Safari and Android Chrome natively — triggers the system share sheet (WhatsApp, email, Messages etc.)
+- Test: complete onboarding on a fresh private/incognito window to verify it works end to end
+- Test: reload on a device that already has `fh_members` set — should go straight to hub, no onboarding
+
+**Acceptance criteria:**
+- [ ] Entering a name and then tapping a colour does not clear the name
+- [ ] Returning users (fh_members exists) go straight to hub — no onboarding shown
+- [ ] Name field appears before colour picker in add-member form
+- [ ] Free colour picker (`<input type="color">`) available alongside any presets
+- [ ] Share button on final onboarding screen using navigator.share()
+- [ ] Share button also available in Settings panel
+- [ ] Share falls back to copyable URL if navigator.share() not supported
+- [ ] Audit passes with zero issues
+
+
+---
+
 ## 🔌 SPRINT 5 — Integrations
 
 ### S5-001 · Google Calendar Sync (Read)
@@ -306,7 +345,12 @@ Add Google Sign-In so family members authenticate before accessing the hub. Impl
 - All Firestore reads/writes must include `familyId` in the document
 - Migrate existing data: add `familyId` field to all existing documents
 - Replace Phase 1 Firestore security rules with Phase 2 rules (already written in `firestore.rules`)
-- Family invite flow: admin generates a 6-digit invite code, others enter it on first sign-in
+- Family invite flow: admin generates a 6-digit invite code stored in Firestore with a `createdAt` timestamp and `used: false` flag
+- Invite codes expire after 24 hours (check `createdAt` on redemption)
+- Invite codes are single-use — set `used: true` immediately on redemption, reject if already used
+- Expired/used codes are deleted from Firestore by a cleanup function that runs on app load
+- Admin can generate a new code at any time — old codes are invalidated when a new one is generated
+- Show code expiry time to admin: "Code expires in 23h 45m"
 - Store family config in `/families/{familyId}` with adminUid, name, members sub-collection
 
 **Acceptance criteria:**
@@ -318,7 +362,10 @@ Add Google Sign-In so family members authenticate before accessing the hub. Impl
 - [ ] Existing family data migrated with familyId
 - [ ] Sign out option in Settings
 - [ ] Audit passes with zero issues
-- [ ] [DECISION NEEDED] What happens if someone loses access to their Google account?
+- [ ] Invite codes are single-use and expire after 24 hours
+- [ ] Admin can regenerate a new invite code at any time from Settings
+- [ ] Expired or used codes are deleted from Firestore automatically
+- [ ] [RESOLVED] Account recovery: self-service via short-lived invite code (24hr expiry, single-use). Admin generates new code if needed. This balances speed vs security — a permanent code would be a hijack risk.
 
 ---
 
@@ -348,7 +395,7 @@ Deploy the Phase 1 Firestore security rules to replace the current test mode (wh
 ---
 
 ### S5-005 · Privacy Policy & Data Deletion
-**Status:** DONE — 2026-06-29
+**Status:** TODO
 **Priority:** High
 **Category:** Compliance / GDPR
 
@@ -533,7 +580,7 @@ The edit modals (`openEditItem`) still use plain dropdown selects for the "who" 
 ---
 
 ### S3-008 · Checked Items — Move to Done Section on Completion
-**Status:** DONE — 2026-06-29
+**Status:** TODO
 **Priority:** High
 **Category:** UX
 
