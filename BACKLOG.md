@@ -348,7 +348,7 @@ Deploy the Phase 1 Firestore security rules to replace the current test mode (wh
 ---
 
 ### S5-005 · Privacy Policy & Data Deletion
-**Status:** TODO
+**Status:** DONE — 2026-06-29
 **Priority:** High
 **Category:** Compliance / GDPR
 
@@ -533,7 +533,7 @@ The edit modals (`openEditItem`) still use plain dropdown selects for the "who" 
 ---
 
 ### S3-008 · Checked Items — Move to Done Section on Completion
-**Status:** TODO
+**Status:** DONE — 2026-06-29
 **Priority:** High
 **Category:** UX
 
