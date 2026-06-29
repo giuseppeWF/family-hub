@@ -231,7 +231,7 @@ Review all empty states across all tabs. Make sure they're friendly, have an emo
 ---
 
 ### S3-009 · Onboarding Flow — Fixes & Polish
-**Status:** DONE — 2026-06-29
+**Status:** TODO
 **Priority:** Critical
 **Category:** Bug / UX
 
@@ -271,57 +271,90 @@ The onboarding flow built in S3-006 has several issues that must be fixed before
 
 ## 🔌 SPRINT 5 — Integrations
 
-### S5-001 · Google Calendar Sync (Read)
+### S5-001 · Google Calendar Sync (Read) — DEPRIORITISED
+**Status:** BLOCKED
+**Priority:** Low
+**Category:** Integration
+
+**Description:**
+Automatic Google Calendar sync has been deprioritised in favour of the deliberate "Forward to Family Hub" approach (S5-002). 
+
+**Reasoning:**
+Most families don't cleanly separate work and personal calendars. Automatic sync would import noise (standups, pipeline reviews, internal meetings) alongside genuinely family-relevant events. There is no reliable automated filter that works for everyone — calendar-level filtering assumes multiple calendars, visibility filtering assumes consistent tagging, keyword filtering assumes new habits.
+
+The forward/share approach is more deliberate, lower noise, and works regardless of how someone manages their existing calendar. We will revisit automatic sync only if family testing reveals strong demand for it.
+
+**If we do revisit this, the agreed approach will be:**
+- User explicitly selects which Google Calendar(s) to sync (not all)
+- Private/personal visibility events only (not work meetings)
+- Option to sync back hub events to Google Calendar (bi-directional)
+- Setup wizard asks: "sync a calendar" or "forward individual events" — but only once both options are built
+
+**Acceptance criteria (future):**
+- [ ] Per-calendar selection during setup
+- [ ] Private events only filter
+- [ ] Bi-directional sync option
+- [ ] [DECISION NEEDED] Revisit after S5-002 is live and family feedback gathered
+
+---
+
+### S5-002 · Forward to Family Hub
 **Status:** TODO
 **Priority:** High
 **Category:** Integration
 
 **Description:**
-Pull real calendar events from Google Calendar into the hub. Read-only first — events from Google appear in the calendar tab alongside manually added ones.
+The primary calendar integration approach. Family members forward or share any item — from any app, any calendar, any platform — to a shared Family Hub inbox. A parser detects the type and creates the right item on the hub automatically. Works for events, tasks, shopping, out of office, and working location. No OAuth required, no calendar lock-in, no noise.
+
+This is the feature Skylight charges $79/year for. We build it free.
+
+**Supported forward types:**
+
+| Type | Prefix / Detection | Hub Action |
+|------|--------------------|------------|
+| Event | `event:` or calendar invite | Creates calendar event |
+| To Do / Task | `task:` or `todo:` | Creates to-do item |
+| Shopping | `shopping:` or `shop:` | Adds to shopping list |
+| Out of Office | `ooo:` or detected OOO pattern | Shows OOO banner on dashboard next to person's name |
+| Working location | `location:` or `wfh:` / `wfo:` | Shows location indicator on dashboard (e.g. "Giuseppe — London 📍") |
+| Meal | `meal:` | Adds to meal planner for specified day |
 
 **Implementation notes:**
-- Requires Google OAuth — user signs in with Google
-- Use Google Calendar API v3
-- Scope: `https://www.googleapis.com/auth/calendar.readonly`
-- Pull events for current week + 2 weeks ahead
-- Store in separate Firestore collection `gcal_events` to avoid mixing with manual events
-- Show with a small Google icon indicator
-- [DECISION NEEDED] Need to create OAuth credentials in Google Cloud Console — Giuseppe to set up
+- Use Gmail + Google Apps Script (lucarellifamily@gmail.com or dedicated familyhub@ address)
+- Apps Script trigger: runs every 5 minutes, checks for unread emails in a "Family Hub" label
+- Parser reads subject line for prefix, falls back to body parsing
+- Type auto-detection: OOO events contain "Out of office" / "OOO" patterns; working location contains "Working from [place]" / "WFH" / "WFO"
+- Writes directly to Firestore via REST API using Firebase Admin credentials stored in Apps Script properties
+- For OOO and working location: store in new Firestore collection `presence` with fields: `who`, `type` (ooo/location), `value` (location string or "OOO"), `from`, `to`
+- Dashboard shows presence indicators next to family member names in the header or summary banner
+- Items appear within 5 minutes of forwarding
+- Mark processed emails as read and archive them
+- [DECISION NEEDED] Giuseppe to set up Apps Script and share service account credentials
+
+**Forward examples:**
+```
+Subject: event: Dentist - Malachi - Tuesday 10am-10:30am
+Subject: task: Hoover lounge - Mack
+Subject: shopping: Milk x2, bread, eggs, dog food
+Subject: ooo: Giuseppe - Mon 30 Jun to Wed 2 Jul
+Subject: location: Giuseppe - London - Tuesday
+Subject: meal: Pasta arrabbiata - Thursday
+```
+
+**Bi-directional sync (future):**
+When events are added directly on the Family Hub, show a prompt: "3 events were added to the hub — sync to your Google Calendar?" User taps yes, events are pushed back to their personal Google Calendar. This requires OAuth (S5-001 scope) and is a future enhancement once S5-002 is live and validated.
 
 **Acceptance criteria:**
-- [ ] Sign in with Google button in Settings
-- [ ] Google Calendar events appear in calendar tab
-- [ ] Visually distinct from manually added events
-- [ ] Refreshes every 15 minutes
-- [ ] Works across all family devices (shared OAuth token stored in Firestore)
-- [ ] Audit passes
-
----
-
-### S5-002 · Forward to Add (Email → Hub)
-**Status:** TODO
-**Priority:** High  
-**Category:** Integration
-
-**Description:**
-Forward an email to a shared family address and it automatically creates an event, task, or shopping item in the hub. The killer feature that Skylight charges $79/year for.
-
-**Implementation notes:**
-- Use Gmail + Google Apps Script
-- Create a shared `familyhub@gmail.com` (or use lucarellifamily@gmail.com with a filter)
-- Apps Script runs on a trigger every 5 minutes
-- Parses subject line: "shopping: milk, bread, eggs" → adds to shopping
-- Parses subject line: "task: hoover lounge - Malachi" → adds todo
-- Parses subject line: "event: dentist Tuesday 10am - Luca" → adds calendar event
-- Writes directly to Firestore via REST API
-- [DECISION NEEDED] Giuseppe to create Apps Script and share credentials
-
-**Acceptance criteria:**
-- [ ] Forward email with "shopping:" prefix → items added to shopping list
-- [ ] Forward email with "task:" prefix → todo created
-- [ ] Forward email with "event:" prefix → calendar event created
+- [ ] Forward email with "event:" → calendar event created within 5 mins
+- [ ] Forward email with "task:" or "todo:" → to-do created
+- [ ] Forward email with "shopping:" → items added to shopping list
+- [ ] Forward email with "ooo:" → OOO indicator shown on dashboard for that person
+- [ ] Forward email with "location:" → working location shown on dashboard
+- [ ] Forward email with "meal:" → meal added to planner
+- [ ] Auto-detection works for standard OOO calendar events forwarded as email
+- [ ] Processed emails archived automatically
 - [ ] Items appear within 5 minutes
-- [ ] Audit passes
+- [ ] [DECISION NEEDED] Giuseppe to set up Apps Script
 
 ---
 
@@ -518,6 +551,170 @@ Sign Google's Data Processing Agreement (DPA) to formalise Firebase's role as a 
 - [ ] Compliance register updated
 
 ---
+---
+
+### S3-010 · Shopping List — Who Added + Store + Better Categories
+**Status:** TODO
+**Priority:** High
+**Category:** Feature / UX
+
+**Description:**
+Three related improvements to the shopping list that make it significantly more useful for a family where different people shop at different stores.
+
+**1. Show who added each item**
+On the dashboard shopping widget and the full shopping tab, show the name of whoever added the item next to it. Useful context — "Malachi added dog food" tells Ross it's important, not optional.
+
+- Already stored as `who` field on shopping items (added in earlier sprint)
+- Just needs to be displayed in the shopping list render
+- Show as small coloured name tag using existing `who-tag-{name}` CSS classes
+- On dashboard widget: show as a small dot in the person's colour (space is limited)
+- On full shopping tab: show name tag inline with the item
+
+**2. Optional store field**
+When adding a shopping item, an optional "Store" field lets you specify where to buy it. Particularly useful for items that only come from specific shops (Home Bargains, Lidl, Aldi, Costco, Amazon etc.).
+
+- Add optional `store` field to shopping items in Firestore
+- Add "Store (optional)" input to the add shopping modal — free text input
+- Add "Store" field to the edit shopping modal
+- On the full shopping tab: group items by store if stores are specified, otherwise group by category as now
+- Show store as a small grey label on each item
+- On dashboard widget: show store name in muted text if specified
+
+**3. Replace fixed categories with Apple-standard categories**
+Current categories (Fridge & Fresh, Store Cupboard, Freezer, Household) are too limited. Replace with Apple Shopping List standard categories which users will already recognise:
+
+New categories:
+- Produce
+- Dairy & Eggs
+- Meat
+- Seafood
+- Bakery
+- Frozen Foods
+- Canned Goods
+- Dry Goods & Pasta
+- Snacks & Sweets
+- Beverages
+- Alcohol
+- Condiments & Sauces
+- Household
+- Personal Care
+- Baby
+- Pet Supplies
+- Other
+
+Also add ability to create a custom category — free text input that appears as an option alongside the standard ones, saved to localStorage as `fh_custom_categories`.
+
+**Implementation notes:**
+- Update `new-shop-cat` select options in add modal
+- Update `edit-shop-cat` select options in edit modal
+- Update renderShopping() to use new category list for grouping
+- Migrate display only — existing items keep their old category value, just display under "Other" if not in new list
+- Store grouping: if any item has a `store` field set, show a "By Store" toggle at top of shopping tab. Default view remains "By Category"
+- Add `store` to required_fields in audit.py? No — it's optional, so don't add to audit
+
+**Acceptance criteria:**
+- [ ] Who added shown on full shopping tab (name tag in their colour)
+- [ ] Who added shown as colour dot on dashboard widget
+- [ ] Store field available in add modal (optional)
+- [ ] Store field available in edit modal
+- [ ] Store shown on item in shopping list
+- [ ] "By Store" grouping toggle appears when any item has a store set
+- [ ] Apple-standard categories in add and edit modals
+- [ ] Custom category option available
+- [ ] Existing items with old categories display under "Other" gracefully
+- [ ] Audit passes
+
+---
+
+### S3-011 · "What's New" Feature Announcement System
+**Status:** TODO
+**Priority:** Medium
+**Category:** UX / Engagement
+
+**Description:**
+Every time a significant new feature is deployed, show a "What's New" popup to family members on their next visit. Keeps the family informed about new capabilities without them having to check release notes.
+
+**Implementation notes:**
+- Store current app version in a JS constant at top of index.html: `const APP_VERSION = '2.1';`
+- On app load, compare `APP_VERSION` with `localStorage.getItem('fh_seen_version')`
+- If different (or not set), show the What's New modal after a 1-second delay
+- Modal shows: title "🎉 What's New", version number, list of new features with emoji icons
+- Each feature entry: icon + feature name + one-line description
+- "Got it" button sets `fh_seen_version = APP_VERSION` in localStorage and closes modal
+- Keep announcements for last 2 versions only (don't show old news)
+- Hardcode announcements in JS as an array — no backend needed
+
+**Feature announcement format:**
+```javascript
+const WHATS_NEW = {
+  version: '2.1',
+  features: [
+    { icon: '📋', name: 'Forward to Family Hub', desc: 'Email or share any event, task or shopping item directly to the hub' },
+    { icon: '🏪', name: 'Store labels on shopping', desc: 'Tag items with the store — Lidl, Home Bargains, Amazon etc.' },
+    { icon: '👥', name: 'See who added what', desc: 'Shopping items now show who added them' },
+  ]
+};
+```
+
+**On the video idea:**
+Add an optional `videoUrl` field to each feature announcement. If present, show a small play button next to the feature. Tapping opens the video in a modal (YouTube embed or direct MP4). For now the field can be null — the infrastructure is there when videos are ready.
+
+```javascript
+{ icon: '📋', name: 'Forward to Family Hub', desc: '...', videoUrl: null }
+```
+
+**Acceptance criteria:**
+- [ ] What's New modal appears on first load after version change
+- [ ] Does not appear again once dismissed
+- [ ] Shows feature list with icons and descriptions
+- [ ] "Got it" button dismisses and remembers
+- [ ] Video URL field supported in data structure (even if null for now)
+- [ ] Modal is dismissible by tapping outside
+- [ ] Consistent styling with other modals
+- [ ] APP_VERSION constant at top of file — easy for agent to find and update
+- [ ] Audit passes
+
+---
+
+### S3-012 · User Documentation & Feature Guide
+**Status:** TODO
+**Priority:** Medium
+**Category:** Documentation
+
+**Description:**
+Create simple, friendly user documentation that any family member can follow. Not a technical manual — a guide written for people who just want to know how to use the app.
+
+**Approach:**
+A `guide.html` page hosted alongside the app on GitHub Pages at `https://giuseppewf.github.io/family-hub/guide`. Linked from the Settings panel ("Help & Guide" button). Matches the app's visual style.
+
+**Content to cover:**
+- Getting started (onboarding, sharing with family)
+- Dashboard overview — what each widget shows
+- Calendar — adding events, recurring events, month view
+- To-dos & Chores — adding tasks, assigning to people, recurring tasks, due dates
+- Shopping list — adding items, categories, stores, ticking off while shopping
+- Meals — planning the week, favourites, picking from the meal bank
+- Household Tasks — projects, rooms, priorities
+- Forward to Family Hub — how to forward events, tasks, shopping items
+- Settings — adding/removing family members, renaming the hub, sharing the link
+- FAQ — why is my data not showing? How do I get it on my phone? Can I use it on multiple devices?
+
+**Format:**
+- Single HTML file, same dark teal styling as the app
+- Each section has a clear heading, 2-3 sentences of explanation, and a concrete example
+- Screenshots or simple diagrams where helpful (can be added later)
+- Mobile-friendly — someone will read this on their phone
+
+**Acceptance criteria:**
+- [ ] guide.html created and pushed to repo
+- [ ] Accessible at /family-hub/guide URL
+- [ ] All major features documented
+- [ ] Linked from Settings panel ("Help & Guide" button)
+- [ ] Mobile-friendly layout
+- [ ] Consistent visual style with the app
+- [ ] Short and friendly — not a wall of text
+
+
 ## 💡 FUTURE / COMMERCIAL
 
 ### F-001 · Multi-household Support
@@ -546,6 +743,49 @@ Sign Google's Data Processing Agreement (DPA) to formalise Firebase's role as a 
 **Category:** Commercial
 
 **Description:** Lightweight PWA optimised for phone use — faster to add items than opening the full hub URL.
+
+---
+
+### F-004 · Bi-directional Calendar Sync
+**Status:** TODO
+**Priority:** Medium
+**Category:** Commercial / Integration
+
+**Description:**
+When events are created on the Family Hub, offer to push them back to family members' personal Google Calendars. Closes the loop — the hub becomes both a receiver and a source of calendar truth.
+
+**Trigger:** After any event is added to the hub (manually or via forward), show a notification: "3 new events on the hub — add to your Google Calendar?" Family members can accept or dismiss.
+
+**Implementation notes:**
+- Requires Google OAuth write scope: `https://www.googleapis.com/auth/calendar.events`
+- Each family member authenticates separately — events push to their own calendar
+- Store OAuth tokens per family member in Firestore (encrypted)
+- [DECISION NEEDED] Revisit after S5-002 is live and validated. Only build if family testing reveals demand.
+
+---
+
+### F-005 · Presence & Availability Dashboard
+**Status:** TODO
+**Priority:** Medium
+**Category:** Feature / Commercial
+
+**Description:**
+Expand the working location and OOO concepts from S5-002 into a richer presence layer on the dashboard. At a glance, the family knows not just what's happening but where everyone is and whether they're reachable.
+
+**Presence types:**
+- 🏠 Home
+- 🏢 Office / specific city  
+- ✈️ Travelling (different country)
+- 🤒 Unwell
+- 🔕 Do not disturb
+- 🌴 Holiday
+
+**Implementation notes:**
+- Manual update: tap your name on dashboard to set your status
+- Automatic update: via S5-002 forward (location: / ooo:)
+- Status shown as small indicator next to name in header or summary banner
+- Optional: auto-clear after a set time (e.g. OOO clears when the date passes)
+- This is especially useful for Giuseppe when travelling for Whatfix — family knows he's in Bangalore without having to ask
 
 ---
 
