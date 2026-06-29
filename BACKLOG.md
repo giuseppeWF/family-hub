@@ -10,7 +10,7 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED | DECISION NEEDED
 ## 🚀 SPRINT 3 — Quality of Life
 
 ### S3-001 · Weather Widget
-**Status:** REMOVED — not adding value, removed 2026-06-27
+**Status:** TODO
 **Priority:** Medium
 **Category:** Feature — Dashboard
 
@@ -37,7 +37,7 @@ Add a weather widget to the dashboard overview that shows current conditions for
 ---
 
 ### S3-002 · Recurring Events — Auto-generate next occurrence
-**Status:** DONE — 2026-06-27
+**Status:** TODO
 **Priority:** High
 **Category:** Feature — Calendar
 
@@ -61,7 +61,7 @@ When a recurring event date passes, automatically generate the next occurrence i
 ---
 
 ### S3-003 · Offline Mode / Service Worker
-**Status:** DONE — 2026-06-27
+**Status:** TODO
 **Priority:** Medium
 **Category:** Infrastructure
 
@@ -91,7 +91,7 @@ navigator.serviceWorker.register(URL.createObjectURL(blob));
 ---
 
 ### S3-004 · Edit Modal — Who Chip Selector
-**Status:** DONE — implemented as part of S3-007 (renderWhoChipsWithValue + all edit modal cases)  
+**Status:** TODO  
 **Priority:** High
 **Category:** Bug / Consistency
 
@@ -112,7 +112,7 @@ The edit modals (openEditItem) still use plain text dropdowns for the "who" fiel
 ---
 
 ### S3-005 · Dog Walk Rota (Paloma & Otis)
-**Status:** REMOVED — not adding value, removed 2026-06-27
+**Status:** TODO
 **Priority:** Low
 **Category:** Feature — Dashboard
 
@@ -136,7 +136,7 @@ A simple rotating dog walk rota. Shows who walks Paloma & Otis this morning and 
 ---
 
 ### S3-006 · Onboarding / First Run Setup
-**Status:** DONE — 2026-06-28
+**Status:** TODO
 **Priority:** Medium
 **Category:** UX
 
@@ -286,6 +286,191 @@ Forward an email to a shared family address and it automatically creates an even
 
 ---
 
+---
+
+## 🔐 SPRINT 5 — Security & Multi-tenancy
+
+### S5-003 · Google Sign-In + Multi-tenant Firestore
+**Status:** TODO
+**Priority:** Critical
+**Category:** Infrastructure / Security
+
+**Description:**
+Add Google Sign-In so family members authenticate before accessing the hub. Implement multi-tenant Firestore architecture so each family's data is completely isolated from other families. This is the foundational change required before the app can be shared with anyone outside the immediate family.
+
+**Implementation notes:**
+- Add Firebase Authentication with Google provider
+- On first sign-in: check if user belongs to an existing family (via `families` collection)
+- If no family: show "Create a family" or "Join with invite code" screen
+- If family exists: load their data scoped to their `familyId`
+- All Firestore reads/writes must include `familyId` in the document
+- Migrate existing data: add `familyId` field to all existing documents
+- Replace Phase 1 Firestore security rules with Phase 2 rules (already written in `firestore.rules`)
+- Family invite flow: admin generates a 6-digit invite code, others enter it on first sign-in
+- Store family config in `/families/{familyId}` with adminUid, name, members sub-collection
+
+**Acceptance criteria:**
+- [ ] Sign in with Google button on first load (if not authenticated)
+- [ ] New family creation flow (name your hub, invite family members)
+- [ ] Invite code generation and acceptance
+- [ ] All Firestore data scoped to familyId
+- [ ] Phase 2 security rules active — users can only see their own family's data
+- [ ] Existing family data migrated with familyId
+- [ ] Sign out option in Settings
+- [ ] Audit passes with zero issues
+- [ ] [DECISION NEEDED] What happens if someone loses access to their Google account?
+
+---
+
+### S5-004 · Firestore Security Rules — Phase 1 Deployment
+**Status:** TODO
+**Priority:** Critical
+**Category:** Security
+
+**Description:**
+Deploy the Phase 1 Firestore security rules to replace the current test mode (which allows anyone to read/write). Phase 1 rules require authentication but don't yet enforce per-family isolation (that comes with S5-003). This is the immediate security fix.
+
+**Implementation notes:**
+- Rules file is already written at `firestore.rules` in the repo
+- Deploy via Firebase Console: Firestore → Rules → paste and publish
+- OR install Firebase CLI and run: `firebase deploy --only firestore:rules`
+- Test rules in Firebase Console rules simulator before deploying
+- Verify existing app still works after deployment (requires sign-in, which we don't have yet — may need to temporarily allow authenticated OR unauthenticated reads until S5-003 is done)
+- Interim approach: keep read open but restrict write to prevent data tampering
+
+**Acceptance criteria:**
+- [ ] Firestore no longer in test mode
+- [ ] Rules deployed and active
+- [ ] App still functions correctly
+- [ ] Firebase Console shows rules version history
+- [ ] [DECISION NEEDED] Coordinate timing with S5-003 — deploying auth rules before auth is built will break the app
+
+---
+
+### S5-005 · Privacy Policy & Data Deletion
+**Status:** TODO
+**Priority:** High
+**Category:** Compliance / GDPR
+
+**Description:**
+Write and publish a privacy policy covering what data Family Hub collects, why, how long it is kept, and how to request deletion. Add a "Delete all my family's data" option in Settings. Required before any public release or beta testing outside the immediate family.
+
+**Implementation notes:**
+- Privacy policy to be hosted at GitHub Pages: `/family-hub/privacy`
+- Create a simple `privacy.html` page in the repo
+- Cover: data collected, purpose, legal basis, retention, third parties (Firebase/Google), user rights, contact
+- In Settings panel: add "Delete family data" button (admin only in Phase 2, anyone in Phase 1)
+- Delete function: loop through all collections and delete all documents for this familyId
+- Show confirmation dialog with "This cannot be undone" warning
+- After deletion: clear localStorage, sign out, show "Data deleted" screen
+
+**Acceptance criteria:**
+- [ ] Privacy policy page live at /family-hub/privacy
+- [ ] Policy covers all GDPR obligations (see compliance register)
+- [ ] "Delete all data" button in Settings with confirmation
+- [ ] Deletion removes all Firestore documents for the family
+- [ ] Deletion clears localStorage
+- [ ] Link to privacy policy shown on sign-in screen
+- [ ] Audit passes
+
+---
+
+### S5-006 · Firebase API Key Restriction
+**Status:** TODO
+**Priority:** High
+**Category:** Security
+
+**Description:**
+Restrict the Firebase API key so it can only be used from the Family Hub domain. Currently the key is unrestricted — anyone who reads the source code could use it. This is a quick Google Cloud Console change, not a code change.
+
+**Implementation notes:**
+- Go to Google Cloud Console → APIs & Services → Credentials
+- Find the Browser key for the Family Hub Firebase project
+- Under "Application restrictions" → select "HTTP referrers (web sites)"
+- Add: `https://giuseppewf.github.io/*` and `http://localhost/*` (for local dev)
+- Save and test that the app still works
+- Note: this does not prevent determined attackers but raises the bar significantly
+- Document the restriction in the compliance register
+
+**Acceptance criteria:**
+- [ ] API key restricted to family-hub domain in Google Cloud Console
+- [ ] App still functions correctly from GitHub Pages URL
+- [ ] App still functions from local dev (localhost)
+- [ ] Compliance register updated
+- [ ] [DECISION NEEDED] Add the SyncGo's local IP? Or rely on domain restriction only?
+
+---
+
+## 📋 COMPLIANCE TRACK
+
+### C-001 · ICO Registration
+**Status:** TODO
+**Priority:** High
+**Category:** Compliance / Legal
+
+**Description:**
+Register with the Information Commissioner's Office (ICO) as a data controller. Required under UK GDPR before any commercial activity involving personal data processing. Annual fee: £40 for small organisations (turnover under £632k, fewer than 10 staff).
+
+**Steps:**
+1. Go to ico.org.uk/registration
+2. Complete the self-assessment to confirm registration is required
+3. Pay £40 annual fee
+4. Keep registration number on file — include in privacy policy
+
+**Acceptance criteria:**
+- [ ] ICO registration completed
+- [ ] Registration number documented
+- [ ] Privacy policy updated with ICO registration number
+- [ ] Annual renewal reminder set
+
+---
+
+### C-002 · Cyber Essentials Certification
+**Status:** TODO
+**Priority:** Medium
+**Category:** Compliance / Certification
+
+**Description:**
+Achieve Cyber Essentials certification — the UK government-backed baseline security standard. Covers five key controls: firewalls, secure configuration, access control, malware protection, and patch management. ~£300-500, takes 2-4 weeks. Strong trust signal for UK buyers.
+
+**Prerequisites:** S5-003 (auth), S5-004 (security rules), S5-006 (API key restriction) should all be complete first.
+
+**Steps:**
+1. Choose a certification body (e.g. IASME, Cyber Essentials company list on NCSC website)
+2. Complete self-assessment questionnaire covering the five controls
+3. Submit for independent review
+4. Receive certificate (valid 12 months)
+
+**Acceptance criteria:**
+- [ ] All five Cyber Essentials controls verified as implemented
+- [ ] Self-assessment questionnaire completed
+- [ ] Certificate received and stored
+- [ ] Certificate number added to compliance register
+- [ ] Certificate renewal reminder set (annual)
+
+---
+
+### C-003 · Data Processing Agreement with Google/Firebase
+**Status:** TODO
+**Priority:** Medium
+**Category:** Compliance / GDPR
+
+**Description:**
+Sign Google's Data Processing Agreement (DPA) to formalise Firebase's role as a data processor. Required under GDPR when using a third-party processor. Google offers a standard DPA through the Google Cloud Console.
+
+**Steps:**
+1. Go to Google Cloud Console → IAM & Admin → Data Processing Amendment
+2. Review and accept Google's standard DPA
+3. Download and store a copy
+4. Reference in privacy policy ("We have a DPA in place with Google LLC")
+
+**Acceptance criteria:**
+- [ ] Google DPA reviewed and accepted
+- [ ] Copy downloaded and stored securely
+- [ ] Privacy policy updated to reference DPA
+- [ ] Compliance register updated
+
+---
 ## 💡 FUTURE / COMMERCIAL
 
 ### F-001 · Multi-household Support
@@ -320,7 +505,7 @@ Forward an email to a shared family address and it automatically creates an even
 ---
 
 ### S3-007 · Edit Modal — Multi-person Who Chip Selector
-**Status:** DONE — 2026-06-27
+**Status:** TODO
 **Priority:** High
 **Category:** Bug / Consistency
 
@@ -348,7 +533,7 @@ The edit modals (`openEditItem`) still use plain dropdown selects for the "who" 
 ---
 
 ### S3-008 · Checked Items — Move to Done Section on Completion
-**Status:** DONE — 2026-06-27
+**Status:** TODO
 **Priority:** High
 **Category:** UX
 
