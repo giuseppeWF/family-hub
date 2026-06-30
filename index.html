@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="theme-color" content="#0B2028">
 <title>Family Hub</title>
 <!-- Firebase SDK -->
@@ -48,7 +51,7 @@
     listenCol('household', d => { window.fbHousehold  = d; window.dispatchEvent(new CustomEvent('fb-data')); });
     listenCol('shopfavs',  d => { window.fbShopFavs   = d; window.dispatchEvent(new CustomEvent('fb-data')); });
     listenCol('mealfavs',  d => { window.fbMealFavs   = d; window.dispatchEvent(new CustomEvent('fb-data')); });
-    listenCol('settings',  d => { window.fbSettings   = d; window.dispatchEvent(new CustomEvent('fb-data')); });
+    listenCol('settings',  d => { window.fbSettings = d; window._settingsConnected = true; window.dispatchEvent(new CustomEvent('fb-data')); });
   });
 
   // ── Write helpers (exposed globally) ──────────────────────────────────────
@@ -1778,6 +1781,7 @@
             <option>Monday</option><option>Tuesday</option><option>Wednesday</option>
             <option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option>
           </select>
+          <div id="meal-day-warn" style="display:none;font-size:12px;color:var(--amber);margin-top:5px">⚠️ A meal already exists for this day — saving will replace it</div>
         </div>
         <div class="modal-field">
           <label class="modal-label">Notes (optional)</label>
@@ -1958,6 +1962,8 @@ window.fbHousehold   = [];
 window.fbShopFavs    = [];
 window.fbMealFavs    = [];
 window.fbSettings    = [];
+window._settingsConnected = false;
+let _membersSeedDone = false;
 
 // Local getters — always read from Firebase-synced globals
 function getEvents()   { return window.fbEvents   || []; }
@@ -2128,20 +2134,34 @@ window.addEventListener('fb-data', () => {
     const hn = document.querySelector('.hub-name');
     if (hn) hn.textContent = fbHub.name;
   }
-  // Sync members: seed Firestore from localStorage, or apply Firestore members here
-  const fbMem = (window.fbSettings || []).find(s => s.id === 'members');
-  const localMemStr = localStorage.getItem('fh_members');
-  if (!fbMem && localMemStr) {
-    try {
-      const members = JSON.parse(localMemStr);
-      window.fbSave('settings', { id: 'members', members, updatedAt: new Date().toISOString() });
-    } catch(_) {}
-  } else if (fbMem && fbMem.members && fbMem.members.length > 0) {
-    const fbStr = JSON.stringify(fbMem.members);
-    if (fbStr !== localStorage.getItem('fh_members')) {
-      localStorage.setItem('fh_members', fbStr);
-      injectMemberStyles(fbMem.members);
-      refreshAllDropdowns(fbMem.members);
+  // Sync members: one-time validation on first settings load, then ongoing sync
+  const _isMemberListValid = arr => arr && arr.length >= 2 &&
+    DEFAULT_MEMBERS.some(dm => arr.some(m => m.name === dm.name));
+  let _memberSyncSkip = false;
+  if (!_membersSeedDone && window._settingsConnected) {
+    _membersSeedDone = true;
+    const fbMem2 = (window.fbSettings || []).find(s => s.id === 'members');
+    const localMemStr2 = localStorage.getItem('fh_members');
+    const localParsed = (() => { try { return localMemStr2 ? JSON.parse(localMemStr2) : null; } catch(_){return null;} })();
+    if (!_isMemberListValid(fbMem2 && fbMem2.members)) {
+      // Firestore has invalid/missing members — restore from localStorage or defaults
+      const toSave = _isMemberListValid(localParsed) ? localParsed : DEFAULT_MEMBERS;
+      window.fbSave('settings', { id: 'members', members: toSave, updatedAt: new Date().toISOString() });
+      localStorage.setItem('fh_members', JSON.stringify(toSave));
+      injectMemberStyles(toSave);
+      refreshAllDropdowns(toSave);
+      _memberSyncSkip = true; // don't overwrite with stale Firestore data below
+    }
+  }
+  if (!_memberSyncSkip && _membersSeedDone) {
+    const fbMem = (window.fbSettings || []).find(s => s.id === 'members');
+    if (fbMem && _isMemberListValid(fbMem.members)) {
+      const fbStr = JSON.stringify(fbMem.members);
+      if (fbStr !== localStorage.getItem('fh_members')) {
+        localStorage.setItem('fh_members', fbStr);
+        injectMemberStyles(fbMem.members);
+        refreshAllDropdowns(fbMem.members);
+      }
     }
   }
   if (typeof renderAll === 'function') renderAll();
@@ -2900,7 +2920,21 @@ function openModal(type) {
     document.getElementById('new-shop-custom-cat').value = '';
     document.getElementById('new-shop-custom-field').style.display = 'none';
   }
-  if (type === 'meal')    { renderWhoChips('new-meal-who-chips',  'new-meal-who'); populateMealFavsPicker('All'); }
+  if (type === 'meal') {
+    renderWhoChips('new-meal-who-chips', 'new-meal-who');
+    populateMealFavsPicker('All');
+    // Pre-select next available day (first day without a meal)
+    const takenDays = new Set(getMeals().map(m => m.day));
+    const allDays = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+    const nextFree = allDays.find(d => !takenDays.has(d));
+    const daySel = document.getElementById('new-meal-day');
+    if (daySel && nextFree) daySel.value = nextFree;
+    // Warn inline if selected day is taken
+    if (daySel) daySel.onchange = function() {
+      const warn = document.getElementById('meal-day-warn');
+      if (warn) warn.style.display = takenDays.has(this.value) ? 'block' : 'none';
+    };
+  }
   if (type === 'household') renderWhoChips('new-house-who-chips', 'new-house-who');
   document.getElementById('modal-overlay').classList.add('open');
 }
@@ -3213,9 +3247,13 @@ function openEditItem(type, id) {
   if (type === 'meal') {
     const m = getMeals().find(x => String(x.id) === String(id)); if (!m) return;
     title.textContent = 'Edit meal';
+    const mDays = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+    const dayOpts = mDays.map(d => `<option${m.day === d ? ' selected' : ''}>${d}</option>`).join('');
     fields.innerHTML = `
       <div class="modal-field"><label class="modal-label">Meal name</label>
         <input class="modal-input" id="edit-meal-name" value="${m.name}"></div>
+      <div class="modal-field"><label class="modal-label">Day</label>
+        <select class="modal-select" id="edit-meal-day">${dayOpts}</select></div>
       <div class="modal-field"><label class="modal-label">Notes</label>
         <input class="modal-input" id="edit-meal-notes" value="${m.notes||''}"></div>
       <div class="modal-field"><label class="modal-label">Who's cooking?</label>
@@ -3280,8 +3318,15 @@ async function saveEditItem() {
       });
     }
     if (type === 'meal') {
+      const newDay = document.getElementById('edit-meal-day').value;
+      const conflict = getMeals().find(m => m.day === newDay && String(m.id) !== String(id));
+      if (conflict) {
+        if (!confirm(`${newDay} already has "${conflict.name}". Replace it?`)) return;
+        await window.fbDelete('meals', conflict.id);
+      }
       await window.fbUpdate('meals', id, {
         name:  document.getElementById('edit-meal-name').value.trim(),
+        day:   newDay,
         notes: document.getElementById('edit-meal-notes').value,
         who:   getWhoValue('edit-meal-who'),
       });
@@ -3685,55 +3730,76 @@ function _pinSetupHtml(isChange) {
     <div style="text-align:center;margin-bottom:22px">
       <div style="font-size:32px;margin-bottom:10px">🔐</div>
       <div style="font-family:'Nunito',sans-serif;font-size:19px;font-weight:800;color:var(--cream);margin-bottom:6px">${isChange ? 'Set new PIN' : 'Protect your hub'}</div>
-      <div style="font-size:13px;color:var(--cream-muted)">${isChange ? 'Enter a new 4-digit PIN' : 'Set a PIN so only your family can change ' + hubName + ' settings'}</div>
+      <div style="font-size:13px;color:var(--cream-muted)">${isChange ? 'Enter a new 4-digit PIN' : 'Set a PIN so only you can change ' + hubName + ' settings'}</div>
     </div>
-    ${!isChange ? `<div style="margin-bottom:16px">
+    ${!isChange ? `<div style="margin-bottom:12px">
       <label style="font-size:13px;font-weight:700;color:var(--cream-muted);display:block;margin-bottom:6px">Your name</label>
       <input id="pin-setup-name" class="modal-input" placeholder="e.g. Giuseppe" style="width:100%;padding:10px 12px;font-size:14px">
+    </div>
+    <div style="margin-bottom:16px">
+      <label style="font-size:13px;font-weight:700;color:var(--cream-muted);display:block;margin-bottom:4px">Secret word</label>
+      <div style="font-size:12px;color:var(--cream-muted);margin-bottom:6px;opacity:0.7">Only you know this — used to reset your PIN if you forget it</div>
+      <input id="pin-setup-secret" class="modal-input" placeholder="e.g. a word only you know" style="width:100%;padding:10px 12px;font-size:14px">
     </div>` : ''}
     <div style="display:flex;justify-content:center;gap:14px;margin-bottom:22px" id='pin-dots-row'>${_pinDotsHtml()}</div>
     ${_pinKeypadHtml('submitPinSetup(' + (isChange ? 'true' : 'false') + ')')}
     <div id='pin-error' style="text-align:center;font-size:13px;color:var(--rose);min-height:18px"></div>
-    <button onclick="${isChange ? 'closePinOverlay();_openSettingsPanel();' : 'closePinOverlay();_openSettingsPanel();'}" style="width:100%;margin-top:10px;background:none;border:none;color:var(--cream-muted);font-size:13px;cursor:pointer;padding:8px">${isChange ? 'Cancel' : 'Skip for now'}</button>
+    <button onclick="closePinOverlay();_openSettingsPanel();" style="width:100%;margin-top:10px;background:none;border:none;color:var(--cream-muted);font-size:13px;cursor:pointer;padding:8px">${isChange ? 'Cancel' : 'Skip for now'}</button>
   `;
+}
+
+let _pinLockTimer = null;
+function _pinLockPressStart(e) {
+  e.preventDefault();
+  _pinLockTimer = setTimeout(() => openPinOverlay('forgot'), 2000);
+}
+function _pinLockPressEnd() {
+  clearTimeout(_pinLockTimer);
+  _pinLockTimer = null;
 }
 
 function _pinEntryHtml(isChange) {
   const pinData = getSettingsPin();
   const hubName = localStorage.getItem('fh_hub_name') || 'Family Hub';
   const lockoutMsg = _pinLockoutMsg(pinData);
+  const lockIcon = !isChange
+    ? `<div style="font-size:28px;margin-bottom:8px;cursor:pointer;user-select:none" id='pin-lock-icon'
+        onmousedown="_pinLockPressStart(event)" onmouseup="_pinLockPressEnd()" onmouseleave="_pinLockPressEnd()"
+        ontouchstart="_pinLockPressStart(event)" ontouchend="_pinLockPressEnd()" ontouchcancel="_pinLockPressEnd()">🔒</div>`
+    : `<div style="font-size:28px;margin-bottom:8px">🔒</div>`;
   return `
     <div style="text-align:center;margin-bottom:22px">
-      <div style="font-size:28px;margin-bottom:8px">🔒</div>
+      ${lockIcon}
       <div style="font-family:'Nunito',sans-serif;font-size:18px;font-weight:800;color:var(--cream);margin-bottom:4px">${isChange ? 'Confirm current PIN' : hubName}</div>
       <div style="font-size:13px;color:var(--cream-muted)">${isChange ? 'Verify your current PIN to continue' : (pinData ? 'Protected by ' + pinData.setBy : 'Enter PIN to access settings')}</div>
     </div>
     <div style="display:flex;justify-content:center;gap:14px;margin-bottom:22px" id='pin-dots-row'>${_pinDotsHtml()}</div>
     ${lockoutMsg
-      ? `<div style="text-align:center;font-size:14px;color:var(--amber);margin-bottom:16px;padding:12px;background:rgba(232,168,56,0.1);border-radius:12px">${lockoutMsg}</div>`
+      ? `<div style="text-align:center;font-size:14px;color:var(--amber);margin-bottom:16px;padding:12px;background:rgba(232,168,56,0.1);border-radius:12px">${lockoutMsg}</div>
+         ${!isChange ? `<div style="text-align:center;font-size:11px;color:var(--cream-muted);opacity:0.5;margin-top:8px">Hold the 🔒 above for 2s if you've forgotten your PIN</div>` : ''}`
       : _pinKeypadHtml('pinSubmitEntry(' + (isChange ? 'true' : 'false') + ')')}
     <div id='pin-error' style="text-align:center;font-size:13px;color:var(--rose);min-height:18px"></div>
-    ${!isChange
-      ? `<button onclick="openPinOverlay('forgot')" style="background:none;border:none;color:var(--cream-muted);font-size:13px;cursor:pointer;padding:8px;width:100%;margin-top:4px">Forgot PIN?</button>`
-      : `<button onclick="closePinOverlay();_openSettingsPanel();" style="background:none;border:none;color:var(--cream-muted);font-size:13px;cursor:pointer;padding:8px;width:100%;margin-top:4px">Cancel</button>`}
+    ${isChange ? `<button onclick="closePinOverlay();_openSettingsPanel();" style="background:none;border:none;color:var(--cream-muted);font-size:13px;cursor:pointer;padding:8px;width:100%;margin-top:4px">Cancel</button>` : ''}
   `;
 }
 
 function _pinForgotHtml() {
+  const pinData = getSettingsPin();
+  const hasSecret = pinData && pinData.secretHash;
   return `
     <div style="text-align:center;margin-bottom:20px">
       <div style="font-size:28px;margin-bottom:8px">🔑</div>
-      <div style="font-family:'Nunito',sans-serif;font-size:18px;font-weight:800;color:var(--cream);margin-bottom:6px">Forgot PIN?</div>
-      <div style="font-size:13px;color:var(--cream-muted)">Answer correctly to reset your PIN</div>
+      <div style="font-family:'Nunito',sans-serif;font-size:18px;font-weight:800;color:var(--cream);margin-bottom:6px">Reset PIN</div>
+      <div style="font-size:13px;color:var(--cream-muted)">${hasSecret ? 'Enter your name and secret word to reset' : 'Enter your name to reset (no secret word was set)'}</div>
     </div>
     <div style="margin-bottom:14px">
-      <label style="font-size:13px;font-weight:700;color:var(--cream-muted);display:block;margin-bottom:6px">Owner's name (who set the PIN)</label>
+      <label style="font-size:13px;font-weight:700;color:var(--cream-muted);display:block;margin-bottom:6px">Your name (hub owner)</label>
       <input id="pin-forgot-name" class="modal-input" placeholder="e.g. Giuseppe" style="width:100%;padding:10px 12px;font-size:14px">
     </div>
-    <div style="margin-bottom:18px">
-      <label style="font-size:13px;font-weight:700;color:var(--cream-muted);display:block;margin-bottom:6px">What is the hub name?</label>
-      <input id="pin-forgot-hub" class="modal-input" placeholder="e.g. The Family Hub" style="width:100%;padding:10px 12px;font-size:14px">
-    </div>
+    ${hasSecret ? `<div style="margin-bottom:18px">
+      <label style="font-size:13px;font-weight:700;color:var(--cream-muted);display:block;margin-bottom:6px">Secret word</label>
+      <input id="pin-forgot-secret" class="modal-input" placeholder="The secret word you set" style="width:100%;padding:10px 12px;font-size:14px">
+    </div>` : ''}
     <div id='pin-error' style="text-align:center;font-size:13px;color:var(--rose);min-height:18px;margin-bottom:10px"></div>
     <button onclick="submitForgotPin()" style="width:100%;padding:14px;background:var(--sage);border:none;border-radius:14px;font-family:'Nunito',sans-serif;font-size:15px;font-weight:800;color:var(--navy);cursor:pointer">Reset PIN</button>
     <button onclick="openPinOverlay('entry')" style="width:100%;margin-top:10px;background:none;border:none;color:var(--cream-muted);font-size:13px;cursor:pointer;padding:8px">Back to PIN entry</button>
@@ -3855,17 +3921,26 @@ async function pinSubmitEntry(isChange) {
 
 async function submitPinSetup(isChange) {
   const pinData = getSettingsPin();
-  let ownerName;
+  let ownerName, secretHash;
   if (isChange) {
     ownerName = pinData ? pinData.setBy : '';
+    secretHash = pinData ? pinData.secretHash : null; // keep existing secret
   } else {
     const nameEl = document.getElementById('pin-setup-name');
+    const secretEl = document.getElementById('pin-setup-secret');
     ownerName = nameEl ? nameEl.value.trim() : '';
+    const secretWord = secretEl ? secretEl.value.trim() : '';
     if (!ownerName) {
       const errEl = document.getElementById('pin-error');
       if (errEl) errEl.textContent = 'Please enter your name';
       return;
     }
+    if (!secretWord) {
+      const errEl = document.getElementById('pin-error');
+      if (errEl) errEl.textContent = 'Please enter a secret word';
+      return;
+    }
+    secretHash = await sha256(secretWord.toLowerCase());
   }
   if (_pinBuf.length < 4) {
     const errEl = document.getElementById('pin-error');
@@ -3876,7 +3951,9 @@ async function submitPinSetup(isChange) {
   try {
     const hash = await sha256(_pinBuf);
     _pinBuf = '';
-    await window.fbSave('settings', { id: 'pin', hash, setBy: ownerName, setAt: new Date().toISOString(), failedAttempts: 0, lockoutUntil: null });
+    const record = { id: 'pin', hash, setBy: ownerName, setAt: new Date().toISOString(), failedAttempts: 0, lockoutUntil: null };
+    if (secretHash) record.secretHash = secretHash;
+    await window.fbSave('settings', record);
     setSyncStatus('live');
     _pinUnlocked = true;
     closePinOverlay();
@@ -3888,19 +3965,25 @@ async function submitPinSetup(isChange) {
   }
 }
 
-function submitForgotPin() {
+async function submitForgotPin() {
   const pinData = getSettingsPin();
   const nameEl = document.getElementById('pin-forgot-name');
-  const hubEl = document.getElementById('pin-forgot-hub');
+  const secretEl = document.getElementById('pin-forgot-secret');
   const name = nameEl ? nameEl.value.trim() : '';
-  const hubName = hubEl ? hubEl.value.trim() : '';
-  const storedHub = localStorage.getItem('fh_hub_name') || 'The Family Hub';
+  const secretWord = secretEl ? secretEl.value.trim() : '';
   const nameMatch = name.toLowerCase() === (pinData && pinData.setBy ? pinData.setBy.toLowerCase() : '');
-  const hubMatch = hubName.toLowerCase() === storedHub.toLowerCase();
-  if (!nameMatch || !hubMatch) {
+  if (!nameMatch) {
     const errEl = document.getElementById('pin-error');
-    if (errEl) errEl.textContent = 'Answers do not match — check and try again';
+    if (errEl) errEl.textContent = 'Name does not match the hub owner — check and try again';
     return;
+  }
+  if (pinData && pinData.secretHash) {
+    const inputHash = await sha256(secretWord.toLowerCase());
+    if (inputHash !== pinData.secretHash) {
+      const errEl = document.getElementById('pin-error');
+      if (errEl) errEl.textContent = 'Secret word is incorrect — try again';
+      return;
+    }
   }
   window.fbUpdate('settings', 'pin', { hash: null, failedAttempts: 0, lockoutUntil: null });
   closePinOverlay();
@@ -4374,10 +4457,26 @@ window.addEventListener('offline', () => setOfflineBanner(true));
 window.addEventListener('online',  () => setOfflineBanner(false));
 if (!navigator.onLine) setOfflineBanner(true);
 
+// ── HOME SCREEN PWA AUTO-REFRESH ──────────────────────────────────────────────
+// When installed as a home screen app, reload after 30 minutes in background
+// so the app always picks up the latest deployed code.
+(function() {
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  if (!isStandalone) return;
+  sessionStorage.setItem('fh_sw_loaded', String(Date.now()));
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    const loaded = parseInt(sessionStorage.getItem('fh_sw_loaded') || '0', 10);
+    if (Date.now() - loaded > 30 * 60 * 1000) {
+      window.location.reload();
+    }
+  });
+})();
+
 // ── SERVICE WORKER (cache-first for assets, network-first for Firestore) ──────
 if ('serviceWorker' in navigator) {
   const swLines = [
-    "const CACHE='fh-v2';",
+    "const CACHE='fh-v3';",
     "const PRE=['https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap','https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js','https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js'];",
     "self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(PRE)).catch(()=>{}));self.skipWaiting();});",
     "self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim();});",
