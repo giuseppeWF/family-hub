@@ -554,7 +554,7 @@ Sign Google's Data Processing Agreement (DPA) to formalise Firebase's role as a 
 ---
 
 ### S3-010 · Shopping List — Who Added + Store + Better Categories
-**Status:** DONE — 2026-06-29
+**Status:** TODO
 **Priority:** High
 **Category:** Feature / UX
 
@@ -627,7 +627,7 @@ Also add ability to create a custom category — free text input that appears as
 ---
 
 ### S3-011 · "What's New" Feature Announcement System
-**Status:** DONE — 2026-06-29
+**Status:** TODO
 **Priority:** Medium
 **Category:** UX / Engagement
 
@@ -718,7 +718,7 @@ A `guide.html` page hosted alongside the app on GitHub Pages at `https://giusepp
 ---
 
 ### S3-013 · Mobile Layout Polish Pass
-**Status:** DONE — 2026-06-30
+**Status:** TODO
 **Priority:** High
 **Category:** Design / UX
 
@@ -803,6 +803,209 @@ A focused mobile layout fix based on real device testing (iPhone, portrait ~390p
 - [ ] SyncGo portrait layout (620px) still renders correctly
 - [ ] Desktop layout (1024px+) unchanged
 - [ ] Audit passes with zero issues
+
+
+---
+
+### S3-014 · Header Redesign + Tab Icon Fixes + Settings Sync
+**Status:** TODO
+**Priority:** High
+**Category:** Design / UX / Infrastructure
+
+**Description:**
+A consolidated fix for several issues identified during mobile testing on 30 June 2026. Covers header layout, tab badge logic, and settings synchronisation across devices.
+
+**Reference screenshot:** Screenshot_2026-06-30_at_00_58_13.png
+
+---
+
+**1. Header redesign — two-row layout (all devices)**
+
+Current single-row header is cramped on mobile and doesn't scale well. Replace with a clean two-row layout across ALL devices:
+
+Row 1 (top): Hub name centred, full width, slightly larger
+Row 2 (bottom): Clock left | date centre | Live dot + settings cog right
+
+```
+┌─────────────────────────────────────┐
+│         🏠 THE LUCARELLI HUB        │  ← Row 1: hub name, teal, bold
+│  00:58  │  Tuesday 30 June  │ ● Live ⚙️ │  ← Row 2: clock, date, status
+└─────────────────────────────────────┘
+```
+
+- Row 1: background slightly darker than row 2 to create visual separation
+- Row 1 height: 36px. Row 2 height: 44px. Total header: 80px
+- Hub name: Nunito, font-weight 800, teal colour, centered, truncate with ellipsis if too long
+- Remove the Today/summary banner entirely — this information is now redundant with the tab badges
+- Apply this layout to ALL screen sizes, not just mobile
+
+**2. Remove summary banner**
+
+The "TODAY | 4 tasks to do · 8 items to get" banner under the header is redundant now that the nav tabs show counts. Remove it entirely. This reclaims vertical space and reduces visual noise.
+
+- Remove `id="summary-banner"` element from HTML
+- Remove `updateSummary()` calls that update summary text
+- Keep `updateSummary()` function but only update badge counts, not the banner
+- Note: audit.py does NOT check for summary-banner so no audit changes needed
+
+**3. Tab icons — fix meals icon and calendar badge logic**
+
+Issues identified:
+- Meals tab has no icon — should show 🍽 (it may have been lost in a previous update)
+- Calendar badge shows blank when 0 — should show nothing (empty string) when 0, same as other tabs
+- Meals tab should show count of meals planned this week (0-7)
+- All badges: show number when > 0, show nothing when 0. Never show "0" or a blank badge circle
+
+Updated badge logic:
+```javascript
+// Calendar: count of today's events
+badge-cal:   todayEvents.length > 0 ? todayEvents.length : ''
+// Todos: count of pending (not done) tasks  
+badge-todo:  pending.length > 0 ? pending.length : ''
+// Shopping: count of items not yet got
+badge-shop:  notGot.length > 0 ? notGot.length : ''
+// Meals: count of meals planned this week (any day with a meal)
+badge-meals: mealsThisWeek.length > 0 ? mealsThisWeek.length : ''
+// House: count of high priority incomplete tasks
+badge-house: highPriority.length > 0 ? highPriority.length : ''
+```
+
+**4. Overview widgets — scrolling fix**
+
+Widgets on the overview page clip content and cannot scroll. Two fixes needed:
+
+a) The dashboard container (`#view-dashboard`) must scroll vertically on ALL screen sizes:
+```css
+#view-dashboard.active {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  height: 100%;
+}
+```
+
+b) Individual cards should NOT have internal scroll — they should show all their content and let the page scroll. Remove any `max-height` or `overflow: hidden` from `.dash-card` that prevents content showing. Cards can be as tall as their content needs.
+
+c) On desktop (landscape), keep the 2x2 grid but allow the grid itself to scroll if content overflows.
+
+**5. Hub name sync across all devices — move to Firestore**
+
+Hub name is currently saved in localStorage only, so it doesn't sync across devices. This must move to Firestore so all family members see the same hub name.
+
+- Create a Firestore collection `settings` with a single document `hub` containing `{ name: 'The Family Hub', updatedAt: timestamp }`
+- Add a Firestore listener for `settings/hub` — on change, update the hub name in the header
+- When admin saves hub name in Settings, write to Firestore `settings/hub` instead of localStorage
+- On first load, read from Firestore. Fall back to localStorage if Firestore not yet loaded
+- Seed `settings/hub` with current localStorage value if Firestore doc doesn't exist yet
+- Add `listenCol` equivalent for single document: use `onSnapshot(doc(db, 'settings', 'hub'), ...)` 
+- Add `settings` to the Firestore listener setup
+- Update audit.py: add check for `listenCol` or `onSnapshot` for settings
+
+**6. Family members sync across all devices — move to Firestore**
+
+Same problem as hub name — family members are in localStorage only. Move to Firestore.
+
+- Store family members in Firestore `settings/members` as `{ members: [...] }`
+- Listener updates `window.fbMembers` and calls `injectMemberStyles()` and `refreshAllDropdowns()`
+- On Settings save (addFamilyMember, removeFamilyMember), write to Firestore not just localStorage
+- Keep localStorage as a fast-load cache — write to both, Firestore is source of truth
+- Seed Firestore `settings/members` from localStorage on first run if not yet in Firestore
+
+**Implementation notes:**
+- The `settings` collection needs to be added to Firestore rules (both Phase 1 and Phase 2)
+- Add `settings` listener to the DOMContentLoaded block alongside events, todos etc.
+- The admin PIN / settings lock is a separate backlog item (S3-015) — do NOT implement auth here
+- After implementing, verify on two different browsers that hub name change propagates within 2 seconds
+
+**Acceptance criteria:**
+- [ ] Header is two rows on all screen sizes
+- [ ] Row 1: hub name centred
+- [ ] Row 2: clock left, date centre, live dot + settings right
+- [ ] Summary banner removed
+- [ ] Meals tab has 🍽 icon
+- [ ] Meals tab shows count of meals planned this week
+- [ ] Calendar badge empty (not "0") when no events today
+- [ ] All badges: number when > 0, nothing when 0
+- [ ] Overview page scrolls vertically on mobile
+- [ ] Cards show full content without internal clipping
+- [ ] Hub name change in Settings propagates to all devices within 2 seconds
+- [ ] Family member changes in Settings propagate to all devices within 2 seconds
+- [ ] Settings collection added to Firestore listeners
+- [ ] Firestore rules updated to include settings collection
+- [ ] Audit passes with zero issues
+
+---
+
+### S3-015 · Settings PIN Lock (Soft Admin Protection)
+**Status:** TODO
+**Priority:** Medium
+**Category:** Security / UX
+
+**Description:**
+Until proper Google Sign-In authentication (S5-003) is built, protect Settings with a simple 4-digit PIN set by the hub owner. This prevents family members (particularly teenagers) from accidentally or deliberately changing hub settings.
+
+**Note:** This is a soft lock — not real security. It prevents casual access but a determined person could clear localStorage. Real admin protection comes in S5-003 with Google authentication. This is explicitly a stop-gap.
+
+**Ownership model — Phase 1 (PIN):**
+- First person to set the PIN becomes the hub owner
+- Stored in Firestore `settings/pin` as `{ hash: '...', setBy: 'Giuseppe', setAt: timestamp }`
+- `setBy` is a free-text name (not a Google account — we don't have auth yet)
+- Only one owner in Phase 1 — multiple admins come in Phase 2
+- The `setBy` name carries forward to S5-003 where it is matched to a Google account and promoted to super admin automatically
+
+**Ownership model — Phase 2 (S5-003 Google auth):**
+- Original owner becomes "super admin" — cannot be demoted
+- Super admin can promote any family member to "admin"
+- Multiple admins supported — each authenticates with their own Google account
+- Admins can add/remove other admins (but not the super admin)
+- Super admin is the only one who can delete the hub entirely
+- Store admin roles in Firestore `settings/admins` as array of Google UIDs
+
+**Implementation notes:**
+- On first Settings open: if no PIN set in Firestore, show "Protect your hub settings" screen
+- User enters their name and chooses a 4-digit PIN → they become the owner
+- PIN hashed with SHA-256 via Web Crypto API (built into browser, no libraries)
+- Hash stored in Firestore `settings/pin.hash`, name in `settings/pin.setBy`
+- On subsequent Settings opens: show PIN entry keypad first
+- Correct PIN → open Settings. Wrong PIN → "Incorrect PIN", shake animation, try again
+- After 5 wrong attempts: 30-second lockout (store attempt count in Firestore)
+- "Forgot PIN" option: admin must confirm their name matches `setBy` + answer "What is the hub name?" — if correct, PIN is reset and they set a new one
+- PIN entry UI: large digit buttons (min 56px touch target), clean dark teal style, hub name shown above
+- Show "⚙️ Settings are protected — ask [setBy name] for access" to non-admins
+- Add "Change PIN" and "Transfer ownership" options inside Settings once unlocked
+- PIN syncs across devices via Firestore listener on `settings/pin`
+
+**What PIN protects:**
+- Adding/removing family members
+- Changing hub name
+- Changing hub colour theme (future)
+- Clearing all completed items
+- Resetting the hub
+- Future S5-003: managing admin roles
+
+**What PIN does NOT protect:**
+- Adding events, tasks, shopping items, meals (all family members can do this)
+- Ticking off tasks and shopping items
+- Viewing any data
+- Onboarding (first-time setup before PIN is set)
+
+**Acceptance criteria:**
+- [ ] First Settings open shows "Protect your hub" screen — enter name + 4-digit PIN
+- [ ] First setter stored as owner in Firestore settings/pin.setBy
+- [ ] Subsequent Settings opens show PIN keypad — correct PIN opens Settings
+- [ ] Wrong PIN shows error with shake animation
+- [ ] After 5 wrong attempts: 30-second lockout
+- [ ] Forgot PIN flow: confirm name + hub name → reset PIN
+- [ ] PIN stored as SHA-256 hash in Firestore settings/pin.hash
+- [ ] PIN and owner name sync to all devices via Firestore listener
+- [ ] Non-admin devices show "Settings protected by [name]" message
+- [ ] Change PIN option inside Settings (requires current PIN)
+- [ ] Transfer ownership option inside Settings
+- [ ] PIN entry has large touch targets (min 56px buttons)
+- [ ] Firestore rules updated to protect settings/pin (read: authenticated, write: authenticated)
+- [ ] Audit passes with zero issues
+- [ ] [FUTURE S5-003] Multiple admins — owner can promote family members to admin role
+- [ ] [FUTURE S5-003] Admin roles stored in Firestore settings/admins as array of Google UIDs
+- [ ] [FUTURE S5-003] Super admin (original owner) cannot be demoted
 
 
 ## 💡 FUTURE / COMMERCIAL
