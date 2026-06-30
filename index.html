@@ -125,16 +125,46 @@
   /* ── HEADER BAR ─────────────────────────── */
   #header {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 28px;
-    height: 72px;
+    flex-direction: column;
+    height: 80px;
     background: var(--navy-mid);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
   }
 
-  #header-left {
+  #header-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 36px;
+    background: rgba(0,0,0,0.16);
+    flex-shrink: 0;
+    padding: 0 16px;
+    overflow: hidden;
+  }
+
+  .hub-name {
+    font-family: 'Nunito', sans-serif;
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--sage);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #header-row2 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex: 1;
+    padding: 0 20px;
+  }
+
+  #header-row2-left {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -155,15 +185,6 @@
     font-weight: 500;
     border-left: 1px solid var(--border-strong);
     padding-left: 12px;
-  }
-
-  #header-center {
-    font-family: 'Nunito', sans-serif;
-    font-size: 18px;
-    font-weight: 700;
-    color: var(--sage);
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
   }
 
   /* ── NAV TABS ───────────────────────────── */
@@ -250,7 +271,6 @@
     padding: 20px 22px;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
   }
 
   .dash-card-header {
@@ -284,7 +304,6 @@
 
   .dash-card-body {
     flex: 1;
-    overflow: hidden;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -958,35 +977,16 @@
   /* ── PORTRAIT / MOBILE LAYOUT ──────────────────────────── */
   @media (max-width: 768px) {
 
-    /* Header — tighter, single row */
-    #header {
-      padding: 0 12px;
-      height: 56px;
-    }
-
-    #clock { font-size: 22px; }
-    #date-str { font-size: 12px; padding-left: 6px; }
-    #header-center {
-      font-size: 13px;
-      letter-spacing: 0;
-      max-width: 40%;
-      flex: 1;
-    }
+    /* Header — two rows, tighter */
+    #header { height: 72px; }
+    #header-center { height: 28px; }
+    .hub-name { font-size: 12px; letter-spacing: 0.5px; }
     .hub-emoji-r { display: none; }
-    #today-summary { max-width: 160px; font-size: 12px; }
+    #header-row2 { padding: 0 12px; }
+    #clock { font-size: 20px; }
+    #date-str { font-size: 12px; padding-left: 8px; }
     #sync-status { display: none; }
     #settings-btn { width: 30px; height: 30px; }
-
-    /* Summary banner — no wrap */
-    #summary-banner {
-      padding: 6px 16px;
-      overflow: hidden;
-    }
-    #summary-text {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
 
     /* Nav — icons only, badges superscript */
     .nav-tab {
@@ -1023,8 +1023,6 @@
     }
 
     .dash-card {
-      min-height: 150px;
-      max-height: 210px;
       flex-shrink: 0;
     }
 
@@ -1068,17 +1066,17 @@
     .item-actions { display: none !important; }
   }
 
-  /* ── HIDE HUB NAME ENTIRELY ON VERY NARROW SCREENS ───── */
+  /* ── HIDE HUB NAME ROW ON VERY NARROW SCREENS ───── */
   @media (max-width: 380px) {
     #header-center { display: none; }
+    #header { height: 44px; }
   }
 
   /* ── SYNCGO PORTRAIT (narrow Android tablet ~600px) ─── */
   @media (max-width: 620px) {
     #header-center { display: none; }
-    #today-summary { max-width: 200px; }
+    #header { height: 44px; }
     .nav-tab { padding: 12px 0; }
-    .dash-card { min-height: 140px; max-height: 190px; }
     .dash-card-title { font-size: 12px; }
     .event-label, .task-text, .shop-item-name, .meal-name { font-size: 13px; }
   }
@@ -1391,33 +1389,28 @@
 
   <!-- HEADER -->
   <div id="header">
-    <div id="header-left">
-      <div id="clock">00:00</div>
-      <div id="date-str">Loading...</div>
+    <div id="header-center">
+      <span class="hub-emoji-l">🏠</span><span class="hub-name">The Family Hub</span><span class="hub-emoji-r">🏠</span>
     </div>
-    <div id="header-center" style="display:flex;align-items:center;gap:6px;min-width:0;overflow:hidden">
-      <span class="hub-emoji-l">🏠</span><span class="hub-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">The Family Hub</span><span class="hub-emoji-r">🏠</span>
-    </div>
-    <div id="header-right" style="display:flex;align-items:center;gap:10px;flex-shrink:0">
-      <div id="sync-status" style="font-size:12px;color:var(--cream-muted);display:flex;align-items:center;gap:5px">
-        <div id="sync-dot" style="width:7px;height:7px;border-radius:50%;background:var(--amber)"></div>
-        <span id="sync-label">Connecting…</span>
+    <div id="header-row2">
+      <div id="header-row2-left">
+        <div id="clock">00:00</div>
+        <div id="date-str">Loading...</div>
       </div>
-      <button onclick="openSettings()" id="settings-btn" title="Settings" style="background:rgba(255,255,255,0.08);border:none;border-radius:50%;width:34px;height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--cream-muted);flex-shrink:0;transition:background 0.2s">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 15.5A3.5 3.5 0 0 1 8.5 12 3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5m7.43-2.92c.04-.3.07-.62.07-.94v-.94l2.04-1.59-2-3.48-2.44.99c-.49-.38-1-.71-1.57-.97L14.91 2h-4l-.73 2.63c-.57.26-1.08.59-1.57.97L6.17 4.6l-2 3.48L6.2 9.67c-.04.31-.07.63-.07.95v.94l-2.04 1.59 2 3.48 2.44-.99c.49.38 1 .71 1.57.97L11.09 22h4l.73-2.63c.57-.26 1.08-.59 1.57-.97l2.44.99 2-3.48-2.04-1.59z"/></svg>
-      </button>
+      <div id="header-right" style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+        <div id="sync-status" style="font-size:12px;color:var(--cream-muted);display:flex;align-items:center;gap:5px">
+          <div id="sync-dot" style="width:7px;height:7px;border-radius:50%;background:var(--amber)"></div>
+          <span id="sync-label">Connecting…</span>
+        </div>
+        <button onclick="openSettings()" id="settings-btn" title="Settings" style="background:rgba(255,255,255,0.08);border:none;border-radius:50%;width:34px;height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--cream-muted);flex-shrink:0;transition:background 0.2s">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 15.5A3.5 3.5 0 0 1 8.5 12 3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5m7.43-2.92c.04-.3.07-.62.07-.94v-.94l2.04-1.59-2-3.48-2.44.99c-.49-.38-1-.71-1.57-.97L14.91 2h-4l-.73 2.63c-.57.26-1.08.59-1.57.97L6.17 4.6l-2 3.48L6.2 9.67c-.04.31-.07.63-.07.95v.94l-2.04 1.59 2 3.48 2.44-.99c.49.38 1 .71 1.57.97L11.09 22h4l.73-2.63c.57-.26 1.08-.59 1.57-.97l2.44.99 2-3.48-2.04-1.59z"/></svg>
+        </button>
+      </div>
     </div>
   </div>
   <!-- OFFLINE BANNER -->
   <div id="offline-banner" style="display:none;background:var(--amber);color:var(--navy);text-align:center;font-size:13px;font-weight:700;padding:7px 28px;font-family:'Nunito',sans-serif;flex-shrink:0">
     📴 Offline — showing last known data
-  </div>
-
-  <!-- SUMMARY BANNER -->
-  <div id="summary-banner" style="background:rgba(46,196,182,0.08);border-bottom:1px solid rgba(46,196,182,0.15);padding:7px 28px;display:flex;align-items:center;gap:8px;flex-shrink:0">
-    <span style="font-size:12px;color:var(--sage);font-weight:700;text-transform:uppercase;letter-spacing:0.6px">Today</span>
-    <span style="width:1px;height:12px;background:var(--border-strong)"></span>
-    <span id="summary-text" style="font-size:13px;color:var(--cream-muted)">Loading...</span>
   </div>
 
   <!-- NAV -->
@@ -1427,22 +1420,23 @@
     </div>
     <div class="nav-tab" data-view="calendar" onclick="switchView('calendar')">
       <span class="tab-icon">📅</span><span class="tab-label"> Calendar</span>
-      <span class="badge" id="badge-cal">0</span>
+      <span class="badge" id="badge-cal"></span>
     </div>
     <div class="nav-tab" data-view="todos" onclick="switchView('todos')">
       <span class="tab-icon">✓</span><span class="tab-label"> To-dos</span>
-      <span class="badge" id="badge-todo">0</span>
+      <span class="badge" id="badge-todo"></span>
     </div>
     <div class="nav-tab" data-view="shopping" onclick="switchView('shopping')">
       <span class="tab-icon">🛒</span><span class="tab-label"> Shopping</span>
-      <span class="badge" id="badge-shop">0</span>
+      <span class="badge" id="badge-shop"></span>
     </div>
     <div class="nav-tab" data-view="meals" onclick="switchView('meals')">
       <span class="tab-icon">🍽</span><span class="tab-label"> Meals</span>
+      <span class="badge" id="badge-meals"></span>
     </div>
     <div class="nav-tab" data-view="household" onclick="switchView('household')">
       <span class="tab-icon">🔧</span><span class="tab-label"> House</span>
-      <span class="badge" id="badge-house" style="display:none">0</span>
+      <span class="badge" id="badge-house" style="display:none"></span>
     </div>
   </div>
 
@@ -2124,6 +2118,32 @@ window.addEventListener('fb-data', () => {
       if (ov) ov.style.display = 'none';
     }
   }
+  // Sync hub name: seed Firestore from localStorage, or apply Firestore value here
+  const fbHub = (window.fbSettings || []).find(s => s.id === 'hub');
+  const localHubName = localStorage.getItem('fh_hub_name');
+  if (!fbHub && localHubName) {
+    window.fbSave('settings', { id: 'hub', name: localHubName, updatedAt: new Date().toISOString() });
+  } else if (fbHub && fbHub.name && fbHub.name !== localStorage.getItem('fh_hub_name')) {
+    localStorage.setItem('fh_hub_name', fbHub.name);
+    const hn = document.querySelector('.hub-name');
+    if (hn) hn.textContent = fbHub.name;
+  }
+  // Sync members: seed Firestore from localStorage, or apply Firestore members here
+  const fbMem = (window.fbSettings || []).find(s => s.id === 'members');
+  const localMemStr = localStorage.getItem('fh_members');
+  if (!fbMem && localMemStr) {
+    try {
+      const members = JSON.parse(localMemStr);
+      window.fbSave('settings', { id: 'members', members, updatedAt: new Date().toISOString() });
+    } catch(_) {}
+  } else if (fbMem && fbMem.members && fbMem.members.length > 0) {
+    const fbStr = JSON.stringify(fbMem.members);
+    if (fbStr !== localStorage.getItem('fh_members')) {
+      localStorage.setItem('fh_members', fbStr);
+      injectMemberStyles(fbMem.members);
+      refreshAllDropdowns(fbMem.members);
+    }
+  }
   if (typeof renderAll === 'function') renderAll();
   processRecurringEvents();
 });
@@ -2133,18 +2153,23 @@ window.addEventListener('fb-saved', () => {
 
 // ── SUMMARY ───────────────────────────────────────────────────────────────────
 function updateSummary() {
-  const events = getEvents(), todos = getTodos(), shopping = getShopping();
+  const events = getEvents(), todos = getTodos(), shopping = getShopping(), meals = getMeals();
   const todayEvents  = events.filter(e => e.date === todayStr);
-  const pendingTodos = todos.filter(t => !t.done).length;
-  const pendingShop  = shopping.filter(s => !s.done).length;
-  const lines = [];
-  if (todayEvents.length) lines.push(todayEvents.length + ' event' + (todayEvents.length > 1 ? 's' : '') + ' today');
-  if (pendingTodos) lines.push(pendingTodos + ' task' + (pendingTodos > 1 ? 's' : '') + ' to do');
-  if (pendingShop)  lines.push(pendingShop  + ' item' + (pendingShop  > 1 ? 's' : '') + ' to get');
-  document.getElementById('summary-text').innerHTML = lines.join(' · ') || 'All clear today!';
-  document.getElementById('badge-cal').textContent  = todayEvents.length || '';
-  document.getElementById('badge-todo').textContent = todos.filter(t=>!t.done).length || '';
-  document.getElementById('badge-shop').textContent = shopping.filter(s=>!s.done).length || '';
+  const pendingTodos = todos.filter(t => !t.done);
+  const pendingShop  = shopping.filter(s => !s.done);
+  const mealsCount   = meals.filter(m => !!m.day).length;
+  const household    = typeof getHousehold === 'function' ? getHousehold() : [];
+  const highPrio     = household.filter(h => !h.done && h.priority === 'High');
+
+  const el = id => document.getElementById(id);
+  if (el('badge-cal'))   el('badge-cal').textContent   = todayEvents.length  || '';
+  if (el('badge-todo'))  el('badge-todo').textContent  = pendingTodos.length || '';
+  if (el('badge-shop'))  el('badge-shop').textContent  = pendingShop.length  || '';
+  if (el('badge-meals')) el('badge-meals').textContent = mealsCount           || '';
+  if (el('badge-house')) {
+    el('badge-house').textContent = highPrio.length || '';
+    el('badge-house').style.display = highPrio.length ? '' : 'none';
+  }
   if (connected) setSyncStatus('live');
 }
 
@@ -3547,6 +3572,8 @@ const DEFAULT_MEMBERS = [
 ];
 
 function getFamilyMembers() {
+  const fbMem = (window.fbSettings || []).find(s => s.id === 'members');
+  if (fbMem && fbMem.members && fbMem.members.length > 0) return fbMem.members;
   try {
     const saved = localStorage.getItem('fh_members');
     return saved ? JSON.parse(saved) : DEFAULT_MEMBERS;
@@ -3557,6 +3584,7 @@ function saveFamilyMembers(members) {
   localStorage.setItem('fh_members', JSON.stringify(members));
   injectMemberStyles(members);
   refreshAllDropdowns(members);
+  window.fbSave('settings', { id: 'members', members, updatedAt: new Date().toISOString() });
 }
 
 function injectMemberStyles(members) {
@@ -3945,7 +3973,9 @@ function saveHubName() {
   const name = document.getElementById('settings-hub-name').value.trim();
   if (!name) return;
   localStorage.setItem('fh_hub_name', name);
-  document.querySelector('#header-center .hub-name').textContent = name;
+  const hn = document.querySelector('.hub-name');
+  if (hn) hn.textContent = name;
+  window.fbSave('settings', { id: 'hub', name, updatedAt: new Date().toISOString() });
   closeSettings();
 }
 
@@ -4094,7 +4124,6 @@ function runQA() {
     }),
     'Detail overlay present':    !!document.getElementById('detail-overlay'),
     'Edit overlay present':      !!document.getElementById('edit-item-overlay'),
-    'Summary banner present':    !!document.getElementById('summary-banner'),
     'Sync status present':       !!document.getElementById('sync-status'),
     'Arrange button present':    !!document.getElementById('edit-mode-btn'),
     'Onboarding skipped for existing hub': (
@@ -4139,7 +4168,7 @@ function runQA() {
   document.body.appendChild(overlay);
 }
 
-// Trigger QA with 3 taps on the header center
+// Trigger QA with 3 taps on the hub name row
 let qaTaps = 0, qaTimer = null;
 document.addEventListener('DOMContentLoaded', () => {
   const hc = document.getElementById('header-center');
@@ -4195,7 +4224,7 @@ function obNext() {
     const inp = document.getElementById('ob-hub-name');
     const name = (inp ? inp.value.trim() : '') || 'The Family Hub';
     localStorage.setItem('fh_hub_name', name);
-    const hcSpan = document.querySelector('#header-center .hub-name');
+    const hcSpan = document.querySelector('.hub-name');
     if (hcSpan) hcSpan.textContent = name;
     _obStep = 2; renderObStep(); return;
   }
@@ -4326,7 +4355,7 @@ document.body.classList.add('on-dashboard');
 injectMemberStyles(getFamilyMembers());
 const savedHubName = localStorage.getItem('fh_hub_name');
 if (savedHubName) {
-  const hcSpan = document.querySelector('#header-center .hub-name');
+  const hcSpan = document.querySelector('.hub-name');
   if (hcSpan) hcSpan.textContent = savedHubName;
 }
 updateClock();
