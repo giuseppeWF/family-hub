@@ -48,6 +48,7 @@
     listenCol('household', d => { window.fbHousehold  = d; window.dispatchEvent(new CustomEvent('fb-data')); });
     listenCol('shopfavs',  d => { window.fbShopFavs   = d; window.dispatchEvent(new CustomEvent('fb-data')); });
     listenCol('mealfavs',  d => { window.fbMealFavs   = d; window.dispatchEvent(new CustomEvent('fb-data')); });
+    listenCol('settings',  d => { window.fbSettings   = d; window.dispatchEvent(new CustomEvent('fb-data')); });
   });
 
   // ── Write helpers (exposed globally) ──────────────────────────────────────
@@ -1082,6 +1083,42 @@
     .event-label, .task-text, .shop-item-name, .meal-name { font-size: 13px; }
   }
 
+  /* ── PIN LOCK ──────────────────────────────── */
+  .pin-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--sage);
+    transition: background 0.15s;
+    flex-shrink: 0;
+  }
+  .pin-dot.filled { background: var(--sage); }
+  .pin-key {
+    height: 60px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border-strong);
+    font-family: 'Nunito', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--cream);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.12s;
+    -webkit-tap-highlight-color: transparent;
+    min-height: 56px;
+    width: 100%;
+  }
+  .pin-key:active { background: rgba(46,196,182,0.2); }
+  @keyframes pinShake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-6px); }
+    40%, 80% { transform: translateX(6px); }
+  }
+  .pin-shake { animation: pinShake 0.4s ease; }
+
   /* ── SWIPE TO DELETE ───────────────────────── */
   .swipeable {
     position: relative;
@@ -1842,6 +1879,13 @@
         <button onclick="copyShareLink()" class="copy-share-btn" style="padding:0 14px;background:var(--sage);border:none;border-radius:10px;color:var(--navy);font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer;min-height:44px">Copy</button>
       </div>
 
+      <!-- Hub Security -->
+      <div style="font-size:12px;font-weight:700;color:var(--cream-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">Hub Security</div>
+      <button onclick="changePinFlow()" style="width:100%;padding:12px;background:transparent;border:1px solid var(--border-strong);border-radius:10px;color:var(--cream);font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;text-align:left">🔑 Change PIN</button>
+      <button onclick="transferOwnershipFlow()" style="width:100%;padding:12px;background:transparent;border:1px solid var(--border-strong);border-radius:10px;color:var(--cream-muted);font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:0;text-align:left">👑 Transfer ownership</button>
+
+      <div style="height:1px;background:var(--border);margin:20px 0"></div>
+
       <!-- Privacy & Data -->
       <div style="font-size:12px;font-weight:700;color:var(--cream-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">Privacy &amp; Data</div>
       <button onclick="openPrivacyPolicy()" style="width:100%;padding:12px;background:transparent;border:1px solid var(--border-strong);border-radius:10px;color:var(--cream);font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;text-align:left">📋 View privacy policy</button>
@@ -1849,6 +1893,13 @@
 
       <div style="height:1px;background:var(--border);margin:20px 0"></div>
       <button onclick="closeSettings()" style="width:100%;padding:12px;background:transparent;border:1px solid var(--border-strong);border-radius:10px;color:var(--cream-muted);font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;cursor:pointer">Close</button>
+    </div>
+  </div>
+
+  <!-- PIN OVERLAY -->
+  <div id="pin-overlay" onclick="closePinIfBg(event)" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.92);z-index:255;align-items:center;justify-content:center;padding:20px">
+    <div id="pin-card" style="background:var(--navy-mid);border:1px solid var(--border-strong);border-radius:24px;padding:28px 24px;width:100%;max-width:340px;max-height:90vh;overflow-y:auto" onclick="event.stopPropagation()">
+      <div id="pin-content"></div>
     </div>
   </div>
 
@@ -1912,6 +1963,7 @@ window.fbMeals     = [];
 window.fbHousehold   = [];
 window.fbShopFavs    = [];
 window.fbMealFavs    = [];
+window.fbSettings    = [];
 
 // Local getters — always read from Firebase-synced globals
 function getEvents()   { return window.fbEvents   || []; }
@@ -1921,6 +1973,7 @@ function getMeals()     { return window.fbMeals     || []; }
 function getHousehold()  { return window.fbHousehold  || []; }
 function getShopFavs()   { return window.fbShopFavs   || []; }
 function getMealFavs()   { return window.fbMealFavs   || []; }
+function getSettingsPin() { return (window.fbSettings || []).find(s => s.id === 'pin') || null; }
 
 // ── APP VERSION & WHAT'S NEW ──────────────────────────────────────────────────
 const APP_VERSION = '3.1';
@@ -3523,14 +3576,336 @@ function refreshAllDropdowns(members) {
 }
 
 function openSettings() {
+  const pinData = getSettingsPin();
+  if (!pinData || !pinData.hash) {
+    openPinOverlay('setup');
+    return;
+  }
+  if (_pinUnlocked) {
+    _openSettingsPanel();
+    return;
+  }
+  openPinOverlay('entry');
+}
+
+function _openSettingsPanel() {
   const overlay = document.getElementById('settings-overlay');
   const members = getFamilyMembers();
-  // Hub name
   document.getElementById('settings-hub-name').value =
     localStorage.getItem('fh_hub_name') || 'The Family Hub';
-  // Members list
   renderSettingsMembers(members);
   overlay.style.display = 'flex';
+}
+
+// ── PIN LOCK ────────────────────────────────────────────────────────────────
+
+let _pinUnlocked = false;
+let _pinBuf = '';
+let _pinMode = 'entry';
+
+async function sha256(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function openPinOverlay(mode) {
+  _pinMode = mode;
+  _pinBuf = '';
+  document.getElementById('pin-overlay').style.display = 'flex';
+  renderPinScreen();
+}
+
+function closePinOverlay() {
+  document.getElementById('pin-overlay').style.display = 'none';
+  _pinBuf = '';
+}
+
+function closePinIfBg(e) {
+  if (e.target === document.getElementById('pin-overlay')) closePinOverlay();
+}
+
+function renderPinScreen() {
+  const el = document.getElementById('pin-content');
+  if (!el) return;
+  if (_pinMode === 'setup') el.innerHTML = _pinSetupHtml(false);
+  else if (_pinMode === 'entry') el.innerHTML = _pinEntryHtml(false);
+  else if (_pinMode === 'forgot') el.innerHTML = _pinForgotHtml();
+  else if (_pinMode === 'change-verify') el.innerHTML = _pinEntryHtml(true);
+  else if (_pinMode === 'change-new') el.innerHTML = _pinSetupHtml(true);
+  else if (_pinMode === 'transfer') el.innerHTML = _pinTransferHtml();
+}
+
+function _pinDotsHtml() {
+  return [0,1,2,3].map(i =>
+    `<div class="pin-dot${i < _pinBuf.length ? ' filled' : ''}" data-i="${i}"></div>`
+  ).join('');
+}
+
+function _pinKeypadHtml(submitFn) {
+  const keys = [1,2,3,4,5,6,7,8,9];
+  return `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
+    ${keys.map(d => `<button class="pin-key" onclick="pinKeyPress('${d}')">${d}</button>`).join('')}
+    <button class="pin-key" onclick="pinBackspace()">⌫</button>
+    <button class="pin-key" onclick="pinKeyPress('0')">0</button>
+    <button class="pin-key" style="background:rgba(46,196,182,0.12);border-color:rgba(46,196,182,0.3);color:var(--sage)" onclick="${submitFn}">✓</button>
+  </div>`;
+}
+
+function _pinSetupHtml(isChange) {
+  const hubName = localStorage.getItem('fh_hub_name') || 'Family Hub';
+  return `
+    <div style="text-align:center;margin-bottom:22px">
+      <div style="font-size:32px;margin-bottom:10px">🔐</div>
+      <div style="font-family:'Nunito',sans-serif;font-size:19px;font-weight:800;color:var(--cream);margin-bottom:6px">${isChange ? 'Set new PIN' : 'Protect your hub'}</div>
+      <div style="font-size:13px;color:var(--cream-muted)">${isChange ? 'Enter a new 4-digit PIN' : 'Set a PIN so only your family can change ' + hubName + ' settings'}</div>
+    </div>
+    ${!isChange ? `<div style="margin-bottom:16px">
+      <label style="font-size:13px;font-weight:700;color:var(--cream-muted);display:block;margin-bottom:6px">Your name</label>
+      <input id="pin-setup-name" class="modal-input" placeholder="e.g. Giuseppe" style="width:100%;padding:10px 12px;font-size:14px">
+    </div>` : ''}
+    <div style="display:flex;justify-content:center;gap:14px;margin-bottom:22px" id='pin-dots-row'>${_pinDotsHtml()}</div>
+    ${_pinKeypadHtml('submitPinSetup(' + (isChange ? 'true' : 'false') + ')')}
+    <div id='pin-error' style="text-align:center;font-size:13px;color:var(--rose);min-height:18px"></div>
+    <button onclick="${isChange ? 'closePinOverlay();_openSettingsPanel();' : 'closePinOverlay();_openSettingsPanel();'}" style="width:100%;margin-top:10px;background:none;border:none;color:var(--cream-muted);font-size:13px;cursor:pointer;padding:8px">${isChange ? 'Cancel' : 'Skip for now'}</button>
+  `;
+}
+
+function _pinEntryHtml(isChange) {
+  const pinData = getSettingsPin();
+  const hubName = localStorage.getItem('fh_hub_name') || 'Family Hub';
+  const lockoutMsg = _pinLockoutMsg(pinData);
+  return `
+    <div style="text-align:center;margin-bottom:22px">
+      <div style="font-size:28px;margin-bottom:8px">🔒</div>
+      <div style="font-family:'Nunito',sans-serif;font-size:18px;font-weight:800;color:var(--cream);margin-bottom:4px">${isChange ? 'Confirm current PIN' : hubName}</div>
+      <div style="font-size:13px;color:var(--cream-muted)">${isChange ? 'Verify your current PIN to continue' : (pinData ? 'Protected by ' + pinData.setBy : 'Enter PIN to access settings')}</div>
+    </div>
+    <div style="display:flex;justify-content:center;gap:14px;margin-bottom:22px" id='pin-dots-row'>${_pinDotsHtml()}</div>
+    ${lockoutMsg
+      ? `<div style="text-align:center;font-size:14px;color:var(--amber);margin-bottom:16px;padding:12px;background:rgba(232,168,56,0.1);border-radius:12px">${lockoutMsg}</div>`
+      : _pinKeypadHtml('pinSubmitEntry(' + (isChange ? 'true' : 'false') + ')')}
+    <div id='pin-error' style="text-align:center;font-size:13px;color:var(--rose);min-height:18px"></div>
+    ${!isChange
+      ? `<button onclick="openPinOverlay('forgot')" style="background:none;border:none;color:var(--cream-muted);font-size:13px;cursor:pointer;padding:8px;width:100%;margin-top:4px">Forgot PIN?</button>`
+      : `<button onclick="closePinOverlay();_openSettingsPanel();" style="background:none;border:none;color:var(--cream-muted);font-size:13px;cursor:pointer;padding:8px;width:100%;margin-top:4px">Cancel</button>`}
+  `;
+}
+
+function _pinForgotHtml() {
+  return `
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:28px;margin-bottom:8px">🔑</div>
+      <div style="font-family:'Nunito',sans-serif;font-size:18px;font-weight:800;color:var(--cream);margin-bottom:6px">Forgot PIN?</div>
+      <div style="font-size:13px;color:var(--cream-muted)">Answer correctly to reset your PIN</div>
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:13px;font-weight:700;color:var(--cream-muted);display:block;margin-bottom:6px">Owner's name (who set the PIN)</label>
+      <input id="pin-forgot-name" class="modal-input" placeholder="e.g. Giuseppe" style="width:100%;padding:10px 12px;font-size:14px">
+    </div>
+    <div style="margin-bottom:18px">
+      <label style="font-size:13px;font-weight:700;color:var(--cream-muted);display:block;margin-bottom:6px">What is the hub name?</label>
+      <input id="pin-forgot-hub" class="modal-input" placeholder="e.g. The Family Hub" style="width:100%;padding:10px 12px;font-size:14px">
+    </div>
+    <div id='pin-error' style="text-align:center;font-size:13px;color:var(--rose);min-height:18px;margin-bottom:10px"></div>
+    <button onclick="submitForgotPin()" style="width:100%;padding:14px;background:var(--sage);border:none;border-radius:14px;font-family:'Nunito',sans-serif;font-size:15px;font-weight:800;color:var(--navy);cursor:pointer">Reset PIN</button>
+    <button onclick="openPinOverlay('entry')" style="width:100%;margin-top:10px;background:none;border:none;color:var(--cream-muted);font-size:13px;cursor:pointer;padding:8px">Back to PIN entry</button>
+  `;
+}
+
+function _pinTransferHtml() {
+  const pinData = getSettingsPin();
+  return `
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:28px;margin-bottom:8px">👑</div>
+      <div style="font-family:'Nunito',sans-serif;font-size:18px;font-weight:800;color:var(--cream);margin-bottom:6px">Transfer ownership</div>
+      <div style="font-size:13px;color:var(--cream-muted)">Current owner: <strong style="color:var(--cream)">${pinData ? pinData.setBy : 'Unknown'}</strong></div>
+    </div>
+    <div style="margin-bottom:18px">
+      <label style="font-size:13px;font-weight:700;color:var(--cream-muted);display:block;margin-bottom:6px">New owner's name</label>
+      <input id="pin-transfer-name" class="modal-input" placeholder="e.g. Ross" style="width:100%;padding:10px 12px;font-size:14px">
+    </div>
+    <div id='pin-error' style="text-align:center;font-size:13px;color:var(--rose);min-height:18px;margin-bottom:10px"></div>
+    <button onclick="submitTransferOwnership()" style="width:100%;padding:14px;background:var(--amber);border:none;border-radius:14px;font-family:'Nunito',sans-serif;font-size:15px;font-weight:800;color:var(--navy);cursor:pointer">Transfer ownership</button>
+    <button onclick="closePinOverlay();_openSettingsPanel();" style="width:100%;margin-top:10px;background:none;border:none;color:var(--cream-muted);font-size:13px;cursor:pointer;padding:8px">Cancel</button>
+  `;
+}
+
+function _pinLockoutMsg(pinData) {
+  if (!pinData || !pinData.lockoutUntil) return null;
+  const lockUntil = new Date(pinData.lockoutUntil);
+  const now = new Date();
+  if (lockUntil <= now) return null;
+  const secsLeft = Math.ceil((lockUntil - now) / 1000);
+  return '🔒 Too many attempts — try again in ' + secsLeft + 's';
+}
+
+function _updatePinDots() {
+  const row = document.getElementById('pin-dots-row');
+  if (!row) return;
+  row.querySelectorAll('.pin-dot').forEach((d, i) => {
+    d.classList.toggle('filled', i < _pinBuf.length);
+  });
+}
+
+function _triggerPinShake() {
+  const row = document.getElementById('pin-dots-row');
+  if (!row) return;
+  row.classList.remove('pin-shake');
+  void row.offsetWidth;
+  row.classList.add('pin-shake');
+}
+
+function pinKeyPress(d) {
+  const pinData = getSettingsPin();
+  if (pinData && pinData.lockoutUntil && new Date(pinData.lockoutUntil) > new Date()) {
+    renderPinScreen();
+    return;
+  }
+  if (_pinBuf.length >= 4) return;
+  _pinBuf += d;
+  _updatePinDots();
+  if (_pinBuf.length === 4 && (_pinMode === 'entry' || _pinMode === 'change-verify')) {
+    setTimeout(() => pinSubmitEntry(_pinMode === 'change-verify'), 80);
+  }
+}
+
+function pinBackspace() {
+  if (_pinBuf.length > 0) {
+    _pinBuf = _pinBuf.slice(0, -1);
+    _updatePinDots();
+  }
+}
+
+async function pinSubmitEntry(isChange) {
+  if (_pinBuf.length < 4) {
+    const errEl = document.getElementById('pin-error');
+    if (errEl) errEl.textContent = 'Enter all 4 digits';
+    return;
+  }
+  const pinData = getSettingsPin();
+  if (!pinData || !pinData.hash) {
+    closePinOverlay();
+    _openSettingsPanel();
+    return;
+  }
+  if (pinData.lockoutUntil && new Date(pinData.lockoutUntil) > new Date()) {
+    const secsLeft = Math.ceil((new Date(pinData.lockoutUntil) - new Date()) / 1000);
+    const errEl = document.getElementById('pin-error');
+    if (errEl) errEl.textContent = '🔒 Try again in ' + secsLeft + 's';
+    _triggerPinShake();
+    _pinBuf = '';
+    _updatePinDots();
+    return;
+  }
+  const hash = await sha256(_pinBuf);
+  _pinBuf = '';
+  _updatePinDots();
+  if (hash === pinData.hash) {
+    await window.fbUpdate('settings', 'pin', { failedAttempts: 0, lockoutUntil: null });
+    closePinOverlay();
+    if (isChange) {
+      _pinBuf = '';
+      openPinOverlay('change-new');
+    } else {
+      _pinUnlocked = true;
+      _openSettingsPanel();
+    }
+  } else {
+    const attempts = (pinData.failedAttempts || 0) + 1;
+    const update = { failedAttempts: attempts };
+    if (attempts >= 5) update.lockoutUntil = new Date(Date.now() + 30000).toISOString();
+    await window.fbUpdate('settings', 'pin', update);
+    _triggerPinShake();
+    const errEl = document.getElementById('pin-error');
+    if (errEl) {
+      errEl.textContent = attempts >= 5
+        ? '🔒 Too many attempts — locked for 30s'
+        : 'Incorrect PIN · ' + (5 - attempts) + ' attempt' + (5 - attempts === 1 ? '' : 's') + ' left';
+    }
+  }
+}
+
+async function submitPinSetup(isChange) {
+  const pinData = getSettingsPin();
+  let ownerName;
+  if (isChange) {
+    ownerName = pinData ? pinData.setBy : '';
+  } else {
+    const nameEl = document.getElementById('pin-setup-name');
+    ownerName = nameEl ? nameEl.value.trim() : '';
+    if (!ownerName) {
+      const errEl = document.getElementById('pin-error');
+      if (errEl) errEl.textContent = 'Please enter your name';
+      return;
+    }
+  }
+  if (_pinBuf.length < 4) {
+    const errEl = document.getElementById('pin-error');
+    if (errEl) errEl.textContent = 'Enter all 4 digits';
+    return;
+  }
+  setSyncStatus('saving');
+  try {
+    const hash = await sha256(_pinBuf);
+    _pinBuf = '';
+    await window.fbSave('settings', { id: 'pin', hash, setBy: ownerName, setAt: new Date().toISOString(), failedAttempts: 0, lockoutUntil: null });
+    setSyncStatus('live');
+    _pinUnlocked = true;
+    closePinOverlay();
+    _openSettingsPanel();
+  } catch(e) {
+    setSyncStatus('error');
+    const errEl = document.getElementById('pin-error');
+    if (errEl) errEl.textContent = 'Failed to save PIN — try again';
+  }
+}
+
+function submitForgotPin() {
+  const pinData = getSettingsPin();
+  const nameEl = document.getElementById('pin-forgot-name');
+  const hubEl = document.getElementById('pin-forgot-hub');
+  const name = nameEl ? nameEl.value.trim() : '';
+  const hubName = hubEl ? hubEl.value.trim() : '';
+  const storedHub = localStorage.getItem('fh_hub_name') || 'The Family Hub';
+  const nameMatch = name.toLowerCase() === (pinData && pinData.setBy ? pinData.setBy.toLowerCase() : '');
+  const hubMatch = hubName.toLowerCase() === storedHub.toLowerCase();
+  if (!nameMatch || !hubMatch) {
+    const errEl = document.getElementById('pin-error');
+    if (errEl) errEl.textContent = 'Answers do not match — check and try again';
+    return;
+  }
+  window.fbUpdate('settings', 'pin', { hash: null, failedAttempts: 0, lockoutUntil: null });
+  closePinOverlay();
+  setTimeout(() => openPinOverlay('setup'), 120);
+}
+
+async function submitTransferOwnership() {
+  const nameEl = document.getElementById('pin-transfer-name');
+  const newName = nameEl ? nameEl.value.trim() : '';
+  if (!newName) {
+    const errEl = document.getElementById('pin-error');
+    if (errEl) errEl.textContent = 'Enter the new owner\'s name';
+    return;
+  }
+  setSyncStatus('saving');
+  try {
+    await window.fbUpdate('settings', 'pin', { setBy: newName });
+    setSyncStatus('live');
+    closePinOverlay();
+    _openSettingsPanel();
+  } catch(e) {
+    setSyncStatus('error');
+  }
+}
+
+function changePinFlow() {
+  closeSettings();
+  openPinOverlay('change-verify');
+}
+
+function transferOwnershipFlow() {
+  closeSettings();
+  openPinOverlay('transfer');
 }
 
 function renderSettingsMembers(members) {
