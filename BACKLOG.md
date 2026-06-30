@@ -1295,6 +1295,43 @@ Day of week: [Sunday ▾]
 - [ ] Audit passes with zero issues
 
 
+---
+
+### S4-006 · Adversarial Testing Framework
+**Status:** DONE (framework created — ongoing process from here)
+**Priority:** High
+**Category:** Process / Quality
+
+**Description:**
+Following real-world testing by Malachi (age 16), several gaps were identified where a family member could access restricted areas or affect other people's data. Rather than treating these as one-off bugs, a permanent testing discipline has been created.
+
+**What was built:**
+- `TESTING.md` — a permanent companion file to BACKLOG.md containing:
+  - Section A: Core regression tests, run after every sprint
+  - Section B: Adversarial test cases, including the specific issues Malachi found
+  - Section C: A running log of newly discovered issues, dated and attributed
+- `AGENTS.md` updated — testing is now a mandatory gate before any backlog item can be marked DONE
+
+**Findings from this round of testing (30 Jun 2026, found by Malachi):**
+1. Could access Settings without entering PIN — tracked, will be verified once S3-015 ships
+2. Could delete items added by other family members — by design, mitigated (not prevented) by S4-004 soft delete + undo
+3. Could change other family members' task/event assignments — currently by design (no auth yet), open decision below
+
+**Decision — RESOLVED 30 Jun 2026:**
+Reassigning other family members' items will remain unrestricted. This is a deliberate product decision, not an oversight.
+
+Rationale (Giuseppe): the priority is keeping the app frictionless for non-technical families. Every permission check, lock, or restriction adds UI complexity and decision fatigue — exactly what causes families to abandon shared apps. Family Hub is a trust-based tool for a small household, not a multi-user enterprise system. The combination of soft-delete + undo (S4-004) + activity log already gives full visibility and reversibility, which is the right level of protection for this context.
+
+This decision should be revisited only if it causes a real, repeated problem in practice — not pre-emptively engineered against a hypothetical one. If it does become a problem, the lightest-touch fix (e.g. a gentle "this was assigned by Ross, are you sure?" confirmation) should be tried before any hard restriction.
+
+**Acceptance criteria:**
+- [x] TESTING.md created with regression and adversarial sections
+- [x] AGENTS.md updated to require testing before marking items DONE
+- [x] Malachi's findings documented as permanent regression tests
+- [x] Decision on finding #3 resolved — no restriction added, documented rationale
+- [ ] Future sprints reference TESTING.md, not just audit.py
+
+
 ## 💡 FUTURE / COMMERCIAL
 
 ### F-001 · Multi-household Support
