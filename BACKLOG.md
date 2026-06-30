@@ -1239,7 +1239,7 @@ function guessCategory(itemName) {
 ---
 
 ### S3-017 · Meals — Stop Overwriting Existing Day, Offer Next Available Slot
-**Status:** TODO
+**Status:** DONE 2026-06-30
 **Priority:** Critical
 **Category:** Bug
 
@@ -1337,7 +1337,7 @@ This decision should be revisited only if it causes a real, repeated problem in 
 ---
 
 ### S3-018 · Force Refresh on App Open When New Version Deployed
-**Status:** TODO
+**Status:** DONE 2026-06-30
 **Priority:** Critical
 **Category:** Infrastructure / Bug
 
@@ -1473,7 +1473,7 @@ Expand the working location and OOO concepts from S5-002 into a richer presence 
 ---
 
 ### S3-007 · Edit Modal — Multi-person Who Chip Selector
-**Status:** TODO
+**Status:** DONE 2026-06-30
 **Priority:** High
 **Category:** Bug / Consistency
 
@@ -1501,7 +1501,7 @@ The edit modals (`openEditItem`) still use plain dropdown selects for the "who" 
 ---
 
 ### S3-008 · Checked Items — Move to Done Section on Completion
-**Status:** TODO
+**Status:** DONE 2026-06-30
 **Priority:** High
 **Category:** UX
 

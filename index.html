@@ -1416,6 +1416,12 @@
     📴 Offline — showing last known data
   </div>
 
+  <!-- UPDATE AVAILABLE BANNER -->
+  <div id="update-banner" onclick="doUpdate()" style="display:none;background:var(--sage);color:var(--navy);font-size:13px;font-weight:700;padding:7px 12px;font-family:'Nunito',sans-serif;flex-shrink:0;cursor:pointer;align-items:center;justify-content:center;gap:8px">
+    <span>📦 New version available — tap to update</span>
+    <button onclick="snoozeUpdate(event)" style="background:rgba(0,0,0,0.15);border:none;border-radius:8px;padding:2px 10px;font-family:'Nunito',sans-serif;font-size:12px;font-weight:700;color:var(--navy);cursor:pointer">Later</button>
+  </div>
+
   <!-- NAV -->
   <div id="nav">
     <div class="nav-tab active" data-view="dashboard" onclick="switchView('dashboard')">
@@ -3146,7 +3152,10 @@ async function saveModal() {
       const day   = document.getElementById('new-meal-day').value;
       const notes = document.getElementById('new-meal-notes').value || '';
       const existing = getMeals().find(m => m.day === day);
-      if (existing) await window.fbDelete('meals', existing.id);
+      if (existing) {
+        if (!confirm(`${day} already has "${existing.name}". Replace it?`)) return;
+        await window.fbDelete('meals', existing.id);
+      }
       await window.fbSave('meals', { id, day, name, notes, who: getWhoValue('new-meal-who'), tag: 'New' });
       // Save as favourite if ticked
       if (document.getElementById('new-meal-save-fav').checked) {
@@ -4457,21 +4466,47 @@ window.addEventListener('offline', () => setOfflineBanner(true));
 window.addEventListener('online',  () => setOfflineBanner(false));
 if (!navigator.onLine) setOfflineBanner(true);
 
-// ── HOME SCREEN PWA AUTO-REFRESH ──────────────────────────────────────────────
-// When installed as a home screen app, reload after 30 minutes in background
-// so the app always picks up the latest deployed code.
-(function() {
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-  if (!isStandalone) return;
-  sessionStorage.setItem('fh_sw_loaded', String(Date.now()));
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState !== 'visible') return;
-    const loaded = parseInt(sessionStorage.getItem('fh_sw_loaded') || '0', 10);
-    if (Date.now() - loaded > 30 * 60 * 1000) {
-      window.location.reload();
+// ── VERSION CHECK & FORCE REFRESH (S3-018) ────────────────────────────────────
+// Fetch version.json on load and on returning to foreground.
+// If server version differs from baked-in APP_VERSION, show update banner.
+let _updateSnoozedUntil = 0;
+
+async function checkVersion() {
+  if (Date.now() < _updateSnoozedUntil) return;
+  if (!navigator.onLine) return;
+  try {
+    const res = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.version && data.version !== APP_VERSION) {
+      const banner = document.getElementById('update-banner');
+      if (banner) banner.style.display = 'flex';
     }
-  });
-})();
+  } catch(_) {}
+}
+
+function doUpdate() {
+  if ('caches' in window) {
+    caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).then(() => {
+      location.href = location.pathname + '?v=' + Date.now();
+    });
+  } else {
+    location.href = location.pathname + '?v=' + Date.now();
+  }
+}
+
+function snoozeUpdate(e) {
+  e.stopPropagation();
+  _updateSnoozedUntil = Date.now() + 10 * 60 * 1000;
+  const banner = document.getElementById('update-banner');
+  if (banner) banner.style.display = 'none';
+}
+
+// Check on load after Firebase connects, then on every foreground event
+setTimeout(checkVersion, 5000);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') checkVersion();
+});
 
 // ── SERVICE WORKER (cache-first for assets, network-first for Firestore) ──────
 if ('serviceWorker' in navigator) {
