@@ -10,7 +10,7 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED | DECISION NEEDED
 ## 🚀 SPRINT 3 — Quality of Life
 
 ### S3-001 · Weather Widget
-**Status:** TODO
+**Status:** DONE 2026-06-30
 **Priority:** Medium
 **Category:** Feature — Dashboard
 
