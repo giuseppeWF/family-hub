@@ -37,7 +37,7 @@ Add a weather widget to the dashboard overview that shows current conditions for
 ---
 
 ### S3-002 · Recurring Events — Auto-generate next occurrence
-**Status:** TODO
+**Status:** DONE 2026-06-30
 **Priority:** High
 **Category:** Feature — Calendar
 
@@ -233,7 +233,7 @@ Review all empty states across all tabs. Make sure they're friendly, have an emo
 ---
 
 ### S3-009 · Onboarding Flow — Fixes & Polish
-**Status:** TODO
+**Status:** DONE 2026-06-30
 **Priority:** Critical
 **Category:** Bug / UX
 
@@ -556,7 +556,7 @@ Sign Google's Data Processing Agreement (DPA) to formalise Firebase's role as a 
 ---
 
 ### S3-010 · Shopping List — Who Added + Store + Better Categories
-**Status:** TODO
+**Status:** DONE 2026-06-30
 **Priority:** High
 **Category:** Feature / UX
 
@@ -629,7 +629,7 @@ Also add ability to create a custom category — free text input that appears as
 ---
 
 ### S3-011 · "What's New" Feature Announcement System
-**Status:** TODO
+**Status:** DONE 2026-06-30
 **Priority:** Medium
 **Category:** UX / Engagement
 
@@ -720,7 +720,7 @@ A `guide.html` page hosted alongside the app on GitHub Pages at `https://giusepp
 ---
 
 ### S3-013 · Mobile Layout Polish Pass
-**Status:** TODO
+**Status:** DONE 2026-06-30
 **Priority:** High
 **Category:** Design / UX
 
@@ -810,7 +810,7 @@ A focused mobile layout fix based on real device testing (iPhone, portrait ~390p
 ---
 
 ### S3-014 · Header Redesign + Tab Icon Fixes + Settings Sync
-**Status:** TODO
+**Status:** DONE 2026-06-30
 **Priority:** High
 **Category:** Design / UX / Infrastructure
 
@@ -938,7 +938,7 @@ Same problem as hub name — family members are in localStorage only. Move to Fi
 ---
 
 ### S3-015 · Settings PIN Lock (Soft Admin Protection)
-**Status:** TODO
+**Status:** DONE 2026-06-30
 **Priority:** Medium
 **Category:** Security / UX
 
@@ -1132,7 +1132,7 @@ Allow admins to lock specific items so they cannot be deleted or edited without 
 ---
 
 ### S3-016 · Shopping — Auto-assign "Added By" + Smart Category Guessing
-**Status:** TODO
+**Status:** DONE 2026-06-30
 **Priority:** High
 **Category:** Feature / UX
 

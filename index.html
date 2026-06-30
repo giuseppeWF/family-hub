@@ -1382,6 +1382,16 @@
 
 <div id="app">
 
+  <!-- DEVICE USER PICKER (S3-016) -->
+  <div id="device-user-overlay" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.88);z-index:490;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px">
+    <div style="background:var(--navy-mid);border-radius:24px;padding:32px 28px;width:100%;max-width:380px;text-align:center">
+      <div style="font-family:'Nunito',sans-serif;font-size:26px;font-weight:800;color:var(--cream);margin-bottom:10px">👋 Who's using this device?</div>
+      <div style="font-size:14px;color:var(--cream-muted);margin-bottom:28px;line-height:1.5">We'll pre-fill your name when you add things. You can change this any time in Settings.</div>
+      <div id="device-user-chips" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center"></div>
+      <button onclick="document.getElementById('device-user-overlay').style.display='none'" style="margin-top:24px;padding:10px 24px;background:transparent;border:1px solid var(--border-strong);border-radius:12px;color:var(--cream-muted);font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;cursor:pointer">Skip for now</button>
+    </div>
+  </div>
+
   <!-- ONBOARDING OVERLAY -->
   <div id="onboarding-overlay" style="display:none;position:absolute;inset:0;background:var(--navy);z-index:500;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;overflow-y:auto">
     <div style="width:100%;max-width:420px">
@@ -1727,7 +1737,7 @@
           <input class="modal-input" id="new-shop-store" placeholder="e.g. Lidl, Home Bargains, Amazon">
         </div>
         <div class="modal-field">
-          <label class="modal-label">Category</label>
+          <label class="modal-label" style="display:flex;align-items:center;gap:8px">Category<span id="shop-cat-guess-label" style="display:none;font-size:11px;font-weight:600;color:var(--sage);background:rgba(46,196,182,0.12);border-radius:6px;padding:2px 7px">✨ Suggested</span></label>
           <select class="modal-select" id="new-shop-cat">
             <option>Produce</option>
             <option>Dairy &amp; Eggs</option>
@@ -1854,6 +1864,14 @@
   <div id="settings-overlay" onclick="closeSettingsIfBg(event)" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.7);z-index:250;align-items:flex-start;justify-content:flex-end;padding:70px 20px 20px">
     <div style="background:var(--navy-mid);border:1px solid var(--border-strong);border-radius:20px;padding:24px;width:320px;max-height:80vh;overflow-y:auto" onclick="event.stopPropagation()">
       <div style="font-family:'Nunito',sans-serif;font-size:18px;font-weight:800;color:var(--cream);margin-bottom:20px">⚙️ Settings</div>
+
+      <!-- This Device (no PIN required) -->
+      <div style="font-size:12px;font-weight:700;color:var(--cream-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px">This Device</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(255,255,255,0.04);border-radius:10px;margin-bottom:6px">
+        <div style="font-size:14px;color:var(--cream)">Using as: <strong id="settings-device-user-name" style="color:var(--sage)">Not set</strong></div>
+        <button onclick="openDeviceUserPicker()" style="padding:6px 14px;background:transparent;border:1px solid var(--border-strong);border-radius:8px;color:var(--cream-muted);font-family:'Nunito',sans-serif;font-size:12px;font-weight:700;cursor:pointer">Switch</button>
+      </div>
+      <div style="height:1px;background:var(--border);margin:16px 0"></div>
 
       <!-- Family members -->
       <div style="font-size:12px;font-weight:700;color:var(--cream-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">Family Members</div>
@@ -2005,6 +2023,129 @@ function getShopCategories() {
   return [...SHOP_CATS, ...custom.filter(c => !SHOP_CATS.includes(c))];
 }
 let _shopViewMode = 'category'; // 'category' | 'store'
+
+// ── CATEGORY GUESSING (S3-016) ────────────────────────────────────────────────
+const CATEGORY_GUESS = {
+  'apple':'Produce','banana':'Produce','broccoli':'Produce','carrot':'Produce',
+  'lettuce':'Produce','tomato':'Produce','onion':'Produce','potato':'Produce',
+  'cucumber':'Produce','pepper':'Produce','spinach':'Produce','avocado':'Produce',
+  'grape':'Produce','strawberry':'Produce','raspberry':'Produce','blueberry':'Produce',
+  'lemon':'Produce','lime':'Produce','orange':'Produce','pear':'Produce',
+  'mango':'Produce','pineapple':'Produce','cauliflower':'Produce','courgette':'Produce',
+  'garlic':'Produce','ginger':'Produce','mushroom':'Produce','leek':'Produce',
+  'celery':'Produce','asparagus':'Produce','kale':'Produce','cabbage':'Produce',
+  'beetroot':'Produce','sweet potato':'Produce','parsnip':'Produce','radish':'Produce',
+  'pak choi':'Produce','spring onion':'Produce','coriander':'Produce','basil':'Produce',
+  'parsley':'Produce','mint':'Produce','thyme':'Produce','rosemary':'Produce',
+  'milk':'Dairy & Eggs','cheese':'Dairy & Eggs','butter':'Dairy & Eggs',
+  'yogurt':'Dairy & Eggs','yoghurt':'Dairy & Eggs','eggs':'Dairy & Eggs','cream':'Dairy & Eggs',
+  'creme fraiche':'Dairy & Eggs','sour cream':'Dairy & Eggs','mozzarella':'Dairy & Eggs',
+  'cheddar':'Dairy & Eggs','brie':'Dairy & Eggs','margarine':'Dairy & Eggs',
+  'clotted cream':'Dairy & Eggs','oat milk':'Dairy & Eggs','almond milk':'Dairy & Eggs',
+  'soya milk':'Dairy & Eggs','double cream':'Dairy & Eggs','skimmed milk':'Dairy & Eggs',
+  'chicken':'Meat','beef':'Meat','pork':'Meat','bacon':'Meat','sausage':'Meat',
+  'mince':'Meat','lamb':'Meat','ham':'Meat','turkey':'Meat','duck':'Meat',
+  'steak':'Meat','pork chop':'Meat','chorizo':'Meat','salami':'Meat',
+  'pepperoni':'Meat','corned beef':'Meat','hot dog':'Meat','gammon':'Meat',
+  'fish':'Seafood','salmon':'Seafood','prawns':'Seafood','tuna':'Seafood','cod':'Seafood',
+  'haddock':'Seafood','mackerel':'Seafood','sardine':'Seafood','crab':'Seafood',
+  'sea bass':'Seafood','trout':'Seafood','scallop':'Seafood','crayfish':'Seafood',
+  'bread':'Bakery','roll':'Bakery','bagel':'Bakery','croissant':'Bakery','baguette':'Bakery',
+  'pitta':'Bakery','naan':'Bakery','wrap':'Bakery','muffin':'Bakery','scone':'Bakery',
+  'cake':'Bakery','pastry':'Bakery','crumpet':'Bakery','brioche':'Bakery',
+  'sourdough':'Bakery','focaccia':'Bakery','flatbread':'Bakery',
+  'frozen':'Frozen Foods','ice cream':'Frozen Foods','pizza':'Frozen Foods',
+  'oven chips':'Frozen Foods','fish fingers':'Frozen Foods','waffles':'Frozen Foods',
+  'frozen peas':'Frozen Foods','frozen corn':'Frozen Foods',
+  'tinned':'Canned Goods','canned':'Canned Goods','baked beans':'Canned Goods',
+  'chopped tomatoes':'Canned Goods','chickpeas':'Canned Goods','coconut milk':'Canned Goods',
+  'soup can':'Canned Goods','kidney beans':'Canned Goods','lentil can':'Canned Goods',
+  'pasta':'Dry Goods & Pasta','rice':'Dry Goods & Pasta','cereal':'Dry Goods & Pasta',
+  'flour':'Dry Goods & Pasta','oats':'Dry Goods & Pasta','noodle':'Dry Goods & Pasta',
+  'couscous':'Dry Goods & Pasta','quinoa':'Dry Goods & Pasta',
+  'porridge':'Dry Goods & Pasta','breadcrumbs':'Dry Goods & Pasta','cornflour':'Dry Goods & Pasta',
+  'lentils':'Dry Goods & Pasta','pearl barley':'Dry Goods & Pasta','polenta':'Dry Goods & Pasta',
+  'crisps':'Snacks & Sweets','chocolate':'Snacks & Sweets','biscuits':'Snacks & Sweets',
+  'sweets':'Snacks & Sweets','popcorn':'Snacks & Sweets','nuts':'Snacks & Sweets',
+  'raisins':'Snacks & Sweets','crackers':'Snacks & Sweets','cereal bar':'Snacks & Sweets',
+  'pringles':'Snacks & Sweets','haribo':'Snacks & Sweets','percy pig':'Snacks & Sweets',
+  'fudge':'Snacks & Sweets','toffee':'Snacks & Sweets','cakes':'Snacks & Sweets',
+  'juice':'Beverages','water':'Beverages','squash':'Beverages','tea':'Beverages','coffee':'Beverages',
+  'hot chocolate':'Beverages','energy drink':'Beverages','lemonade':'Beverages',
+  'cola':'Beverages','pepsi':'Beverages','coke':'Beverages','sparkling':'Beverages',
+  'cordial':'Beverages','milkshake':'Beverages','smoothie':'Beverages','kombucha':'Beverages',
+  'wine':'Alcohol','beer':'Alcohol','cider':'Alcohol','prosecco':'Alcohol',
+  'champagne':'Alcohol','gin':'Alcohol','vodka':'Alcohol','whisky':'Alcohol',
+  'rum':'Alcohol','lager':'Alcohol','ale':'Alcohol','stout':'Alcohol',
+  'ketchup':'Condiments & Sauces','mayo':'Condiments & Sauces','mustard':'Condiments & Sauces',
+  'salad dressing':'Condiments & Sauces','soy sauce':'Condiments & Sauces',
+  'worcestershire':'Condiments & Sauces','tabasco':'Condiments & Sauces',
+  'mayonnaise':'Condiments & Sauces','pickle':'Condiments & Sauces',
+  'jam':'Condiments & Sauces','marmalade':'Condiments & Sauces','honey':'Condiments & Sauces',
+  'peanut butter':'Condiments & Sauces','nutella':'Condiments & Sauces',
+  'olive oil':'Condiments & Sauces','vinegar':'Condiments & Sauces','pesto':'Condiments & Sauces',
+  'gravy':'Condiments & Sauces','stock':'Condiments & Sauces',
+  'bin bags':'Household','washing powder':'Household','toilet roll':'Household',
+  'kitchen roll':'Household','bleach':'Household','washing liquid':'Household',
+  'fabric softener':'Household','dishwasher tablets':'Household','foil':'Household',
+  'cling film':'Household','batteries':'Household','light bulb':'Household',
+  'air freshener':'Household','cleaning spray':'Household','mop':'Household',
+  'shampoo':'Personal Care','soap':'Personal Care','toothpaste':'Personal Care',
+  'deodorant':'Personal Care','conditioner':'Personal Care','shower gel':'Personal Care',
+  'moisturiser':'Personal Care','face wash':'Personal Care','razor':'Personal Care',
+  'cotton wool':'Personal Care','plasters':'Personal Care','paracetamol':'Personal Care',
+  'ibuprofen':'Personal Care','tampons':'Personal Care','pad':'Personal Care',
+  'dog food':'Pet Supplies','cat food':'Pet Supplies','dog treats':'Pet Supplies',
+  'cat treats':'Pet Supplies','cat litter':'Pet Supplies','paloma':'Pet Supplies','otis':'Pet Supplies',
+  'pet food':'Pet Supplies','bird seed':'Pet Supplies',
+};
+function guessCategory(itemName) {
+  const lower = itemName.toLowerCase();
+  for (const [keyword, category] of Object.entries(CATEGORY_GUESS)) {
+    if (lower.includes(keyword)) return category;
+  }
+  return null;
+}
+
+// ── DEVICE USER (S3-016) ──────────────────────────────────────────────────────
+function getDeviceUser() { return localStorage.getItem('fh_this_device_user') || null; }
+function setDeviceUser(name) {
+  localStorage.setItem('fh_this_device_user', name);
+  const ov = document.getElementById('device-user-overlay');
+  if (ov) ov.style.display = 'none';
+  renderDeviceUserInSettings();
+}
+function renderDeviceUserInSettings() {
+  const el = document.getElementById('settings-device-user-name');
+  if (el) el.textContent = getDeviceUser() || 'Not set';
+}
+function openDeviceUserPicker() {
+  const ov = document.getElementById('device-user-overlay');
+  if (ov) { renderDeviceUserChips(); ov.style.display = 'flex'; }
+}
+function renderDeviceUserChips() {
+  const cont = document.getElementById('device-user-chips');
+  if (!cont) return;
+  const members = getFamilyMembers();
+  const current = getDeviceUser();
+  const memberColors = {};
+  members.forEach(m => memberColors[m.name] = m.color);
+  cont.innerHTML = members.map(m => {
+    const isSelected = m.name === current;
+    return `<button type="button" onclick="setDeviceUser('${m.name}')"
+      style="padding:12px 20px;border-radius:50px;font-family:'Nunito',sans-serif;font-size:16px;font-weight:700;cursor:pointer;border:2px solid ${isSelected ? m.color : 'var(--border-strong)'};background:${isSelected ? m.color + '22' : 'transparent'};color:${m.color || 'var(--cream)'}">${m.name}</button>`;
+  }).join('');
+}
+function checkDeviceUserPrompt() {
+  if (getDeviceUser()) return;
+  const members = getFamilyMembers();
+  if (!members.length) return;
+  const isOnboarding = document.getElementById('onboarding-overlay') &&
+    document.getElementById('onboarding-overlay').style.display !== 'none';
+  if (isOnboarding) return;
+  const ov = document.getElementById('device-user-overlay');
+  if (ov) { renderDeviceUserChips(); ov.style.display = 'flex'; }
+}
 
 // ── DATE HELPERS ──────────────────────────────────────────────────────────────
 const today    = new Date();
@@ -2172,6 +2313,7 @@ window.addEventListener('fb-data', () => {
   }
   if (typeof renderAll === 'function') renderAll();
   processRecurringEvents();
+  if (typeof checkDeviceUserPrompt === 'function') checkDeviceUserPrompt();
 });
 window.addEventListener('fb-saved', () => {
   setSyncStatus('live');
@@ -2908,7 +3050,7 @@ function openModal(type) {
   if (type === 'event')     renderWhoChips('new-event-who-chips', 'new-event-who');
   if (type === 'todo')      renderWhoChips('new-todo-who-chips',  'new-todo-who');
   if (type === 'shop')    {
-    renderWhoChips('new-shop-who-chips',  'new-shop-who');
+    renderWhoChips('new-shop-who-chips',  'new-shop-who', { excludeEveryone: true });
     populateShopFavsPicker();
     // Populate category select with any custom categories
     const catSel = document.getElementById('new-shop-cat');
@@ -2925,6 +3067,23 @@ function openModal(type) {
     document.getElementById('new-shop-store').value = '';
     document.getElementById('new-shop-custom-cat').value = '';
     document.getElementById('new-shop-custom-field').style.display = 'none';
+    // Category guessing on item name input
+    const nameEl = document.getElementById('new-shop-name');
+    let _catUserEdited = false;
+    if (catEl) catEl.addEventListener('change', () => { _catUserEdited = true; });
+    if (nameEl) nameEl.oninput = function() {
+      if (_catUserEdited) return;
+      const guessed = guessCategory(this.value);
+      if (guessed && catEl && catEl.value !== '__custom__') {
+        catEl.value = guessed;
+        const lbl = document.getElementById('shop-cat-guess-label');
+        if (lbl) {
+          lbl.style.display = 'inline';
+          clearTimeout(lbl._timer);
+          lbl._timer = setTimeout(() => { if (lbl) lbl.style.display = 'none'; }, 3000);
+        }
+      }
+    };
   }
   if (type === 'meal') {
     renderWhoChips('new-meal-who-chips', 'new-meal-who');
@@ -2945,18 +3104,22 @@ function openModal(type) {
   document.getElementById('modal-overlay').classList.add('open');
 }
 
-function renderWhoChips(containerId, hiddenId) {
+function renderWhoChips(containerId, hiddenId, opts) {
+  const deviceUser = getDeviceUser();
+  const excludeEveryone = !!(opts && opts.excludeEveryone);
+  const preSelect = (opts && opts.preSelect) || (deviceUser && deviceUser !== 'Everyone' ? deviceUser : null);
   const members = getFamilyMembers();
-  const all = ['Everyone', ...members.map(m => m.name)];
+  const all = excludeEveryone ? members.map(m => m.name) : ['Everyone', ...members.map(m => m.name)];
   const memberColors = { Everyone: 'var(--cream-muted)' };
   members.forEach(m => memberColors[m.name] = m.color);
   const container = document.getElementById(containerId);
   if (!container) return;
-  let selected = ['Everyone'];
+  const selected = preSelect && all.includes(preSelect) ? [preSelect] : (excludeEveryone ? [] : ['Everyone']);
   container.innerHTML = all.map(name => {
+    const isSelected = selected.includes(name);
     const color = memberColors[name] || 'var(--cream-muted)';
-    return `<button type="button" class="who-chip${selected.includes(name)?' selected':''}"
-      data-name="${name}" style="color:${color};${selected.includes(name)?'border-color:'+color+';background:'+color+'22':''}"
+    return `<button type="button" class="who-chip${isSelected?' selected':''}"
+      data-name="${name}" style="color:${color};${isSelected?'border-color:'+color+';background:'+color+'22':''}"
       onclick="toggleWhoChip(this,'${containerId}','${hiddenId}')">${name}</button>`;
   }).join('');
   updateWhoHidden(containerId, hiddenId);
@@ -3124,6 +3287,12 @@ async function saveModal() {
     }
     if (currentModal === 'shop') {
       const name = document.getElementById('new-shop-name').value.trim(); if (!name) return;
+      const who  = getWhoValue('new-shop-who');
+      if (!who || who === 'Everyone') {
+        const whoCont = document.getElementById('new-shop-who-chips');
+        if (whoCont) { whoCont.style.outline = '1px solid var(--rose)'; setTimeout(() => { whoCont.style.outline = ''; }, 2000); }
+        return;
+      }
       const qty  = document.getElementById('new-shop-qty').value || '1';
       let cat    = document.getElementById('new-shop-cat').value;
       if (cat === '__custom__') {
@@ -3134,7 +3303,7 @@ async function saveModal() {
         }
       }
       const store = (document.getElementById('new-shop-store').value || '').trim() || null;
-      await window.fbSave('shopping', { id, name, qty, cat, store, who: getWhoValue('new-shop-who'), done: false });
+      await window.fbSave('shopping', { id, name, qty, cat, store, who, done: false });
       // Save as favourite if ticked
       if (document.getElementById('new-shop-save-fav').checked) {
         const favId = 'sf_' + Date.now();
@@ -3676,6 +3845,7 @@ function _openSettingsPanel() {
   document.getElementById('settings-hub-name').value =
     localStorage.getItem('fh_hub_name') || 'The Family Hub';
   renderSettingsMembers(members);
+  renderDeviceUserInSettings();
   overlay.style.display = 'flex';
 }
 
