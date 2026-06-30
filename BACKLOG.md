@@ -808,7 +808,7 @@ A focused mobile layout fix based on real device testing (iPhone, portrait ~390p
 ---
 
 ### S3-014 · Header Redesign + Tab Icon Fixes + Settings Sync
-**Status:** DONE — 2026-06-30
+**Status:** TODO
 **Priority:** High
 **Category:** Design / UX / Infrastructure
 
@@ -936,7 +936,7 @@ Same problem as hub name — family members are in localStorage only. Move to Fi
 ---
 
 ### S3-015 · Settings PIN Lock (Soft Admin Protection)
-**Status:** DONE — 2026-06-30
+**Status:** TODO
 **Priority:** Medium
 **Category:** Security / UX
 
@@ -1006,6 +1006,293 @@ Until proper Google Sign-In authentication (S5-003) is built, protect Settings w
 - [ ] [FUTURE S5-003] Multiple admins — owner can promote family members to admin role
 - [ ] [FUTURE S5-003] Admin roles stored in Firestore settings/admins as array of Google UIDs
 - [ ] [FUTURE S5-003] Super admin (original owner) cannot be demoted
+
+
+---
+
+### S4-004 · Data Protection — Soft Delete, Undo, and Activity Log
+**Status:** TODO
+**Priority:** Medium
+**Category:** Security / UX / Trust
+
+**Description:**
+Protect family data from accidental or deliberate deletion by teenagers (or anyone). The solution is not to lock down delete — that creates friction for legitimate use. The solution is to make deletion reversible and visible.
+
+**The threat model (yes, this is real):**
+- A 16-year-old deletes a chore they don't want to do
+- Someone accidentally deletes the whole meal plan
+- A shopping list gets cleared right before a big shop
+- A calendar event gets deleted and nobody can remember the details
+- General "rage baiting" — deleting things to wind up parents
+
+**The solution — three layers:**
+
+**Layer 1: Soft delete (never truly delete immediately)**
+Instead of removing documents from Firestore, mark them as deleted:
+```javascript
+// Instead of: await fbDelete('todos', id)
+// Do: await fbUpdate('todos', id, { deleted: true, deletedAt: serverTimestamp(), deletedBy: currentUserName })
+```
+- All read queries filter out `deleted: true` documents
+- Firestore keeps the data — it just doesn't show in the UI
+- After 30 days, a cleanup function permanently removes soft-deleted items
+- This also protects against accidental Firebase Console deletions
+
+**Layer 2: Undo toast notification**
+After any deletion, show a 5-second "Undo" toast at the bottom of the screen:
+```
+🗑 "Hoover downstairs" deleted  [Undo]
+```
+- Tapping Undo immediately restores the item (`deleted: false`)
+- Toast is visible to everyone on all devices simultaneously (via Firestore listener)
+- After 5 seconds: toast disappears, item remains soft-deleted (still recoverable by admin for 30 days)
+- Toast shows on ALL connected devices — so if Mack deletes a chore, Giuseppe sees it on the SyncGo
+
+**Layer 3: Activity log (admin only, behind PIN)**
+A simple log of recent changes accessible in Settings → "Recent Activity":
+- Shows last 50 actions: who added/edited/deleted what, and when
+- Stored in Firestore `activityLog` collection, capped at 100 documents
+- Each entry: `{ action: 'deleted', item: 'Hoover downstairs', collection: 'todos', who: 'Mack', at: timestamp }`
+- Admin can restore any deleted item from the log with one tap
+- Log is read-only — cannot be edited or deleted (even by admin)
+- Retention: 30 days
+
+**What triggers an activity log entry:**
+- Any item created (add event, task, shopping item, meal, household task)
+- Any item edited
+- Any item deleted
+- Any item marked done/undone
+- Settings changes (hub name, members added/removed)
+- PIN set or changed
+
+**Implementation notes:**
+- Add `deleted`, `deletedAt`, `deletedBy` fields to all Firestore documents
+- Update all `renderX()` functions to filter: `.filter(item => !item.deleted)`
+- Update `deleteItem()` function to soft-delete instead of hard-delete
+- Add `logActivity(action, collection, itemName, who)` helper function called on every mutation
+- Toast component: fixed position bottom of screen, slides up, auto-dismisses, has Undo button
+- Toast must be visible above the nav bar — z-index above everything except modals
+- Firestore rules: `activityLog` is read-only for all authenticated users, write only via app (not console)
+- Add `activityLog` to Firestore listeners so admin log updates in real time
+- Cleanup function: on app load, check for soft-deleted items older than 30 days and hard-delete them
+- [DECISION NEEDED] Should non-admins be able to see the activity log, or only admins?
+
+**What this does NOT do:**
+- Does not prevent deletion (that would be too restrictive)
+- Does not require admin approval to delete (too much friction)
+- Does not lock items (future feature if needed)
+- Does not send push notifications (future — S4-005)
+
+**Future enhancement — item locking (S4-005):**
+Admin can "lock" specific items so they cannot be deleted or edited without PIN. Useful for recurring chores that keep mysteriously disappearing. A small 🔒 icon on locked items. Only admin can lock/unlock.
+
+**Acceptance criteria:**
+- [ ] Deleting any item soft-deletes (sets deleted: true) instead of removing from Firestore
+- [ ] Soft-deleted items do not appear in any list or dashboard view
+- [ ] Undo toast appears for 5 seconds after any deletion on all connected devices
+- [ ] Tapping Undo within 5 seconds restores the item immediately
+- [ ] Activity log records all create/edit/delete/done actions with who and when
+- [ ] Activity log accessible in Settings → Recent Activity (behind PIN)
+- [ ] Admin can restore any deleted item from activity log
+- [ ] Activity log is read-only — no edit or delete
+- [ ] Soft-deleted items older than 30 days are cleaned up on app load
+- [ ] Toast does not obscure nav bar or action buttons
+- [ ] Audit passes with zero issues
+- [ ] [DECISION NEEDED] Activity log visibility: admins only, or all family members?
+
+---
+
+### S4-005 · Item Locking (Admin Only)
+**Status:** TODO
+**Priority:** Low
+**Category:** Feature / Security
+
+**Description:**
+Allow admins to lock specific items so they cannot be deleted or edited without the Settings PIN. The nuclear option for chores that keep mysteriously disappearing.
+
+**Implementation notes:**
+- Add `locked: true/false` field to any Firestore document
+- Locked items show a small 🔒 icon
+- Attempting to delete or edit a locked item: show "This item is locked by [admin name]. Ask them to unlock it."
+- Only admin (PIN verified) can lock or unlock items
+- Long-press on any item → context menu: Lock / Unlock (admin only, PIN required)
+- Locked items cannot be soft-deleted either — they are fully protected
+
+**Acceptance criteria:**
+- [ ] Admin can lock any item (requires PIN)
+- [ ] Locked items show 🔒 indicator
+- [ ] Non-admins cannot delete or edit locked items
+- [ ] Non-admins see clear message explaining why
+- [ ] Admin can unlock items (requires PIN)
+- [ ] Audit passes
+
+
+---
+
+### S3-016 · Shopping — Auto-assign "Added By" + Smart Category Guessing
+**Status:** TODO
+**Priority:** High
+**Category:** Feature / UX
+
+**Description:**
+Two related improvements to reduce friction and improve accountability when adding shopping items.
+
+**1. Auto-assign "Added By" to the current device's user**
+
+Currently the "Added by" field defaults to "Everyone" and must be manually selected. This means parents can't reliably see who actually added an item. Fix: each device remembers "who is using this phone" and auto-fills it.
+
+**This requires a lightweight "whose device is this" concept** — not full authentication, just a per-device preference:
+
+- On first use of the app on any device, show a one-time prompt: "Who's using this device?" with chips for each family member (reuses existing `renderWhoChips` pattern, single-select only)
+- Store the answer in localStorage as `fh_this_device_user` (e.g. "Mack")
+- This is NOT a security feature — anyone can change it. It is a convenience default, similar to how Netflix remembers "who's watching"
+- Add "Switch user" option in Settings (no PIN required — this is not security-sensitive) so if Ross picks up Mack's old phone, he can correct it
+- When adding ANY item (shopping, todo, event, meal, household task) — pre-select the current device's user in the who-chips selector
+- For shopping specifically: make "Added by" a required field (cannot save without at least one person selected) — remove "Everyone" as a default option for shopping specifically, since parents want to know exactly who added it
+- Show "Added by" prominently — not just a small tag, make it clearly visible on each shopping item
+
+**2. Smart category guessing from item name**
+
+When typing a shopping item name, suggest the most likely category automatically based on common keywords. Kids (or anyone) shouldn't need to know which of 17 categories "broccoli" belongs to.
+
+- Build a static keyword-to-category lookup table covering common UK grocery items
+- On `oninput` of the item name field, check against the lookup table and auto-select the matching category
+- User can still override the suggested category — this is a smart default, not a lock
+- Show a small "✨ Suggested" label next to the category dropdown briefly when auto-filled
+- Lookup should be case-insensitive and match partial words (e.g. "chicken breast" matches "chicken")
+
+**Example lookup table (agent should expand this list significantly — this is a starting point):**
+```javascript
+const CATEGORY_GUESS = {
+  // Produce
+  'apple':'Produce', 'banana':'Produce', 'broccoli':'Produce', 'carrot':'Produce',
+  'lettuce':'Produce', 'tomato':'Produce', 'onion':'Produce', 'potato':'Produce',
+  'cucumber':'Produce', 'pepper':'Produce', 'spinach':'Produce', 'avocado':'Produce',
+  // Dairy & Eggs
+  'milk':'Dairy & Eggs', 'cheese':'Dairy & Eggs', 'butter':'Dairy & Eggs',
+  'yogurt':'Dairy & Eggs', 'yoghurt':'Dairy & Eggs', 'eggs':'Dairy & Eggs', 'cream':'Dairy & Eggs',
+  // Meat
+  'chicken':'Meat', 'beef':'Meat', 'pork':'Meat', 'bacon':'Meat', 'sausage':'Meat',
+  'mince':'Meat', 'lamb':'Meat', 'ham':'Meat',
+  // Seafood
+  'fish':'Seafood', 'salmon':'Seafood', 'prawns':'Seafood', 'tuna':'Seafood', 'cod':'Seafood',
+  // Bakery
+  'bread':'Bakery', 'roll':'Bakery', 'bagel':'Bakery', 'croissant':'Bakery', 'baguette':'Bakery',
+  // Frozen
+  'frozen':'Frozen Foods', 'ice cream':'Frozen Foods', 'pizza':'Frozen Foods',
+  // Canned
+  'tinned':'Canned Goods', 'canned':'Canned Goods', 'beans':'Canned Goods', 'soup':'Canned Goods',
+  // Dry goods
+  'pasta':'Dry Goods & Pasta', 'rice':'Dry Goods & Pasta', 'cereal':'Dry Goods & Pasta',
+  'flour':'Dry Goods & Pasta', 'oats':'Dry Goods & Pasta',
+  // Snacks
+  'crisps':'Snacks & Sweets', 'chocolate':'Snacks & Sweets', 'biscuits':'Snacks & Sweets',
+  'sweets':'Snacks & Sweets', 'popcorn':'Snacks & Sweets',
+  // Beverages
+  'juice':'Beverages', 'water':'Beverages', 'squash':'Beverages', 'tea':'Beverages', 'coffee':'Beverages',
+  // Alcohol
+  'wine':'Alcohol', 'beer':'Alcohol', 'cider':'Alcohol',
+  // Condiments
+  'ketchup':'Condiments & Sauces', 'mayo':'Condiments & Sauces', 'sauce':'Condiments & Sauces',
+  'oil':'Condiments & Sauces', 'vinegar':'Condiments & Sauces',
+  // Household
+  'bin bags':'Household', 'washing powder':'Household', 'toilet roll':'Household',
+  'kitchen roll':'Household', 'cleaning':'Household', 'washing up liquid':'Household',
+  // Personal care
+  'shampoo':'Personal Care', 'soap':'Personal Care', 'toothpaste':'Personal Care',
+  'deodorant':'Personal Care',
+  // Pet
+  'dog food':'Pet Supplies', 'cat food':'Pet Supplies', 'dog treats':'Pet Supplies',
+};
+
+function guessCategory(itemName) {
+  const lower = itemName.toLowerCase();
+  for (const [keyword, category] of Object.entries(CATEGORY_GUESS)) {
+    if (lower.includes(keyword)) return category;
+  }
+  return null; // no match — leave category as-is for manual selection
+}
+```
+
+**Implementation notes:**
+- Apply auto-fill who-chips to ALL add modals (event, todo, shop, meal, household) for consistency — not just shopping
+- For shopping only: validate that at least one person is selected before allowing save (required field)
+- For other item types: keep "Everyone" as an acceptable default — only shopping needs to be mandatory per this request
+- Category guess only suggests — never blocks manual override
+- Keep the keyword table easy to extend — agent should add at least 50-80 common UK grocery items, not just the starter list above
+
+**Acceptance criteria:**
+- [ ] First app use on a device prompts "Who's using this device?"
+- [ ] Selection stored in localStorage, used to pre-fill who-chips on all add modals
+- [ ] "Switch user" option in Settings (no PIN required)
+- [ ] Shopping "Added by" field is mandatory — cannot save without a person selected
+- [ ] "Added by" shown clearly on shopping list items (not just a small tag)
+- [ ] Typing an item name suggests a category automatically for ~50+ common items
+- [ ] Category suggestion shows "✨ Suggested" label briefly
+- [ ] User can override the suggested category
+- [ ] Category guess is case-insensitive and matches partial words
+- [ ] Audit passes with zero issues
+
+
+---
+
+### S3-017 · Meals — Stop Overwriting Existing Day, Offer Next Available Slot
+**Status:** TODO
+**Priority:** Critical
+**Category:** Bug
+
+**Description:**
+Currently, adding a meal for a day that already has one planned silently deletes the existing meal and replaces it. This is destructive and unexpected — if Sarah plans "Roast chicken" for Sunday and later Giuseppe tries to add "Fish and chips" for Sunday, the roast chicken should NOT be silently deleted. This is a genuine data-loss bug, not just a UX nitpick.
+
+**Current (broken) behaviour:**
+```javascript
+const existing = getMeals().find(m => m.day === day);
+if (existing) await window.fbDelete('meals', existing.id);
+await window.fbSave('meals', { id, day, name, notes, who: getWhoValue('new-meal-who'), tag: 'New' });
+```
+This deletes the existing meal for that day without warning, every time.
+
+**Required behaviour:**
+
+When a user selects a day that already has a meal planned, do NOT overwrite it. Instead:
+
+1. Detect the conflict when the day is selected in the modal (before saving) — show inline feedback immediately, not after tapping Save
+2. Show a message under the day selector: "⚠️ [Existing meal name] is already planned for [day]"
+3. Automatically suggest the next available day that week with no meal planned, and offer to switch to it: "Tuesday is free — switch to Tuesday?"
+4. If the whole week is full, suggest the first available day the following week
+5. User can still choose to view/edit the existing meal instead, via a "View existing" link
+6. Only allow saving to a day that already has a meal if the user explicitly confirms "Replace existing meal" — this must be an explicit, deliberate action with a clear warning, never silent
+7. If a meal needs replacing, the old one should be soft-deleted (per S4-004 pattern) not hard-deleted, so it can be recovered if it was a mistake
+
+**Implementation notes:**
+- Add an `oninput`/`onchange` listener to `new-meal-day` select that checks `getMeals()` for an existing entry on that day
+- Show the warning message inline in the modal, below the day selector
+- Calculate "next available day": loop through the 7 days of the current week starting from the selected day, find first day with no meal entry
+- If implementing "View existing" — this should open the detail modal for that meal in a way that doesn't lose the in-progress add (consider: just close the add modal and open detail, losing draft input is acceptable here since user explicitly chose to view existing)
+- Update `saveModal()` for meal type: check for conflict again at save time (in case it changed), require explicit confirmation flag before allowing overwrite
+- Same logic applies in `saveEditItem()` if a user edits a meal's day to one that's already taken
+
+**UI sketch:**
+```
+Day of week: [Sunday ▾]
+⚠️ "Roast chicken" already planned for Sunday
+   [View existing]  [Use Tuesday instead →]
+
+   ☐ I want to replace the existing meal anyway
+```
+
+**Acceptance criteria:**
+- [ ] Selecting a day with an existing meal shows inline warning immediately (not after save attempt)
+- [ ] Warning shows the name of the existing meal
+- [ ] Next available day is automatically suggested with a one-tap switch option
+- [ ] If whole week is full, suggests first available day next week
+- [ ] "View existing" link opens that meal's detail view
+- [ ] Saving to an occupied day without explicit confirmation is blocked
+- [ ] Explicit "replace anyway" checkbox/confirmation required to overwrite
+- [ ] Replaced meal is soft-deleted, not hard-deleted (recoverable via S4-004 activity log)
+- [ ] Same protection applies when editing a meal's day via Edit modal
+- [ ] No meal is ever silently overwritten under any circumstance
+- [ ] Audit passes with zero issues
 
 
 ## 💡 FUTURE / COMMERCIAL
