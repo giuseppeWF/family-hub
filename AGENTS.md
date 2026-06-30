@@ -98,6 +98,16 @@ Every add modal must have:
 
 ---
 
+## Deployment — version.json (required once S3-018 is implemented)
+
+Once S3-018 is built, every deployment that changes `index.html` must also update `version.json` in the same commit, or family devices will not detect the new version:
+
+```bash
+echo '{"version":"X.Y","deployedAt":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' > version.json
+```
+
+Bump the version number any time a user-visible change is shipped. This is not optional — skipping it silently breaks the update-detection mechanism.
+
 ## Commit message format
 
 ```

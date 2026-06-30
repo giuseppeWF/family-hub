@@ -61,9 +61,11 @@ When a recurring event date passes, automatically generate the next occurrence i
 ---
 
 ### S3-003 · Offline Mode / Service Worker
-**Status:** TODO
+**Status:** BLOCKED — depends on S3-018
 **Priority:** Medium
 **Category:** Infrastructure
+
+**⚠️ Do not start this until S3-018 (Force Refresh) is complete and verified.** Building offline caching before the version-check mechanism exists will bake in a worse version of the exact staleness bug S3-018 fixes.
 
 **Description:**
 Add a service worker so the app loads from cache when WiFi drops on the SyncGo. The SyncGo is WiFi-only so this is important for reliability.
@@ -1330,6 +1332,68 @@ This decision should be revisited only if it causes a real, repeated problem in 
 - [x] Malachi's findings documented as permanent regression tests
 - [x] Decision on finding #3 resolved — no restriction added, documented rationale
 - [ ] Future sprints reference TESTING.md, not just audit.py
+
+
+---
+
+### S3-018 · Force Refresh on App Open When New Version Deployed
+**Status:** TODO
+**Priority:** Critical
+**Category:** Infrastructure / Bug
+
+**Description:**
+When the app is saved to a phone's home screen as a PWA, it does not reliably check for updates when reopened. Family members can be looking at a stale, days-old version of the app without knowing it — confusing and undermines trust in the whole product. This must be fixed before relying on the family to use the home screen icon day-to-day.
+
+**Root cause:**
+PWAs launched from a home screen icon often load directly from the browser's HTTP cache or an installed service worker cache, without checking the network for a newer version. Unlike opening a normal browser tab (which usually does a fresh fetch), home screen PWAs can persist an old version indefinitely.
+
+**The fix — two complementary mechanisms:**
+
+**1. Version check on every app open (primary fix, build this first)**
+- Add a `APP_VERSION` constant at the top of `index.html` (already planned in S3-011 — reuse the same constant, don't duplicate)
+- On app load, fetch a small separate file `version.json` from the server with cache-busting (`?t=` + timestamp) containing the latest deployed version number
+- Compare fetched version to the `APP_VERSION` baked into the currently-loaded HTML
+- If they differ: the user is on a stale version. Show a friendly full-screen prompt: "📦 A new version is available! Tap to update." with a single button
+- Tapping the button does a **hard reload bypassing cache**: `window.location.reload(true)` is deprecated — use `location.href = location.href + '?v=' + Date.now()` or `caches.keys().then(keys => keys.forEach(k => caches.delete(k))).then(() => location.reload())`
+- This check should run on EVERY app open/foreground, not just first load — listen for `visibilitychange` and re-check when the app comes back into focus (e.g. phone unlocked, app switched back to)
+- `version.json` content: `{ "version": "2.3", "deployedAt": "2026-06-30T22:00:00Z" }` — update this file as part of every deployment
+
+**2. Service worker update handling (if/when S3-003 is built)**
+If the offline service worker (S3-003) is implemented, it must be configured correctly or it will make this problem WORSE, not better, by aggressively caching the old HTML:
+- Service worker must use a "network-first, falling back to cache" strategy for `index.html` specifically — NOT cache-first
+- Service worker cache name must include the version number (e.g. `fh-cache-v2.3`) so a new deployment automatically invalidates the old cache
+- On `activate` event, old-versioned caches must be deleted
+- **Sequencing note: build S3-018 (this item) BEFORE S3-003. Do not implement offline caching until the version-check mechanism is solid, or you will bake in exactly the staleness bug being fixed here.**
+
+**Deployment process change required:**
+Every time `index.html` is pushed to GitHub Pages, `version.json` must also be updated with the new version number. This should become a habit (or eventually be automated):
+```bash
+# After updating index.html with a new APP_VERSION:
+echo '{"version":"2.3","deployedAt":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' > version.json
+git add index.html version.json
+git commit -m "..."
+git push
+```
+Add this as a documented step in `AGENTS.md` deployment workflow.
+
+**Implementation notes:**
+- `version.json` fetch must use `{ cache: 'no-store' }` fetch option to guarantee it's never cached
+- Keep the update prompt non-blocking and friendly — do not force reload without user awareness (they may be mid-task, e.g. typing a shopping item)
+- Exception: if the family is testing heavily in one evening, frequent reload prompts could be annoying — consider a "remind me in 10 minutes" snooze rather than forcing immediate action
+- Test specifically on: iPhone home screen PWA (Safari-based), Android home screen PWA (Chrome-based), SyncGo Firefox (less critical since it's not "installed" the same way, but still test)
+
+**Acceptance criteria:**
+- [ ] `version.json` created and deployed alongside index.html
+- [ ] `APP_VERSION` constant added (shared with S3-011's What's New system — do not duplicate)
+- [ ] App checks for new version on load
+- [ ] App re-checks for new version when returning to foreground (visibilitychange)
+- [ ] Stale version triggers a friendly "Update available" prompt, not a silent/forced reload
+- [ ] Tapping update does a true cache-busting reload — confirmed new content loads, not cached
+- [ ] Tested on iPhone home screen PWA — update prompt appears after a new deployment
+- [ ] Tested on Android home screen PWA — update prompt appears after a new deployment
+- [ ] `AGENTS.md` updated with the version.json deployment step
+- [ ] [SEQUENCING] This item must be completed and verified BEFORE S3-003 (offline service worker) is started
+- [ ] Audit passes with zero issues
 
 
 ## 💡 FUTURE / COMMERCIAL
