@@ -2024,14 +2024,16 @@ function getMealFavs()   { return window.fbMealFavs   || []; }
 function getSettingsPin() { return (window.fbSettings || []).find(s => s.id === 'pin') || null; }
 
 // ── APP VERSION & WHAT'S NEW ──────────────────────────────────────────────────
-const APP_VERSION = '3.1';
+const APP_VERSION = '3.2';
 const WHATS_NEW = {
-  version: '3.1',
+  version: '3.2',
   features: [
-    { icon: '🏪', name: 'Store labels on shopping', desc: 'Tag items with the store — Lidl, Home Bargains, Amazon etc.', videoUrl: null },
-    { icon: '👥', name: 'See who added what', desc: 'Shopping items now show who added them', videoUrl: null },
-    { icon: '📋', name: 'Better shopping categories', desc: 'Apple-standard categories plus custom ones you define', videoUrl: null },
-    { icon: '🎉', name: "What's New announcements", desc: 'See what changed each time the app updates', videoUrl: null },
+    { icon: '🐾', name: 'Dog walk rota', desc: 'Paloma & Otis walks auto-assigned — tap to mark done', videoUrl: null },
+    { icon: '☀️', name: 'Weather widget', desc: 'Current temp & forecast for Bury — enable via Arrange', videoUrl: null },
+    { icon: '🧠', name: 'Smart category guessing', desc: 'Type a shopping item name and the category fills itself', videoUrl: null },
+    { icon: '👤', name: 'Device user', desc: 'Your name is now pre-filled when you add anything', videoUrl: null },
+    { icon: '🔒', name: 'Settings PIN lock', desc: 'Admin PIN protects settings from curious kids', videoUrl: null },
+    { icon: '📦', name: 'Auto update prompts', desc: 'App now tells you when a new version is ready', videoUrl: null },
   ]
 };
 
