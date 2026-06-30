@@ -936,7 +936,7 @@ Same problem as hub name — family members are in localStorage only. Move to Fi
 ---
 
 ### S3-015 · Settings PIN Lock (Soft Admin Protection)
-**Status:** TODO
+**Status:** DONE — 2026-06-30
 **Priority:** Medium
 **Category:** Security / UX
 
