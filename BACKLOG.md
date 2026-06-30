@@ -808,7 +808,7 @@ A focused mobile layout fix based on real device testing (iPhone, portrait ~390p
 ---
 
 ### S3-014 · Header Redesign + Tab Icon Fixes + Settings Sync
-**Status:** TODO
+**Status:** DONE — 2026-06-30
 **Priority:** High
 **Category:** Design / UX / Infrastructure
 
