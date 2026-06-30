@@ -135,9 +135,11 @@ When new issues are found during family testing, add them here with date, finder
 
 | Date | Found by | Description | Backlog ID | Status |
 |------|----------|--------------|------------|--------|
-| 2026-06-30 | Malachi | Got into Settings without PIN | S3-015 | Pending S3-015 ship |
+| 2026-06-30 | Malachi | Got into Settings without PIN | S3-015 | FIXED (PIN overlay implemented) |
 | 2026-06-30 | Malachi | Could delete other people's items | S4-004 | Pending S4-004 ship |
-| 2026-06-30 | Malachi | Could change other people's assignments | — | Decision needed (see B3) |
+| 2026-06-30 | Malachi | Could change other people's assignments | — | Decision: by design (see B3) |
+| 2026-06-30 | Claude Code agent | Meal add modal silently deleted existing meal for same day without confirmation | S3-017 | FIXED (confirm dialog added) |
+| 2026-06-30 | Claude Code agent | Shopping items could be saved with "Everyone" as the "Added by" field — not useful for accountability | S3-016 | FIXED (required field, excludes Everyone) |
 
 ---
 
