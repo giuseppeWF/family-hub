@@ -92,9 +92,9 @@ navigator.serviceWorker.register(URL.createObjectURL(blob));
 
 ---
 
-### S3-004 · Edit Modal — Who Chip Selector
-**Status:** TODO  
-**Priority:** High
+### S3-004 · Edit Modal — Who Chip Selector — SUPERSEDED
+**Status:** SUPERSEDED by S3-007 (duplicate item, already implemented under S3-007 — do not implement separately)
+**Priority:** Low
 **Category:** Bug / Consistency
 
 **Description:**
@@ -137,9 +137,9 @@ A simple rotating dog walk rota. Shows who walks Paloma & Otis this morning and 
 
 ---
 
-### S3-006 · Onboarding / First Run Setup
-**Status:** TODO
-**Priority:** Medium
+### S3-006 · Onboarding / First Run Setup — SUPERSEDED
+**Status:** SUPERSEDED by S3-009 (original onboarding was built, S3-009 contained the required fixes and is DONE — this item is fully resolved via S3-009)
+**Priority:** Low
 **Category:** UX
 
 **Description:**
