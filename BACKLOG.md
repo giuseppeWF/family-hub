@@ -1532,6 +1532,344 @@ When an item is ticked/completed, it should move out of the active list rather t
 - [ ] Audit passes with zero issues
 
 ---
+---
+
+## 🐛 SPRINT 3 — Remaining Bugs (fix before Sprint 4 features)
+
+### S3-B01 · Overview widgets not scrolling
+**Status:** TODO
+**Priority:** Critical
+**Category:** Bug
+
+Widgets on the overview/dashboard tab clip their content and cannot be scrolled inside. Full content should be visible by scrolling the whole page, not clipped inside each card. Fix: ensure `#view-dashboard` has `overflow-y: auto` and cards have no `overflow: hidden` or fixed `max-height` that prevents content showing. Cards should be as tall as their content needs.
+
+**Acceptance criteria:**
+- [ ] All overview cards show full content
+- [ ] Page scrolls vertically to reveal all cards
+- [ ] No content clipped inside any card
+- [ ] Audit passes
+
+---
+
+### S3-B02 · Undo toast not appearing on delete
+**Status:** TODO
+**Priority:** Critical
+**Category:** Bug
+
+When an item is deleted, an undo toast should appear for 5 seconds on ALL connected devices. Currently not appearing. This is the key protection against accidental/mischievous deletion (per S4-004 design). Fix: ensure `deleteItem()` triggers the toast and the Firestore soft-delete listener propagates it to all devices.
+
+**Acceptance criteria:**
+- [ ] Undo toast appears within 1 second of deletion on the deleting device
+- [ ] Undo toast appears on other connected devices too
+- [ ] Tapping Undo restores the item
+- [ ] Toast auto-dismisses after 5 seconds
+- [ ] Audit passes
+
+---
+
+### S3-B03 · Calendar repeat events not generating future occurrences
+**Status:** TODO
+**Priority:** High
+**Category:** Bug
+
+Adding a repeat flag to a calendar event does not create future occurrences. The recur field is stored but the generation logic is not running. Fix: on app load, check all events with `recur` set, find any where the date has passed, generate next occurrence using `nextOccurrence(date, recur)` and save to Firestore. Mark processed events with `pastRecurring: true` to avoid duplicates.
+
+**Acceptance criteria:**
+- [ ] Weekly recurring dog walk events reappear automatically
+- [ ] Daily, fortnightly, and monthly recurrence all work
+- [ ] Old occurrences marked, not duplicated
+- [ ] Capped at 4 weeks ahead to avoid runaway generation
+- [ ] Audit passes
+
+---
+
+### S3-B04 · Repeat field missing from calendar edit modal
+**Status:** TODO
+**Priority:** High
+**Category:** Bug
+
+When editing an existing calendar event, the Repeat field is not shown. Users cannot change or remove recurrence on an existing event. Fix: add `recur` select to the `openEditItem('event')` case, pre-selected with current value.
+
+**Acceptance criteria:**
+- [ ] Edit event modal shows Repeat dropdown
+- [ ] Current recurrence value pre-selected
+- [ ] Saving updates the recur field in Firestore
+- [ ] Audit passes
+
+---
+
+### S3-B05 · Calendar tab icon blank on mobile, House tab icon missing
+**Status:** TODO
+**Priority:** Medium
+**Category:** Bug
+
+Two tab icon issues: (1) Calendar badge shows blank bubble when 0 events today — should show `-` or nothing, never a blank circle. (2) House tab icon (🔧) not appearing at all. Fix badge logic: empty string when 0, never render the badge element. Fix house icon: verify the nav tab HTML includes the icon and it hasn't been lost.
+
+**Acceptance criteria:**
+- [ ] Calendar badge: shows count when > 0, shows `-` when 0, never blank bubble
+- [ ] House tab icon 🔧 visible on all screen sizes
+- [ ] All tab badges consistent — number when > 0, nothing or `-` when 0
+- [ ] Audit passes
+
+---
+
+### S3-B06 · House tasks not sorted by priority
+**Status:** TODO
+**Priority:** Medium
+**Category:** Bug
+
+Household tasks should be sorted high → medium → low priority across all room categories. Currently unsorted. Fix: in `renderHousehold()`, sort pending tasks by priority before rendering: high first, then medium, then low.
+
+**Acceptance criteria:**
+- [ ] High priority tasks always appear first
+- [ ] Within same priority, sorted alphabetically or by date added
+- [ ] Applies within each room filter too
+- [ ] Audit passes
+
+---
+
+### S3-B07 · Marking items done should not require opening a modal
+**Status:** TODO
+**Priority:** High
+**Category:** UX Bug
+
+Tapping the circle/checkbox on a task or shopping item opens the detail modal rather than marking it done immediately. The modal should only open when tapping the item text/name. Tapping the circle = instant done/undone. This applies to: todos (circle icon), shopping (tick circle), and the overview dashboard versions of both.
+
+**Implementation notes:**
+- Separate the tap targets: circle/checkbox calls `toggleTodo(id)` / `toggleShop(id)` directly
+- Item text/name calls `showDetail(type, id)`
+- Do NOT open the modal when tapping the circle — this is the number one friction point for daily use
+- On mobile, ensure the tap target for the circle is at least 44px to avoid mis-taps
+
+**Acceptance criteria:**
+- [ ] Tapping todo circle marks done/undone immediately, no modal
+- [ ] Tapping todo text opens detail modal
+- [ ] Tapping shopping circle marks got/needed immediately, no modal
+- [ ] Tapping shopping item name opens detail modal
+- [ ] Same behaviour on overview dashboard cards
+- [ ] Circle tap target minimum 44px on mobile
+- [ ] Audit passes
+
+---
+
+## 🚀 SPRINT 4 — Features & Polish
+
+### S4-007 · Mascot — implement in app with pale mint background
+**Status:** TODO
+**Priority:** High
+**Category:** Design
+
+Replace the 🏠 emoji in the header with the SVG house mascot. The mascot body is dark teal (`#0A2E2A`) on a pale mint background (`#E8F8F6`). Use the sleeping/half-eye version for all empty states across every tab.
+
+**Implementation notes:**
+- The mascot SVG was designed during product sessions — agent should use the existing mascot SVG from the app if available, or reconstruct from the design: teal roof with softened peak, dark teal body, white-sclera eyes with teal iris, rosy cheeks, big smile, teal arms and legs, gold star in right hand
+- Header: replace 🏠 with inline SVG at ~32px height, pale mint circular background behind it
+- Empty states: use sleeping version (half-closed eyes, zzz bubbles) — same mascot with droopy eyelids
+- App icon: generate a `favicon.ico` / `apple-touch-icon.png` equivalent as an inline data URI — 192×192 mascot on pale mint rounded square background, added to `<head>` meta tags
+- PWA manifest: update `theme_color` to `#E8F8F6` and `background_color` to `#E8F8F6`
+- Do NOT change the app's dark teal colour scheme — mascot appears on pale mint only in specific spots (header badge, empty states, loading), the rest of the app stays dark
+
+**Acceptance criteria:**
+- [ ] Header shows mascot SVG instead of 🏠 emoji
+- [ ] Mascot on pale mint background — clearly visible as a house with a face
+- [ ] All empty states use sleeping mascot version with zzz
+- [ ] App icon updated (apple-touch-icon meta tag)
+- [ ] PWA theme_color updated to pale mint
+- [ ] Audit passes
+
+---
+
+### S4-008 · Calendar events — description/notes field
+**Status:** TODO
+**Priority:** High
+**Category:** Feature
+
+Add an optional notes/description field to calendar events so extra information can be included (e.g. address, what to bring, link to booking). Shown in the detail modal below the event name.
+
+**Acceptance criteria:**
+- [ ] Notes field in add event modal (optional, multiline)
+- [ ] Notes field in edit event modal, pre-populated
+- [ ] Notes shown in event detail modal
+- [ ] Notes shown (if set) on calendar week view event card
+- [ ] Audit passes
+
+---
+
+### S4-009 · Calendar events — multi-day support
+**Status:** TODO
+**Priority:** High
+**Category:** Feature
+
+Events should support an end date for multi-day events (holidays, work trips, school camp etc.). End date defaults to same as start date so single-day events have zero extra friction.
+
+**Implementation notes:**
+- Add `endDate` field to event Firestore document (defaults to `date` if not set)
+- Add "End date" input to add and edit modals, defaulting to the start date value
+- On start date change, auto-update end date to match if end date === old start date
+- In calendar week view: show multi-day events spanning across day columns with a visual bar
+- In calendar month view: show spanning across cells
+- `endDate` === `date` means single-day — no special treatment needed
+
+**Acceptance criteria:**
+- [ ] End date field in add modal, defaults to start date
+- [ ] Changing start date updates end date automatically if they were equal
+- [ ] End date field in edit modal, pre-populated
+- [ ] Multi-day events visible across correct days in week and month view
+- [ ] Single-day events (endDate === date) behave exactly as before
+- [ ] Audit passes
+
+---
+
+### S4-010 · Meals — creator-only edit/delete protection
+**Status:** TODO
+**Priority:** High
+**Category:** Feature / Security
+
+Only the person who created a meal should be able to edit or delete it. Kids should not be able to overwrite a meal their parent planned (or wind each other up by replacing meals). This is lighter than a full admin restriction — it's based on the `who` field set when the meal was created.
+
+**Implementation notes:**
+- Store `createdBy` field on meal documents (use `fh_this_device_user` from localStorage as the creator)
+- In meal detail modal: show Edit and Delete buttons only if `createdBy === currentDeviceUser` OR if user is admin (has PIN)
+- If not the creator: show "Created by [name] — only they can edit this meal" message instead of Edit/Delete
+- This uses the existing device-user concept from S3-016, not full auth
+- Edge case: meals created before this field existed have no `createdBy` — treat as editable by anyone (backward compatible)
+
+**Acceptance criteria:**
+- [ ] Meals store `createdBy` field on creation
+- [ ] Non-creator sees message instead of Edit/Delete buttons
+- [ ] Creator sees Edit/Delete as normal
+- [ ] Admin (PIN holder) can always edit/delete
+- [ ] Meals without `createdBy` field remain editable by anyone
+- [ ] Audit passes
+
+---
+
+### S4-011 · To-dos — filter by family member
+**Status:** TODO
+**Priority:** Medium
+**Category:** Feature
+
+Add a filter row at the top of the To-dos tab to show tasks assigned to a specific family member. Useful for parents checking what the kids need to do, or kids seeing only their own chores.
+
+**Implementation notes:**
+- Filter chips row below the subtitle: "All | Giuseppe | Ross | Malachi | Mack | Rachel"
+- Default: All
+- Uses existing `fh_this_device_user` — on load, optionally auto-select current user's chip
+- Stores active filter in `window._todoFilter` (not Firestore — this is a personal view preference)
+- Applied in `renderTodos()` before splitting into pending/done
+
+**Acceptance criteria:**
+- [ ] Filter chips row on todos tab
+- [ ] Tapping a name filters to only that person's tasks
+- [ ] "All" shows everything
+- [ ] Done section also filtered
+- [ ] Badge count on nav tab reflects filtered or all? (Recommend: always show total, not filtered count)
+- [ ] Audit passes
+
+---
+
+### S4-012 · To-dos — favourites / quick picks for common chores
+**Status:** TODO
+**Priority:** Medium
+**Category:** Feature
+
+Same favourites pattern as shopping and meals — a list of common chores/tasks that can be tapped to add instantly. Particularly useful for recurring household chores that get added week after week.
+
+**Implementation notes:**
+- New Firestore collection `todofavs` — same pattern as `shopfavs` and `mealfavs`
+- In add todo modal: show favourites picker at top (same chip style as shopping)
+- Tapping a favourite pre-fills text, type (chore/todo), and who
+- "Save as favourite" checkbox at bottom of add modal
+- Add `listenCol('todofavs', ...)` listener
+- Seed with common chores: Hoover downstairs, Empty dishwasher, Put bins out, Feed Paloma & Otis, Clean bathroom, Tidy bedroom etc.
+- Add `todofavs` to audit.py required listeners
+
+**Acceptance criteria:**
+- [ ] Favourites picker in add todo modal
+- [ ] Tapping favourite pre-fills form
+- [ ] "Save as favourite" checkbox works
+- [ ] Firestore listener for todofavs
+- [ ] Seeded with sensible defaults
+- [ ] Audit passes
+
+---
+
+### S4-013 · Weather in header instead of widget
+**Status:** TODO
+**Priority:** Low
+**Category:** Feature
+
+Move weather from a dashboard widget to a small persistent display in the header row 2 (alongside clock and date). Temperature + condition emoji only — compact and always visible without taking up card real estate.
+
+**Implementation notes:**
+- Use Open-Meteo API: `https://api.open-meteo.com/v1/forecast?latitude=53.59&longitude=-2.30&current=temperature_2m,weather_code&timezone=Europe%2FLondon`
+- Weather codes → emoji: 0=☀️, 1-3=⛅, 45-48=🌫, 51-67=🌧, 71-77=❄️, 80-82=🌦, 95=⛈
+- Show: `⛅ 18°` in header row 2, right side, before the Live dot
+- Refresh every 30 minutes
+- Graceful failure: if API fails, show nothing (don't show an error in the header)
+- Remove S3-001 weather widget from dashboard card list entirely
+- Update `cardMeta` and `applyCardState` to remove weather card
+
+**Acceptance criteria:**
+- [ ] Weather shows in header as emoji + temperature
+- [ ] Refreshes every 30 mins
+- [ ] Fails silently — nothing shown if API unavailable
+- [ ] Weather widget removed from dashboard
+- [ ] Header still fits on one line at 390px mobile width
+- [ ] Audit passes
+
+---
+
+### S4-014 · Dog walk rota — remove as dedicated feature
+**Status:** TODO
+**Priority:** Medium
+**Category:** Decision / Removal
+
+Remove the dog walk rota as a dedicated built feature. Families should use the existing calendar (recurring events) and tasks to manage this themselves — the rota is too configurable and family-specific to be a good generic feature. Removing reduces complexity and maintenance burden.
+
+**Implementation notes:**
+- Remove the dog walk rota UI entirely from the app if it was built as a separate section
+- Remove any `dogwalks` Firestore collection listener
+- Remove any dog walk-specific seed data
+- Update any backlog references
+- Document the decision: "Dog walk rota removed — families use recurring calendar events instead. Decision made Jul 2026 based on family feedback that the feature was too complex and configurable."
+
+**Acceptance criteria:**
+- [ ] No dog walk rota UI in the app
+- [ ] No `dogwalks` Firestore listener
+- [ ] Decision documented in BACKLOG.md
+- [ ] Audit passes
+
+---
+
+## 🔮 FUTURE BACKLOG (not in current sprints)
+
+### F-006 · Voice input
+**Status:** TODO
+**Priority:** Low
+**Category:** Future
+
+Allow adding items via voice using the browser's Web Speech API (`webkitSpeechRecognition`). Tap a mic button on any add modal, speak the item, text appears in the field. Particularly useful on the SyncGo for hands-free kitchen use.
+
+---
+
+### F-007 · Push notification reminders
+**Status:** TODO
+**Priority:** Low
+**Category:** Future
+
+Reminder notifications for calendar events (e.g. 30 mins before). Requires service worker + Push API + user permission. Complex on iOS. Revisit after S5-003 (auth) is live since notifications need a user identity to route correctly.
+
+---
+
+### F-008 · User colour customisation
+**Status:** TODO
+**Priority:** Low
+**Category:** Future
+
+Let family members choose their own colour rather than using the assigned defaults. Came from the kids wanting to customise their aesthetic. Store in Firestore `settings/members` so it syncs across devices. UI: colour picker in the Settings panel next to each family member name.
+
+
 ## ✅ COMPLETED
 
 | ID | Feature | Sprint | Completed |
