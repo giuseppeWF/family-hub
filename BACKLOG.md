@@ -1537,7 +1537,7 @@ When an item is ticked/completed, it should move out of the active list rather t
 ## 🐛 SPRINT 3 — Remaining Bugs (fix before Sprint 4 features)
 
 ### S3-B01 · Overview widgets not scrolling
-**Status:** TODO
+**Status:** DONE 2026-07-01
 **Priority:** Critical
 **Category:** Bug
 
@@ -1552,7 +1552,7 @@ Widgets on the overview/dashboard tab clip their content and cannot be scrolled 
 ---
 
 ### S3-B02 · Undo toast not appearing on delete
-**Status:** TODO
+**Status:** DONE 2026-07-01
 **Priority:** Critical
 **Category:** Bug
 
@@ -1568,7 +1568,7 @@ When an item is deleted, an undo toast should appear for 5 seconds on ALL connec
 ---
 
 ### S3-B03 · Calendar repeat events not generating future occurrences
-**Status:** TODO
+**Status:** DONE 2026-07-01
 **Priority:** High
 **Category:** Bug
 
@@ -1584,7 +1584,7 @@ Adding a repeat flag to a calendar event does not create future occurrences. The
 ---
 
 ### S3-B04 · Repeat field missing from calendar edit modal
-**Status:** TODO
+**Status:** DONE 2026-07-01
 **Priority:** High
 **Category:** Bug
 
@@ -1599,7 +1599,7 @@ When editing an existing calendar event, the Repeat field is not shown. Users ca
 ---
 
 ### S3-B05 · Calendar tab icon blank on mobile, House tab icon missing
-**Status:** TODO
+**Status:** DONE 2026-07-01
 **Priority:** Medium
 **Category:** Bug
 
@@ -1614,7 +1614,7 @@ Two tab icon issues: (1) Calendar badge shows blank bubble when 0 events today �
 ---
 
 ### S3-B06 · House tasks not sorted by priority
-**Status:** TODO
+**Status:** DONE 2026-07-01
 **Priority:** Medium
 **Category:** Bug
 
@@ -1629,7 +1629,7 @@ Household tasks should be sorted high → medium → low priority across all roo
 ---
 
 ### S3-B07 · Marking items done should not require opening a modal
-**Status:** TODO
+**Status:** DONE 2026-07-01
 **Priority:** High
 **Category:** UX Bug
 
