@@ -260,8 +260,8 @@
   #view-dashboard {
     display: none;
     grid-template-columns: 1.4fr 1fr;
-    grid-template-rows: 1fr 1fr;
     gap: 20px;
+    align-content: start;
   }
 
   #view-dashboard.active {
@@ -1433,6 +1433,12 @@
     <button onclick="snoozeUpdate(event)" style="background:rgba(0,0,0,0.15);border:none;border-radius:8px;padding:2px 10px;font-family:'Nunito',sans-serif;font-size:12px;font-weight:700;color:var(--navy);cursor:pointer">Later</button>
   </div>
 
+  <!-- UNDO TOAST -->
+  <div id="undo-toast" style="display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--navy-mid);border:1px solid var(--border-strong);border-radius:12px;padding:12px 18px;align-items:center;gap:12px;z-index:600;box-shadow:0 8px 24px rgba(0,0,0,0.5);font-family:'Nunito',sans-serif;white-space:nowrap">
+    <span id="undo-toast-msg" style="color:var(--cream);font-size:14px;font-weight:600">Item deleted</span>
+    <button onclick="undoDelete()" style="background:var(--sage);color:var(--navy);border:none;border-radius:8px;padding:6px 16px;font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer">Undo</button>
+  </div>
+
   <!-- NAV -->
   <div id="nav">
     <div class="nav-tab active" data-view="dashboard" onclick="switchView('dashboard')">
@@ -2357,14 +2363,16 @@ function updateSummary() {
   const highPrio     = household.filter(h => !h.done && h.priority === 'High');
 
   const el = id => document.getElementById(id);
-  if (el('badge-cal'))   el('badge-cal').textContent   = todayEvents.length  || '';
-  if (el('badge-todo'))  el('badge-todo').textContent  = pendingTodos.length || '';
-  if (el('badge-shop'))  el('badge-shop').textContent  = pendingShop.length  || '';
-  if (el('badge-meals')) el('badge-meals').textContent = mealsCount           || '';
-  if (el('badge-house')) {
-    el('badge-house').textContent = highPrio.length || '';
-    el('badge-house').style.display = highPrio.length ? '' : 'none';
-  }
+  const setBadge = (id, count) => {
+    const b = el(id); if (!b) return;
+    b.textContent = count || '';
+    b.style.display = count ? '' : 'none';
+  };
+  setBadge('badge-cal',   todayEvents.length);
+  setBadge('badge-todo',  pendingTodos.length);
+  setBadge('badge-shop',  pendingShop.length);
+  setBadge('badge-meals', mealsCount);
+  setBadge('badge-house', highPrio.length);
   if (connected) setSyncStatus('live');
 }
 
@@ -2380,13 +2388,11 @@ function switchView(name) {
 }
 
 // ── RECURRING EVENTS — AUTO-GENERATE NEXT OCCURRENCE ─────────────────────────
-let recurCheckDone = false;
-
 async function processRecurringEvents() {
-  if (recurCheckDone) return;
-  recurCheckDone = true;
-
   const events = getEvents();
+  // Bail early if nothing needs processing — makes it safe to call on every fb-data
+  if (!events.some(e => e.recur && e.recur !== 'none' && !e.pastRecurring && e.date < todayStr)) return;
+
   const cap = new Date(todayStr + 'T00:00:00');
   cap.setDate(cap.getDate() + 28);
   const capStr = fmt(cap);
@@ -2469,7 +2475,9 @@ function renderHousehold() {
     (r === activeRoom ? 'var(--sage)' : 'var(--cream-muted)') + '">' + r + '</div>'
   ).join('');
 
-  const filtered = activeRoom === 'All' ? pending : pending.filter(t => t.room === activeRoom);
+  const priorityOrder = { High: 0, Medium: 1, Low: 2 };
+  const filtered = (activeRoom === 'All' ? pending : pending.filter(t => t.room === activeRoom))
+    .slice().sort((a, b) => (priorityOrder[a.priority] ?? 3) - (priorityOrder[b.priority] ?? 3));
   const priorityColor = { high: 'var(--rose)', medium: 'var(--amber)', low: 'var(--cream-muted)' };
 
   document.getElementById('household-pending').innerHTML = filtered.map(t =>
@@ -2616,10 +2624,43 @@ function handleSwipeDelete(btn) {
   deleteItem(col, id);
 }
 
-async function deleteItem(colName, id) {
-  if (!confirm('Delete this item?')) return;
+let _undoItem = null, _undoTimer = null;
+
+function showUndoToast(col, item) {
+  _undoItem = { col, item };
+  const label = item ? (item.text || item.name || '') : '';
+  const msg = document.getElementById('undo-toast-msg');
+  if (msg) msg.textContent = label ? `"${label}" deleted` : 'Item deleted';
+  const toast = document.getElementById('undo-toast');
+  if (toast) toast.style.display = 'flex';
+  clearTimeout(_undoTimer);
+  _undoTimer = setTimeout(() => {
+    const t = document.getElementById('undo-toast');
+    if (t) t.style.display = 'none';
+    _undoItem = null;
+  }, 5000);
+}
+
+async function undoDelete() {
+  if (!_undoItem) return;
+  clearTimeout(_undoTimer);
+  const toast = document.getElementById('undo-toast');
+  if (toast) toast.style.display = 'none';
+  const { col, item } = _undoItem;
+  _undoItem = null;
   setSyncStatus('saving');
-  try { await window.fbDelete(colName, id); } catch(e) { setSyncStatus('error'); }
+  try { await window.fbSave(col, item); } catch(e) { setSyncStatus('error'); }
+}
+
+async function deleteItem(colName, id) {
+  const getterMap = { events: getEvents, todos: getTodos, shopping: getShopping, meals: getMeals, household: getHousehold };
+  const getter = getterMap[colName];
+  const item = getter ? (getter() || []).find(x => String(x.id) === String(id)) : null;
+  setSyncStatus('saving');
+  try {
+    await window.fbDelete(colName, id);
+    showUndoToast(colName, item);
+  } catch(e) { setSyncStatus('error'); }
 }
 
 // ── DOG WALK ROTA (S3-005) ───────────────────────────────────────────────────
@@ -2733,10 +2774,14 @@ function renderDashboard() {
   const pending = todos.filter(t => !t.done).slice(0,5);
   const tdEl = document.getElementById('dash-todos');
   tdEl.innerHTML = pending.length
-    ? pending.map(t => `<div class="task-row" onclick="showDetail('todo','${t.id}')">
-        <div class="task-check">✓</div>
-        <div class="task-text">${t.text}</div>
-        <span class="task-tag who-tag-${t.who}" style="font-size:12px;padding:2px 7px;border-radius:6px;font-weight:600">${t.who}</span>
+    ? pending.map(t => `<div class="task-row">
+        <div onclick="toggleTodo('${t.id}');event.stopPropagation()" style="display:flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;flex-shrink:0;cursor:pointer">
+          <div class="task-check">✓</div>
+        </div>
+        <div onclick="showDetail('todo','${t.id}')" style="flex:1;display:flex;align-items:center;gap:6px;cursor:pointer">
+          <div class="task-text">${t.text}</div>
+          <span class="task-tag who-tag-${t.who}" style="font-size:12px;padding:2px 7px;border-radius:6px;font-weight:600">${t.who}</span>
+        </div>
       </div>`).join('')
     : '<div style="text-align:center;padding:16px 0"><div style="font-size:28px;margin-bottom:6px">🙌</div><div style="color:var(--cream-muted);font-size:13px">All tasks done!</div><div style="font-size:12px;color:var(--cream-muted);opacity:0.6;margin-top:3px">Great work everyone</div></div>';
 
@@ -2756,9 +2801,11 @@ function renderDashboard() {
         const meta = (whoChip || storeChip)
           ? `<div style="display:flex;align-items:center;gap:5px;margin-top:2px">${whoChip}${storeChip}</div>`
           : '';
-        return `<div class="task-row" onclick="showDetail('shop','${s.id}')" style="align-items:flex-start;padding:7px 0">
-          <div class="task-check" style="margin-top:2px">✓</div>
-          <div style="flex:1;min-width:0">
+        return `<div class="task-row" style="align-items:flex-start;padding:7px 0">
+          <div onclick="toggleShop('${s.id}');event.stopPropagation()" style="display:flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;flex-shrink:0;cursor:pointer">
+            <div class="task-check">✓</div>
+          </div>
+          <div onclick="showDetail('shop','${s.id}')" style="flex:1;min-width:0;cursor:pointer">
             <div class="task-text">${s.name}</div>
             ${meta}
           </div>
@@ -2966,16 +3013,20 @@ function renderTodos() {
 
   document.getElementById('todos-pending').innerHTML = pending.map(t =>
     swipeRow(t, 'todos', 'todo',
-      `<div class="todo-full-row" onclick="showDetail('todo','${t.id}')">
-        <div class="todo-full-check">✓</div>
-        <div class="todo-full-text">${t.text}</div>
-        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-          ${dueBadge(t.due)}
-          ${recurBadge(t.recur)}
-          <div style="display:flex;gap:4px;flex-wrap:wrap">${(t.who||'Everyone').split(', ').map(w=>'<span class="todo-full-who who-'+w+'">'+w+'</span>').join('')}</div>
-          <span style="font-size:12px;padding:2px 8px;border-radius:6px;background:${t.type==='chore'?'rgba(232,168,56,0.15)':'rgba(91,155,213,0.15)'};color:${t.type==='chore'?'var(--amber)':'var(--blue-soft)'};font-weight:600">${t.type||'todo'}</span>
-          ${actionBtns('todos', t.id, 'todo')}
+      `<div class="todo-full-row">
+        <div onclick="toggleTodo('${t.id}');event.stopPropagation()" style="display:flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;flex-shrink:0;cursor:pointer">
+          <div class="todo-full-check">✓</div>
         </div>
+        <div onclick="showDetail('todo','${t.id}')" style="flex:1;display:flex;align-items:center;gap:14px;min-width:0;cursor:pointer">
+          <div class="todo-full-text">${t.text}</div>
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+            ${dueBadge(t.due)}
+            ${recurBadge(t.recur)}
+            <div style="display:flex;gap:4px;flex-wrap:wrap">${(t.who||'Everyone').split(', ').map(w=>'<span class="todo-full-who who-'+w+'">'+w+'</span>').join('')}</div>
+            <span style="font-size:12px;padding:2px 8px;border-radius:6px;background:${t.type==='chore'?'rgba(232,168,56,0.15)':'rgba(91,155,213,0.15)'};color:${t.type==='chore'?'var(--amber)':'var(--blue-soft)'};font-weight:600">${t.type||'todo'}</span>
+          </div>
+        </div>
+        ${actionBtns('todos', t.id, 'todo')}
       </div>`)
   ).join('') || '<div style="text-align:center;padding:20px 0"><div style="font-size:32px;margin-bottom:8px">🎉</div><div style="color:var(--cream-muted);font-size:14px;font-weight:600">All tasks done!</div><div style="font-size:12px;color:var(--cream-muted);opacity:0.6;margin-top:4px">Tap + to add a new task or chore</div></div>';
 
@@ -2984,13 +3035,17 @@ function renderTodos() {
   todoDoneLabel.textContent = done.length ? `Done (${done.length})` : 'Done';
   document.getElementById('todos-done').innerHTML = done.map(t =>
     swipeRow(t, 'todos', 'todo',
-      `<div class="todo-full-row" style="opacity:0.5" onclick="showDetail('todo','${t.id}')">
-        <div class="todo-full-check done">✓</div>
-        <div class="todo-full-text done">${t.text}</div>
-        <div style="display:flex;align-items:center;gap:6px">
-          <div class="todo-full-who">${t.who}</div>
-          ${actionBtns('todos', t.id, 'todo')}
+      `<div class="todo-full-row" style="opacity:0.5">
+        <div onclick="toggleTodo('${t.id}');event.stopPropagation()" style="display:flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;flex-shrink:0;cursor:pointer">
+          <div class="todo-full-check done">✓</div>
         </div>
+        <div onclick="showDetail('todo','${t.id}')" style="flex:1;display:flex;align-items:center;gap:14px;min-width:0;cursor:pointer">
+          <div class="todo-full-text done">${t.text}</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <div class="todo-full-who">${t.who}</div>
+          </div>
+        </div>
+        ${actionBtns('todos', t.id, 'todo')}
       </div>`)
   ).join('');
 
@@ -3036,17 +3091,21 @@ function _shopItemHtml(s) {
     ? `<span style="font-size:12px;color:var(--cream-muted);background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:6px;padding:2px 6px;white-space:nowrap">${s.store}</span>`
     : '';
   return swipeRow(s, 'shopping', 'shop',
-    `<div class="shop-full-row" onclick="showDetail('shop','${s.id}')">
-      <div class="shop-check ${s.done?'done':''}">✓</div>
-      <div style="flex:1;min-width:0">
-        <div class="shop-full-name ${s.done?'done':''}" style="display:flex;align-items:center;gap:5px">${s.name}${whoDot}</div>
-        ${storeTag ? '<div style="margin-top:2px">' + storeTag + '</div>' : ''}
+    `<div class="shop-full-row">
+      <div onclick="toggleShop('${s.id}');event.stopPropagation()" style="display:flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;flex-shrink:0;cursor:pointer">
+        <div class="shop-check ${s.done?'done':''}">✓</div>
       </div>
-      <div style="display:flex;align-items:center;gap:6px">
-        ${whoTag}
-        <div class="shop-full-qty">${s.qty||''}</div>
-        ${actionBtns('shopping', s.id, 'shop')}
+      <div onclick="showDetail('shop','${s.id}')" style="flex:1;display:flex;align-items:center;gap:14px;min-width:0;cursor:pointer">
+        <div style="flex:1;min-width:0">
+          <div class="shop-full-name ${s.done?'done':''}" style="display:flex;align-items:center;gap:5px">${s.name}${whoDot}</div>
+          ${storeTag ? '<div style="margin-top:2px">' + storeTag + '</div>' : ''}
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          ${whoTag}
+          <div class="shop-full-qty">${s.qty||''}</div>
+        </div>
       </div>
+      ${actionBtns('shopping', s.id, 'shop')}
     </div>`);
 }
 
@@ -3574,9 +3633,18 @@ function openEditItem(type, id) {
         <div class="modal-field" style="flex:1"><label class="modal-label">End</label>
           <input class="modal-input" id="edit-event-end" type="time" value="${e.end||''}"></div>
       </div>
+      <div class="modal-field"><label class="modal-label">Repeat</label>
+        <select class="modal-select" id="edit-event-recur">
+          <option value="none">No repeat</option>
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="fortnightly">Every 2 weeks</option>
+          <option value="monthly">Monthly</option>
+        </select></div>
       <div class="modal-field"><label class="modal-label">Who</label>
         <div id="edit-event-who-chips" style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0"></div>
         <input type="hidden" id="edit-event-who" value="Everyone"></div>`;
+    document.getElementById('edit-event-recur').value = e.recur || 'none';
     renderWhoChipsWithValue('edit-event-who-chips', 'edit-event-who', e.who || 'Everyone');
   }
   overlay.classList.add('open');
@@ -3638,6 +3706,7 @@ async function saveEditItem() {
         date:  document.getElementById('edit-event-date').value,
         start: document.getElementById('edit-event-start').value,
         end:   document.getElementById('edit-event-end').value,
+        recur: document.getElementById('edit-event-recur').value,
         who,   color: colorMap[who] || '#2EC4B6',
       });
     }
