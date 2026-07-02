@@ -1740,7 +1740,7 @@ const pending = tasks
 ## 🚀 SPRINT 4 — Features & Polish
 
 ### S4-007 · Mascot — implement in app with pale mint background
-**Status:** TODO
+**Status:** DONE 2026-07-02
 **Priority:** High
 **Category:** Design
 
@@ -1906,7 +1906,7 @@ Move weather from a dashboard widget to a small persistent display in the header
 ---
 
 ### S4-014 · Dog walk rota — remove as dedicated feature
-**Status:** TODO
+**Status:** DONE 2026-07-02
 **Priority:** Medium
 **Category:** Decision / Removal
 

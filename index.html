@@ -8,7 +8,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="theme-color" content="#0B2028">
+<meta name="theme-color" content="#E8F8F6">
 <title>Family Hub</title>
 <!-- Firebase SDK -->
 <script type="module">
@@ -1406,7 +1406,7 @@
   <!-- HEADER -->
   <div id="header">
     <div id="header-center">
-      <span class="hub-emoji-l">🏠</span><span class="hub-name">The Family Hub</span><span class="hub-emoji-r">🏠</span>
+      <span class="hub-emoji-l" style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:#E8F8F6;flex-shrink:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 46" width="24" height="28"><rect x="26" y="7" width="7" height="12" rx="1.5" fill="#1B5E54"/><polygon points="20,1 39,19 1,19" fill="#1B5E54"/><rect x="3" y="17" width="34" height="28" rx="5" fill="#0D2F2A"/><circle cx="13" cy="27" r="6.5" fill="white"/><circle cx="27" cy="27" r="6.5" fill="white"/><circle cx="13" cy="27" r="4" fill="#2EC4B6"/><circle cx="27" cy="27" r="4" fill="#2EC4B6"/><circle cx="12" cy="26" r="2" fill="#0D2F2A"/><circle cx="26" cy="26" r="2" fill="#0D2F2A"/><circle cx="11" cy="24.5" r="0.9" fill="white"/><circle cx="25" cy="24.5" r="0.9" fill="white"/><ellipse cx="6" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/><ellipse cx="34" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/><path d="M11 32 Q20 39 29 32" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/><rect x="14" y="32" width="12" height="13" rx="6 6 0 0" fill="#1B5E54"/></svg></span><span class="hub-name">The Family Hub</span><span class="hub-emoji-r" style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:#E8F8F6;flex-shrink:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 46" width="24" height="28"><rect x="26" y="7" width="7" height="12" rx="1.5" fill="#1B5E54"/><polygon points="20,1 39,19 1,19" fill="#1B5E54"/><rect x="3" y="17" width="34" height="28" rx="5" fill="#0D2F2A"/><circle cx="13" cy="27" r="6.5" fill="white"/><circle cx="27" cy="27" r="6.5" fill="white"/><circle cx="13" cy="27" r="4" fill="#2EC4B6"/><circle cx="27" cy="27" r="4" fill="#2EC4B6"/><circle cx="12" cy="26" r="2" fill="#0D2F2A"/><circle cx="26" cy="26" r="2" fill="#0D2F2A"/><circle cx="11" cy="24.5" r="0.9" fill="white"/><circle cx="25" cy="24.5" r="0.9" fill="white"/><ellipse cx="6" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/><ellipse cx="34" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/><path d="M11 32 Q20 39 29 32" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/><rect x="14" y="32" width="12" height="13" rx="6 6 0 0" fill="#1B5E54"/></svg></span>
     </div>
     <div id="header-row2">
       <div id="header-row2-left">
@@ -2021,7 +2021,7 @@ function getMealFavs()   { return window.fbMealFavs   || []; }
 function getSettingsPin() { return (window.fbSettings || []).find(s => s.id === 'pin') || null; }
 
 // ── APP VERSION & WHAT'S NEW ──────────────────────────────────────────────────
-const APP_VERSION = '3.2';
+const APP_VERSION = '4.0';
 const WHATS_NEW = {
   version: '3.2',
   features: [
@@ -2033,6 +2033,14 @@ const WHATS_NEW = {
     { icon: '📦', name: 'Auto update prompts', desc: 'App now tells you when a new version is ready', videoUrl: null },
   ]
 };
+
+// ── MASCOT SVG CONSTANTS ─────────────────────────────────────────────────────
+const MASCOT_AWAKE = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 46" width="32" height="37"><rect x="26" y="7" width="7" height="12" rx="1.5" fill="#1B5E54"/><polygon points="20,1 39,19 1,19" fill="#1B5E54"/><rect x="3" y="17" width="34" height="28" rx="5" fill="#0D2F2A"/><circle cx="13" cy="27" r="6.5" fill="white"/><circle cx="27" cy="27" r="6.5" fill="white"/><circle cx="13" cy="27" r="4" fill="#2EC4B6"/><circle cx="27" cy="27" r="4" fill="#2EC4B6"/><circle cx="12" cy="26" r="2" fill="#0D2F2A"/><circle cx="26" cy="26" r="2" fill="#0D2F2A"/><circle cx="11" cy="24.5" r="0.9" fill="white"/><circle cx="25" cy="24.5" r="0.9" fill="white"/><ellipse cx="6" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/><ellipse cx="34" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/><path d="M11 32 Q20 39 29 32" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/><rect x="14" y="32" width="12" height="13" rx="6 6 0 0" fill="#1B5E54"/></svg>`;
+const MASCOT_SLEEP = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 68" width="64" height="72"><rect x="40" y="9" width="8" height="14" rx="1.5" fill="#1B5E54"/><polygon points="30,2 58,25 2,25" fill="#1B5E54"/><rect x="4" y="23" width="52" height="42" rx="6" fill="#0D2F2A"/><ellipse cx="20" cy="37" rx="9" ry="7" fill="white"/><ellipse cx="40" cy="37" rx="9" ry="7" fill="white"/><path d="M11 37 Q20 46 29 37Z" fill="#0D2F2A"/><path d="M31 37 Q40 46 49 37Z" fill="#0D2F2A"/><ellipse cx="9" cy="44" rx="5" ry="3" fill="rgba(210,90,90,0.35)"/><ellipse cx="51" cy="44" rx="5" ry="3" fill="rgba(210,90,90,0.35)"/><path d="M20 47 Q30 53 40 47" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/><rect x="19" y="47" width="22" height="18" rx="11 11 0 0" fill="#1B5E54"/><text x="47" y="28" font-size="8" fill="#2EC4B6" font-weight="800" font-family="Nunito,sans-serif">z</text><text x="51" y="20" font-size="10" fill="#2EC4B6" font-weight="800" font-family="Nunito,sans-serif">z</text><text x="56" y="12" font-size="12" fill="#2EC4B6" font-weight="800" font-family="Nunito,sans-serif">z</text></svg>`;
+const MASCOT_EMPTY = (msg, hint) =>
+  `<div style="text-align:center;padding:20px 0"><div style="display:inline-flex;align-items:center;justify-content:center;width:80px;height:80px;border-radius:50%;background:#E8F8F6;margin-bottom:10px">${MASCOT_SLEEP}</div><div style="color:var(--cream-muted);font-size:14px;font-weight:600">${msg}</div><div style="font-size:12px;color:var(--cream-muted);opacity:0.6;margin-top:4px">${hint}</div></div>`;
+const MASCOT_EMPTY_SM = (msg, hint) =>
+  `<div style="text-align:center;padding:16px 0"><div style="display:inline-flex;align-items:center;justify-content:center;width:60px;height:60px;border-radius:50%;background:#E8F8F6;margin-bottom:8px">${MASCOT_SLEEP}</div><div style="color:var(--cream-muted);font-size:13px">${msg}</div><div style="font-size:12px;color:var(--cream-muted);opacity:0.6;margin-top:3px">${hint}</div></div>`;
 
 // ── SHOPPING CONFIG ───────────────────────────────────────────────────────────
 const SHOP_CATS = [
@@ -2722,7 +2730,7 @@ function renderDashboard() {
         <div class="event-dot" style="background:${e.color||'#2EC4B6'}"></div>
         <div><div class="event-label">${e.name}</div><div class="event-who">${e.who||''}</div></div>
       </div>`).join('')
-    : '<div style="text-align:center;padding:16px 0"><div style="font-size:28px;margin-bottom:6px">🎉</div><div style="color:var(--cream-muted);font-size:13px">Nothing scheduled today</div><div style="font-size:12px;color:var(--cream-muted);opacity:0.6;margin-top:3px">Tap + to add an event</div></div>';
+    : MASCOT_EMPTY_SM('Nothing scheduled today', 'Tap + to add an event');
 
   // Todos
   const pending = todos.filter(t => !t.done).slice(0,5);
@@ -2737,7 +2745,7 @@ function renderDashboard() {
           <span class="task-tag who-tag-${t.who}" style="font-size:12px;padding:2px 7px;border-radius:6px;font-weight:600">${t.who}</span>
         </div>
       </div>`).join('')
-    : '<div style="text-align:center;padding:16px 0"><div style="font-size:28px;margin-bottom:6px">🙌</div><div style="color:var(--cream-muted);font-size:13px">All tasks done!</div><div style="font-size:12px;color:var(--cream-muted);opacity:0.6;margin-top:3px">Great work everyone</div></div>';
+    : MASCOT_EMPTY_SM('All tasks done!', 'Great work everyone');
 
   // Shopping
   const items = shopping.filter(s => !s.done).slice(0,6);
@@ -2766,7 +2774,7 @@ function renderDashboard() {
           <span class="task-tag" style="color:var(--cream-muted);margin-top:2px">${s.qty||''}</span>
         </div>`;
       }).join('')
-    : '<div style="text-align:center;padding:16px 0"><div style="font-size:28px;margin-bottom:6px">🛒</div><div style="color:var(--cream-muted);font-size:13px">Shopping list is empty</div><div style="font-size:12px;color:var(--cream-muted);opacity:0.6;margin-top:3px">Tap + to add items</div></div>';
+    : MASCOT_EMPTY_SM('Shopping list is empty', 'Tap + to add items');
 
   // Meals
   const dayOrder = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
@@ -2790,7 +2798,7 @@ function renderDashboard() {
           ${m.notes ? '<div style="font-size:12px;color:var(--cream-muted);margin-top:2px">' + m.notes + '</div>' : ''}
         </div>
       </div>`).join('')
-    : '<div style="text-align:center;padding:16px 0"><div style="font-size:28px;margin-bottom:6px">🍽</div><div style="color:var(--cream-muted);font-size:13px">No meals planned yet</div><div style="font-size:12px;color:var(--cream-muted);opacity:0.6;margin-top:3px">Tap + to plan the week</div></div>';
+    : MASCOT_EMPTY_SM('No meals planned yet', 'Tap + to plan the week');
 }
 
 // ── CALENDAR ──────────────────────────────────────────────────────────────────
@@ -2829,7 +2837,7 @@ function renderCalendar() {
         </div>
       </div>
     </div>`;
-  }).join('') || '<div style="text-align:center;padding:20px 0"><div style="font-size:32px;margin-bottom:8px">📅</div><div style="color:var(--cream-muted);font-size:14px;font-weight:600">Nothing this week yet</div><div style="font-size:12px;color:var(--cream-muted);opacity:0.6;margin-top:4px">Tap + to add an event</div></div>';
+  }).join('') || MASCOT_EMPTY('Nothing this week yet', 'Tap + to add an event');
 }
 
 // ── MONTH VIEW ────────────────────────────────────────────────────────────────
@@ -2981,7 +2989,7 @@ function renderTodos() {
         </div>
         ${actionBtns('todos', t.id, 'todo')}
       </div>`)
-  ).join('') || '<div style="text-align:center;padding:20px 0"><div style="font-size:32px;margin-bottom:8px">🎉</div><div style="color:var(--cream-muted);font-size:14px;font-weight:600">All tasks done!</div><div style="font-size:12px;color:var(--cream-muted);opacity:0.6;margin-top:4px">Tap + to add a new task or chore</div></div>';
+  ).join('') || MASCOT_EMPTY('All tasks done!', 'Tap + to add a new task or chore');
 
   const todoDoneLabel = document.getElementById('todo-done-label');
   todoDoneLabel.style.display = done.length ? 'block' : 'none';
@@ -4861,68 +4869,25 @@ function buildRoundedRect(ctx, x, y, w, h, r) {
 }
 
 function generatePwaIcon() {
-  const S = 512;
-  const c = document.createElement('canvas');
-  c.width = c.height = S;
-  const ctx = c.getContext('2d');
-
-  // Background: deep navy to rich teal gradient
-  const bg = ctx.createLinearGradient(0, 0, S, S);
-  bg.addColorStop(0, '#0f2030');
-  bg.addColorStop(1, '#0d4040');
-  buildRoundedRect(ctx, 0, 0, S, S, 108);
-  ctx.fillStyle = bg;
-  ctx.fill();
-
-  // Roof triangle — bold amber
-  ctx.beginPath();
-  ctx.moveTo(256, 60);
-  ctx.lineTo(454, 268);
-  ctx.lineTo(58, 268);
-  ctx.closePath();
-  ctx.fillStyle = '#E8A838';
-  ctx.fill();
-
-  // Chimney — rose
-  ctx.fillStyle = '#E07070';
-  buildRoundedRect(ctx, 316, 88, 44, 100, 6);
-  ctx.fill();
-
-  // House body — soft cream
-  ctx.fillStyle = '#F0EBE1';
-  ctx.fillRect(76, 254, 360, 218);
-
-  // Left window — teal
-  ctx.fillStyle = '#2EC4B6';
-  buildRoundedRect(ctx, 106, 282, 88, 72, 10);
-  ctx.fill();
-
-  // Right window — teal
-  buildRoundedRect(ctx, 318, 282, 88, 72, 10);
-  ctx.fill();
-
-  // Door — navy
-  ctx.fillStyle = '#0f2030';
-  buildRoundedRect(ctx, 207, 336, 98, 136, 12);
-  ctx.fill();
-
-  // Doorknob — amber
-  ctx.beginPath();
-  ctx.arc(294, 408, 7, 0, Math.PI * 2);
-  ctx.fillStyle = '#E8A838';
-  ctx.fill();
-
-  // Five family member dots along bottom strip
-  const dots = ['#E8A838','#E07070','#5B9BD5','#2EC4B6','#B08BE8'];
-  const xs    = [116, 180, 256, 332, 396];
-  dots.forEach((col, i) => {
-    ctx.beginPath();
-    ctx.arc(xs[i], 438, 20, 0, Math.PI * 2);
-    ctx.fillStyle = col;
-    ctx.fill();
-  });
-
-  return c.toDataURL('image/png');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+<rect width="192" height="192" rx="44" fill="#E8F8F6"/>
+<rect x="120" y="24" width="22" height="36" rx="4" fill="#1B5E54"/>
+<polygon points="96,14 178,80 14,80" fill="#1B5E54"/>
+<rect x="18" y="74" width="156" height="106" rx="14" fill="#0D2F2A"/>
+<circle cx="68" cy="116" r="26" fill="white"/>
+<circle cx="124" cy="116" r="26" fill="white"/>
+<circle cx="68" cy="116" r="17" fill="#2EC4B6"/>
+<circle cx="124" cy="116" r="17" fill="#2EC4B6"/>
+<circle cx="63" cy="111" r="9" fill="#0D2F2A"/>
+<circle cx="119" cy="111" r="9" fill="#0D2F2A"/>
+<circle cx="57" cy="105" r="4" fill="white"/>
+<circle cx="113" cy="105" r="4" fill="white"/>
+<ellipse cx="30" cy="134" rx="16" ry="10" fill="rgba(210,90,90,0.4)"/>
+<ellipse cx="162" cy="134" rx="16" ry="10" fill="rgba(210,90,90,0.4)"/>
+<path d="M62 140 Q96 162 130 140" stroke="white" stroke-width="8" fill="none" stroke-linecap="round"/>
+<rect x="74" y="142" width="44" height="38" rx="22 22 0 0" fill="#1B5E54"/>
+</svg>`;
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
 }
 
 function setupPwa() {
@@ -4948,8 +4913,8 @@ function setupPwa() {
     scope: '/family-hub/',
     display: 'standalone',
     orientation: 'portrait',
-    background_color: '#0f2030',
-    theme_color: '#2EC4B6',
+    background_color: '#E8F8F6',
+    theme_color: '#E8F8F6',
     icons: [{ src: iconUrl, sizes: '512x512', type: 'image/png', purpose: 'any maskable' }]
   };
   const mblob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
