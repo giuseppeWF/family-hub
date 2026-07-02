@@ -1806,7 +1806,7 @@ Events should support an end date for multi-day events (holidays, work trips, sc
 ---
 
 ### S4-010 · Meals — creator-only edit/delete protection
-**Status:** TODO
+**Status:** DONE 2026-07-02
 **Priority:** High
 **Category:** Feature / Security
 

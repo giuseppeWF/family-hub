@@ -3475,7 +3475,7 @@ async function saveModal() {
         if (!confirm(`${day} already has "${existing.name}". Replace it?`)) return;
         await window.fbDelete('meals', existing.id);
       }
-      await window.fbSave('meals', { id, day, name, notes, who: getWhoValue('new-meal-who'), tag: 'New' });
+      await window.fbSave('meals', { id, day, name, notes, who: getWhoValue('new-meal-who'), tag: 'New', createdBy: getDeviceUser() || null });
       // Save as favourite if ticked
       if (document.getElementById('new-meal-save-fav').checked) {
         const favId = 'mf_' + Date.now();
@@ -3858,9 +3858,17 @@ function showDetail(type, id) {
           <span style="font-size:14px;color:var(--cream)">${m.notes}</span>
         </div>` : ''}
       </div>`;
+    const deviceUser = getDeviceUser();
+    const canEdit = !m.createdBy || m.createdBy === deviceUser || _pinUnlocked;
     actionBtn.style.display = 'none';
-    document.getElementById('detail-edit-btn').style.display = 'flex';
-    document.getElementById('detail-delete-btn').style.display = 'flex';
+    if (canEdit) {
+      document.getElementById('detail-edit-btn').style.display = 'flex';
+      document.getElementById('detail-delete-btn').style.display = 'flex';
+    } else {
+      document.getElementById('detail-edit-btn').style.display = 'none';
+      document.getElementById('detail-delete-btn').style.display = 'none';
+      content.innerHTML += `<div style="margin-top:14px;font-size:12px;color:var(--cream-muted);opacity:0.7;text-align:center">Added by ${m.createdBy} · only they can change this meal</div>`;
+    }
   }
   overlay.style.display = 'flex';
 }
