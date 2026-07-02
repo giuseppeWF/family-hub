@@ -1982,6 +1982,80 @@ Recipient side (on app load):
 - [ ] Audit passes
 
 
+---
+
+### S5-B05 · Family member editing — name, colour, and other attributes
+**Status:** TODO
+**Priority:** High
+**Category:** Feature / UX
+
+Family members can currently be added and removed in Settings but cannot be edited. You should be able to edit any attribute of a family member inline — their display name, their colour, and in future other attributes.
+
+**Implementation:**
+- In the Settings family members list, add an ✏️ edit button next to each member alongside the existing Remove button
+- Tapping Edit opens an inline edit row (or small modal) with:
+  - Name input (pre-filled with current name)
+  - Colour picker (current colour pre-selected, with presets + free `<input type="color">`)
+  - Save / Cancel buttons
+- On Save: update the member in Firestore `settings/members` array
+- Change propagates to all devices via the existing settings Firestore listener
+- Colour change immediately updates all who-chips, badges, and name tags across the app via `injectMemberStyles()`
+- Name change updates all dropdowns via `refreshAllDropdowns()`
+- If name changes, existing items with the old name as `who` field are NOT retroactively updated — too complex and risky. New items use the new name. Document this limitation clearly in the UI: "Changing a name won't update existing items"
+
+**Acceptance criteria:**
+- [ ] Edit button (✏️) next to each family member in Settings
+- [ ] Tapping Edit shows name input + colour picker pre-filled
+- [ ] Saving updates member in Firestore and syncs to all devices
+- [ ] Colour change immediately reflected in chips and badges
+- [ ] Free colour picker available alongside preset swatches
+- [ ] Admin-only action (behind PIN)
+- [ ] Warning shown: "Changing a name won't update items already assigned to [old name]"
+- [ ] Audit passes
+
+
+---
+
+### S5-B06 · Admin notification when a family member joins
+**Status:** TODO
+**Priority:** Medium
+**Category:** Feature / UX
+
+When a family member successfully joins the hub using an invite link, the admin should be notified so they know who's in without having to check Settings manually. Particularly useful when onboarding multiple family members at once.
+
+**Implementation:**
+
+On join event (when invite code is redeemed):
+- Write a notification document to Firestore:
+  `notifications/{familyId}/items/{notifId}`
+  `{ type: 'member_joined', name: 'Malachi', uid: '...', joinedAt: timestamp, seen: false }`
+
+Admin device:
+- Add a Firestore listener on `notifications/{familyId}/items` filtered to `seen: false`
+- When a new unseen notification arrives: show a toast at the top of the screen:
+  "🎉 Malachi just joined The Lucarelli Hub!"
+- Toast stays for 8 seconds (longer than the delete undo toast — this is good news)
+- Tapping the toast opens Settings so admin can see the full members list
+- Mark notification as `seen: true` when toast is dismissed or tapped
+- Store unseen count in memory — show a small dot on the Settings ⚙️ icon if unseen notifications exist
+
+Settings panel:
+- Add a "Family Members" section header that shows who has signed in with Google vs who is still using the app without an account
+- Members with Google accounts show a small ✅ Google icon next to their name
+- Members without Google accounts (added manually, not yet signed in) show a 📧 icon
+- This gives admin a clear view of onboarding status at a glance
+
+**Acceptance criteria:**
+- [ ] Admin sees toast notification when family member joins
+- [ ] Toast shows member name and lasts 8 seconds
+- [ ] Tapping toast opens Settings
+- [ ] Settings ⚙️ icon shows dot when unseen notifications exist
+- [ ] Settings shows Google sign-in status per family member (✅ or 📧)
+- [ ] Notifications marked seen after dismissal
+- [ ] Only admin receives join notifications (not all family members)
+- [ ] Audit passes
+
+
 ## 💡 FUTURE / COMMERCIAL
 
 ### F-001 · Multi-household Support
