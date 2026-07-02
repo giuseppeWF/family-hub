@@ -1938,7 +1938,7 @@ Giuseppe to help them — which requires temporarily reopening the rules again.
 ---
 
 ### S5-B04 · Invite link instead of separate code + URL
-**Status:** TODO
+**Status:** DONE 2026-07-02 — implemented with two adaptations from the spec, both to avoid touching Firestore rules more than necessary: (1) the family name is denormalized onto the invite doc at generation time rather than looked up from `families/{familyId}` at preview time, so the pre-auth invite preview only ever needs public read access to the `invites` collection, not the more sensitive `families` collection; (2) the "You've been invited" messaging is a banner injected onto the existing auth-screen (not a wholly separate screen) — it still fully replaces the generic family-screen post sign-in via automatic redemption, matching the spec's actual acceptance criteria. Old pre-auth "🔗 Share hub link" button in Settings removed (superseded — it shared a bare URL with no invite mechanism, now fully replaced by the invite-link flow). NOT yet tested with a real generated invite code end-to-end on the live URL — only verified: real Firestore read of a bogus code correctly renders the "invalid" error state, banner hidden with no invite param, simulated success/error banner rendering, audit.py (139/139).
 **Priority:** High
 **Category:** UX / Feature
 

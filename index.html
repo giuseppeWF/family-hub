@@ -64,6 +64,89 @@
   window.isAdmin = () => !!(window.currentUser && window.currentFamilyDoc &&
                              window.currentFamilyDoc.adminUid === window.currentUser.uid);
 
+  // ── S5-B04: invite link (?invite=CODE) ─────────────────────────────────────
+  // Parsed once at load — kept in memory rather than re-read from the URL later,
+  // because the URL param is only cleared AFTER the invite is redeemed (it must
+  // survive a signInWithRedirect round-trip on browsers where the popup
+  // sign-in fallback kicks in).
+  const inviteCodeFromUrl = (() => {
+    const c = new URLSearchParams(location.search).get('invite');
+    return (c && /^\d{6}$/.test(c)) ? c : null;
+  })();
+  window._pendingInvite = null;
+
+  function updateInviteBanner() {
+    const banner  = document.getElementById('auth-invite-banner');
+    const heading = document.getElementById('auth-invite-heading');
+    const nameEl  = document.getElementById('auth-invite-hub-name');
+    if (!banner || !heading || !nameEl) return;
+    const pending = window._pendingInvite;
+    if (!pending) { banner.style.display = 'none'; return; }
+    const ERROR_TEXT = {
+      'not-found': 'This invite link looks invalid.',
+      'used':      'This invite has already been used.',
+      'expired':   'This invite has expired — ask your family admin for a new one.',
+      'race':      'This invite was just used — ask your family admin for a new one.',
+      'unknown':   'Could not load this invite, but you can still sign in below.'
+    };
+    if (pending.error) {
+      heading.style.display = 'none';
+      nameEl.style.marginTop = '0';
+      nameEl.style.color = '#E07070';
+      nameEl.style.fontSize = '14px';
+      nameEl.textContent = ERROR_TEXT[pending.error] || 'This invite is no longer valid.';
+      banner.style.background = 'rgba(224,112,112,0.1)';
+      banner.style.borderColor = 'rgba(224,112,112,0.3)';
+    } else {
+      heading.style.display = 'block';
+      nameEl.style.marginTop = '2px';
+      nameEl.style.color = '#F0EDE6';
+      nameEl.style.fontSize = '17px';
+      nameEl.textContent = pending.familyName;
+      banner.style.background = 'rgba(46,196,182,0.1)';
+      banner.style.borderColor = 'rgba(46,196,182,0.3)';
+    }
+    banner.style.display = 'block';
+  }
+
+  async function loadPendingInvite() {
+    if (!inviteCodeFromUrl) return;
+    try {
+      const inviteSnap = await getDoc(doc(db, 'invites', inviteCodeFromUrl));
+      if (!inviteSnap.exists()) { window._pendingInvite = { code: inviteCodeFromUrl, error: 'not-found' }; }
+      else {
+        const invite = inviteSnap.data();
+        const ageMs = Date.now() - (invite.createdAt && invite.createdAt.toMillis ? invite.createdAt.toMillis() : 0);
+        if (invite.used) { window._pendingInvite = { code: inviteCodeFromUrl, error: 'used' }; }
+        else if (ageMs > 24 * 60 * 60 * 1000) { window._pendingInvite = { code: inviteCodeFromUrl, error: 'expired' }; }
+        else {
+          // familyName comes straight off the invite doc — see the comment in
+          // doGenerateInviteCode for why this avoids a pre-auth families read.
+          window._pendingInvite = {
+            code: inviteCodeFromUrl,
+            familyId: invite.familyId,
+            familyName: invite.familyName || 'Family Hub',
+            error: null
+          };
+        }
+      }
+    } catch (e) {
+      window._pendingInvite = { code: inviteCodeFromUrl, error: 'unknown' };
+    }
+    updateInviteBanner();
+  }
+
+  // Kick off immediately (parallel with everything else) — resolveFamily()
+  // awaits this promise so sign-in never races ahead of the invite lookup.
+  const pendingInvitePromise = loadPendingInvite();
+
+  function clearInviteFromUrl() {
+    if (!inviteCodeFromUrl) return;
+    const url = new URL(location.href);
+    url.searchParams.delete('invite');
+    history.replaceState({}, '', url.toString());
+  }
+
   // ── Screen helpers ────────────────────────────────────────────────────────────
   function showScreen(screenId) {
     ['loading-screen','auth-screen','family-screen','migration-overlay'].forEach(id => {
@@ -191,6 +274,35 @@
     await migrateLegacyData(familyId);
   }
 
+  // Shared by the manual "Join family" button (doJoinFamily) and the
+  // automatic redemption from an invite link (resolveFamily) — deliberately
+  // does NOT call _startListeners/_showApp itself, since resolveFamily's
+  // caller already does that uniformly for every path that resolves a family.
+  async function redeemInvite(code, user) {
+    const inviteRef = doc(db, 'invites', code);
+    const inviteSnap = await getDoc(inviteRef);
+    if (!inviteSnap.exists()) throw new Error('Invite code not found. Check the code and try again.');
+    const invite = inviteSnap.data();
+    if (invite.used) throw new Error('This invite code has already been used.');
+    const ageMs = Date.now() - (invite.createdAt && invite.createdAt.toMillis ? invite.createdAt.toMillis() : 0);
+    if (ageMs > 24 * 60 * 60 * 1000) throw new Error('This invite code has expired. Ask the admin for a new one.');
+
+    const familyId = invite.familyId;
+    const famSnap = await getDoc(doc(db, 'families', familyId));
+    if (!famSnap.exists()) throw new Error('That family no longer exists.');
+
+    await setDoc(doc(db, 'families', familyId, 'members', user.uid), {
+      displayName: user.displayName || user.email || 'Member',
+      email: user.email || null,
+      joinedAt: serverTimestamp()
+    });
+    await setDoc(doc(db, 'userFamilies', user.uid), { familyId });
+    await setDoc(inviteRef, { used: true, usedBy: user.uid, usedAt: serverTimestamp() }, { merge: true });
+
+    window.currentFamilyId  = familyId;
+    window.currentFamilyDoc = famSnap.data();
+  }
+
   // Returns true once window.currentFamilyId is set and the app can be shown.
   // Returns false if the family-screen (create/join) is now showing instead.
   async function resolveFamily(user) {
@@ -204,6 +316,23 @@
         return true;
       }
       // Dangling pointer — family doc missing. Fall through to family-screen.
+    }
+
+    // S5-B04: a valid ?invite= link takes over the flow here — join
+    // automatically instead of showing the generic create/join screen.
+    await pendingInvitePromise;
+    if (window._pendingInvite && !window._pendingInvite.error) {
+      try {
+        await redeemInvite(window._pendingInvite.code, user);
+        clearInviteFromUrl();
+        return true;
+      } catch (e) {
+        // Invite went stale between page load and sign-in (e.g. used by
+        // someone else in the meantime) — fall through to family-screen
+        // below rather than leaving the user stuck.
+        window._pendingInvite = { ...window._pendingInvite, error: 'race' };
+        updateInviteBanner();
+      }
     }
 
     const migratedSnap = await getDoc(doc(db, 'settings', 'migrated'));
@@ -234,41 +363,24 @@
   };
 
   window.doJoinFamily = async (code) => {
-    const user = window.currentUser;
-    const inviteRef = doc(db, 'invites', code);
-    const inviteSnap = await getDoc(inviteRef);
-    if (!inviteSnap.exists()) throw new Error('Invite code not found. Check the code and try again.');
-    const invite = inviteSnap.data();
-    if (invite.used) throw new Error('This invite code has already been used.');
-    const ageMs = Date.now() - (invite.createdAt && invite.createdAt.toMillis ? invite.createdAt.toMillis() : 0);
-    if (ageMs > 24 * 60 * 60 * 1000) throw new Error('This invite code has expired. Ask the admin for a new one.');
-
-    const familyId = invite.familyId;
-    const famSnap = await getDoc(doc(db, 'families', familyId));
-    if (!famSnap.exists()) throw new Error('That family no longer exists.');
-
-    await setDoc(doc(db, 'families', familyId, 'members', user.uid), {
-      displayName: user.displayName || user.email || 'Member',
-      email: user.email || null,
-      joinedAt: serverTimestamp()
-    });
-    await setDoc(doc(db, 'userFamilies', user.uid), { familyId });
-    await setDoc(inviteRef, { used: true, usedBy: user.uid, usedAt: serverTimestamp() }, { merge: true });
-
-    window.currentFamilyId  = familyId;
-    window.currentFamilyDoc = famSnap.data();
+    await redeemInvite(code, window.currentUser);
     window._startListeners();
     window._showApp();
   };
 
   window.doGenerateInviteCode = async () => {
     const familyId = window.currentFamilyId;
+    // familyName is denormalized onto the invite doc (rather than looked up
+    // from families/{familyId} at redemption time) so the pre-auth invite
+    // preview (S5-B04) only ever needs to read the public `invites` doc —
+    // it never needs read access to the more sensitive `families` collection.
+    const familyName = (window.currentFamilyDoc && window.currentFamilyDoc.name) || 'Family Hub';
     for (let attempt = 0; attempt < 5; attempt++) {
       const code = String(Math.floor(100000 + Math.random() * 900000));
       const ref = doc(db, 'invites', code);
       const existing = await getDoc(ref);
       if (existing.exists() && !existing.data().used) continue;
-      await setDoc(ref, { code, familyId, createdAt: serverTimestamp(), used: false });
+      await setDoc(ref, { code, familyId, familyName, createdAt: serverTimestamp(), used: false });
       return code;
     }
     throw new Error('Could not generate a unique code — please try again.');
@@ -338,6 +450,9 @@
 
   // ── Auth state listener — gates ALL app rendering ─────────────────────────────
   window.addEventListener('DOMContentLoaded', () => {
+    // Safety net: if loadPendingInvite() resolved before the DOM existed,
+    // its own updateInviteBanner() call would have been a no-op — sync once more.
+    updateInviteBanner();
     // Handle Google redirect return (no-op if not a redirect)
     getRedirectResult(auth).catch(e => {
       if (e.code !== 'auth/no-auth-event' && e.code !== 'auth/null-user') {
@@ -1718,6 +1833,12 @@
       <div style="font-size:14px;color:#A8A49D;margin-top:6px">Your family. All in one place.</div>
     </div>
 
+    <!-- Invite banner (S5-B04) — shown when arriving via a ?invite= link -->
+    <div id="auth-invite-banner" style="display:none;background:rgba(46,196,182,0.1);border:1px solid rgba(46,196,182,0.3);border-radius:12px;padding:14px 16px;margin-bottom:24px;text-align:center">
+      <div id="auth-invite-heading" style="font-size:13px;color:#2EC4B6;font-weight:700;font-family:'Nunito',sans-serif">🎉 You've been invited to join</div>
+      <div id="auth-invite-hub-name" style="font-size:17px;font-weight:800;color:#F0EDE6;font-family:'Nunito',sans-serif;margin-top:2px">—</div>
+    </div>
+
     <!-- Google sign-in -->
     <button onclick="window.doSignInGoogle()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:12px;padding:14px 20px;background:#ffffff;border:none;border-radius:14px;font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:#1a1a1a;cursor:pointer;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,0.3)">
       <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
@@ -2339,11 +2460,11 @@
         <div id="settings-family-name" style="font-size:14px;font-weight:700;color:var(--cream)">—</div>
       </div>
       <div id="settings-invite-admin-section" style="display:none;margin-bottom:8px">
-        <button id="settings-generate-invite-btn" onclick="generateInviteCodeFlow()" style="width:100%;padding:10px;background:rgba(46,196,182,0.08);border:1px solid rgba(46,196,182,0.25);border-radius:10px;color:var(--sage);font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-align:left">🔑 Generate invite code</button>
+        <button id="settings-generate-invite-btn" onclick="inviteFamilyMemberFlow()" style="width:100%;padding:10px;background:rgba(46,196,182,0.08);border:1px solid rgba(46,196,182,0.25);border-radius:10px;color:var(--sage);font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-align:left">📨 Invite a family member</button>
         <div id="settings-invite-code-display" style="display:none;margin-top:8px;padding:12px 14px;background:rgba(255,255,255,0.04);border-radius:10px;text-align:center">
           <div id="settings-invite-code-text" style="font-family:'Nunito',sans-serif;font-size:22px;font-weight:800;color:var(--cream);letter-spacing:4px"></div>
           <div id="settings-invite-code-expiry" style="font-size:11px;color:var(--cream-muted);margin-top:4px;margin-bottom:8px"></div>
-          <button onclick="copyInviteCode(event)" style="width:100%;padding:8px;background:var(--sage);border:none;border-radius:8px;color:var(--navy);font-family:'Nunito',sans-serif;font-size:12px;font-weight:700;cursor:pointer">Copy code</button>
+          <button onclick="copyInviteLink(event)" style="width:100%;padding:8px;background:var(--sage);border:none;border-radius:8px;color:var(--navy);font-family:'Nunito',sans-serif;font-size:12px;font-weight:700;cursor:pointer">Copy link</button>
         </div>
       </div>
 
@@ -2376,14 +2497,6 @@
       </div>
 
       <div style="height:1px;background:var(--border);margin:20px 0"></div>
-
-      <!-- Share -->
-      <div style="font-size:12px;font-weight:700;color:var(--cream-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">Invite Family</div>
-      <button onclick="shareHubLink('settings-share-fallback')" style="width:100%;padding:12px;background:rgba(46,196,182,0.08);border:1px solid rgba(46,196,182,0.25);border-radius:10px;color:var(--sage);font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;text-align:left">🔗 Share hub link</button>
-      <div id="settings-share-fallback" style="display:none;gap:6px;margin-bottom:8px">
-        <input class="modal-input" value="https://giuseppewf.github.io/family-hub/" readonly style="flex:1;font-size:12px">
-        <button onclick="copyShareLink()" class="copy-share-btn" style="padding:0 14px;background:var(--sage);border:none;border-radius:10px;color:var(--navy);font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer;min-height:44px">Copy</button>
-      </div>
 
       <!-- Hub Security -->
       <div style="font-size:12px;font-weight:700;color:var(--cream-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">Hub Security</div>
@@ -2629,31 +2742,60 @@ async function submitJoinFamily() {
   }
 }
 
+// S5-B04: one link instead of a URL + code shared separately.
 let _lastInviteCode = null;
-async function generateInviteCodeFlow() {
+let _lastInviteUrl  = null;
+
+function buildInviteUrl(code) {
+  return `${location.origin}${location.pathname}?invite=${code}`;
+}
+
+async function inviteFamilyMemberFlow() {
   const btn = document.getElementById('settings-generate-invite-btn');
   btn.disabled = true;
   try {
     const code = await window.doGenerateInviteCode();
     _lastInviteCode = code;
+    _lastInviteUrl  = buildInviteUrl(code);
+    const hubName = (window.currentFamilyDoc && window.currentFamilyDoc.name) || 'Family Hub';
+
     document.getElementById('settings-invite-code-text').textContent = code;
     document.getElementById('settings-invite-code-expiry').textContent = 'Expires in 24 hours · single use';
     document.getElementById('settings-invite-code-display').style.display = 'block';
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: `Join ${hubName}`, url: _lastInviteUrl });
+      } catch (shareErr) {
+        // User dismissed the share sheet — not an error, nothing to do.
+      }
+    } else {
+      await copyInviteLinkText();
+      const expiryEl = document.getElementById('settings-invite-code-expiry');
+      const original = expiryEl.textContent;
+      expiryEl.textContent = 'Link copied!';
+      setTimeout(() => { expiryEl.textContent = original; }, 1500);
+    }
   } catch (e) {
-    alert(e.message || 'Could not generate an invite code.');
+    alert(e.message || 'Could not generate an invite link.');
   } finally {
     btn.disabled = false;
   }
 }
 
-function copyInviteCode(event) {
-  if (!_lastInviteCode) return;
-  navigator.clipboard.writeText(_lastInviteCode).then(() => {
+function copyInviteLinkText() {
+  if (!_lastInviteUrl) return Promise.resolve();
+  return navigator.clipboard ? navigator.clipboard.writeText(_lastInviteUrl).catch(() => {}) : Promise.resolve();
+}
+
+function copyInviteLink(event) {
+  if (!_lastInviteUrl) return;
+  copyInviteLinkText().then(() => {
     const btn = event.target;
     const original = btn.textContent;
     btn.textContent = 'Copied!';
     setTimeout(() => { btn.textContent = original; }, 1500);
-  }).catch(() => {});
+  });
 }
 
 // Local getters — always read from Firebase-synced globals, filtering soft-deleted items
@@ -2669,7 +2811,7 @@ function getActivityLog(){ return (window.fbActivityLog || []).sort((a,b) => (b.
 function getSettingsPin() { return (window.fbSettings || []).find(s => s.id === 'pin') || null; }
 
 // ── APP VERSION & WHAT'S NEW ──────────────────────────────────────────────────
-const APP_VERSION = '4.5';
+const APP_VERSION = '4.6';
 const WHATS_NEW = {
   version: '3.2',
   features: [

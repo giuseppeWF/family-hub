@@ -190,12 +190,17 @@ service cloud.firestore {
     //   allow read, write: if isSignedIn() && request.auth.uid == uid;
     // }
 
-    // Family invite codes — readable by anyone signed in (to accept an invite).
+    // Family invite codes. Read is intentionally public (not gated on
+    // isSignedIn()): S5-B04's invite LINK is previewed on the sign-in screen
+    // before the recipient has signed in at all, so it can show "You've been
+    // invited to join [Hub Name]" pre-auth. Only readable if you already
+    // know the exact random 6-digit code (900k combinations, single-use,
+    // 24h expiry) — an acceptable trade-off for a personal family app.
     // update is restricted to flipping the "used" tracking fields only, so a
     // joining (non-admin) user can redeem a code without being able to
     // repurpose it for a different family.
     // match /invites/{inviteCode} {
-    //   allow read: if isSignedIn();
+    //   allow read: if true;
     //   allow create: if isFamilyAdmin(request.resource.data.familyId);
     //   allow update: if isSignedIn()
     //     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used', 'usedBy', 'usedAt']);
