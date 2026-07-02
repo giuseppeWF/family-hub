@@ -51,6 +51,7 @@
     listenCol('household', d => { window.fbHousehold  = d; window.dispatchEvent(new CustomEvent('fb-data')); });
     listenCol('shopfavs',  d => { window.fbShopFavs   = d; window.dispatchEvent(new CustomEvent('fb-data')); });
     listenCol('mealfavs',  d => { window.fbMealFavs   = d; window.dispatchEvent(new CustomEvent('fb-data')); });
+    listenCol('todofavs',  d => { window.fbTodoFavs   = d; window.dispatchEvent(new CustomEvent('fb-data')); });
     listenCol('settings',  d => { window.fbSettings = d; window._settingsConnected = true; window.dispatchEvent(new CustomEvent('fb-data')); });
   });
 
@@ -1701,6 +1702,16 @@
       </div>
 
       <div id="modal-todo-fields" style="display:none">
+        <!-- Favourites quick-pick -->
+        <div class="modal-field">
+          <label class="modal-label">Quick add from favourites</label>
+          <div id="todo-favs-picker" style="display:flex;flex-wrap:wrap;gap:6px;max-height:90px;overflow-y:auto;padding:4px 0"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+          <div style="flex:1;height:1px;background:var(--border)"></div>
+          <span style="font-size:12px;color:var(--cream-muted)">or add manually</span>
+          <div style="flex:1;height:1px;background:var(--border)"></div>
+        </div>
         <div class="modal-field">
           <label class="modal-label">Task</label>
           <input class="modal-input" id="new-todo-text" placeholder="e.g. Hoover the lounge">
@@ -1730,6 +1741,10 @@
             <option value="fortnightly">Every 2 weeks</option>
             <option value="monthly">Monthly</option>
           </select>
+        </div>
+        <div class="modal-field" style="display:flex;align-items:center;gap:10px">
+          <input type="checkbox" id="new-todo-save-fav" style="width:18px;height:18px;cursor:pointer;accent-color:var(--sage)">
+          <label for="new-todo-save-fav" class="modal-label" style="margin:0;cursor:pointer">Save as favourite</label>
         </div>
       </div>
 
@@ -2006,6 +2021,7 @@ window.fbMeals     = [];
 window.fbHousehold   = [];
 window.fbShopFavs    = [];
 window.fbMealFavs    = [];
+window.fbTodoFavs    = [];
 window.fbSettings    = [];
 window._settingsConnected = false;
 let _membersSeedDone = false;
@@ -2018,6 +2034,7 @@ function getMeals()     { return window.fbMeals     || []; }
 function getHousehold()  { return window.fbHousehold  || []; }
 function getShopFavs()   { return window.fbShopFavs   || []; }
 function getMealFavs()   { return window.fbMealFavs   || []; }
+function getTodoFavs()   { return window.fbTodoFavs   || []; }
 function getSettingsPin() { return (window.fbSettings || []).find(s => s.id === 'pin') || null; }
 
 // ── APP VERSION & WHAT'S NEW ──────────────────────────────────────────────────
@@ -2245,6 +2262,19 @@ const sampleMealFavs = [
   { id:'mf6',  name:'Pasta arrabbiata',         category:'Quick',       notes:'Vegetarian'             },
   { id:'mf7',  name:'Fish and chips',           category:'Treat',       notes:'Friday favourite'       },
   { id:'mf8',  name:'Chicken curry',            category:'Family fave', notes:'Malachi loves this'     },
+];
+
+const sampleTodoFavs = [
+  { id:'tf1',  text:'Hoover downstairs',    type:'chore', who:'Everyone' },
+  { id:'tf2',  text:'Empty dishwasher',     type:'chore', who:'Everyone' },
+  { id:'tf3',  text:'Put bins out',         type:'chore', who:'Everyone' },
+  { id:'tf4',  text:'Feed Paloma & Otis',   type:'chore', who:'Everyone' },
+  { id:'tf5',  text:'Clean bathroom',       type:'chore', who:'Everyone' },
+  { id:'tf6',  text:'Tidy bedroom',         type:'chore', who:'Everyone' },
+  { id:'tf7',  text:'Take recycling out',   type:'chore', who:'Everyone' },
+  { id:'tf8',  text:'Mop kitchen floor',    type:'chore', who:'Everyone' },
+  { id:'tf9',  text:'Clean toilets',        type:'chore', who:'Everyone' },
+  { id:'tf10', text:'Wipe kitchen surfaces',type:'chore', who:'Everyone' },
 ];
 
 const sampleHousehold = [
@@ -3220,7 +3250,7 @@ function openModal(type) {
     document.getElementById('new-event-end-date').value = d;
     renderWhoChips('new-event-who-chips', 'new-event-who');
   }
-  if (type === 'todo')      renderWhoChips('new-todo-who-chips',  'new-todo-who');
+  if (type === 'todo') { renderWhoChips('new-todo-who-chips', 'new-todo-who'); populateTodoFavsPicker(); }
   if (type === 'shop')    {
     renderWhoChips('new-shop-who-chips',  'new-shop-who', { excludeEveryone: true });
     populateShopFavsPicker();
@@ -3415,6 +3445,24 @@ function pickMealFav(id) {
   document.getElementById('meal-autocomplete').style.display = 'none';
 }
 
+function populateTodoFavsPicker() {
+  const favs = getTodoFavs();
+  const picker = document.getElementById('todo-favs-picker');
+  if (!picker) return;
+  picker.innerHTML = favs.length
+    ? favs.map(f => `<button type="button" onclick="pickTodoFav('${f.id}')" style="padding:5px 12px;border-radius:20px;border:1px solid var(--border-strong);background:var(--navy-card);color:var(--cream);font-size:12px;cursor:pointer;font-family:'Inter',sans-serif">${f.text}</button>`).join('')
+    : '<span style="font-size:12px;color:var(--cream-muted)">No favourites yet — add one below</span>';
+}
+
+function pickTodoFav(id) {
+  const f = getTodoFavs().find(x => x.id === id);
+  if (!f) return;
+  document.getElementById('new-todo-text').value = f.text;
+  const typeEl = document.getElementById('new-todo-type');
+  if (typeEl && f.type) typeEl.value = f.type;
+  if (f.who) renderWhoChipsWithValue('new-todo-who-chips', 'new-todo-who', f.who);
+}
+
 function mealAutocomplete(val) {
   const ac = document.getElementById('meal-autocomplete');
   if (!val || val.length < 2) { ac.style.display = 'none'; return; }
@@ -3454,12 +3502,23 @@ async function saveModal() {
     if (currentModal === 'todo') {
       const text = document.getElementById('new-todo-text').value.trim(); if (!text) return;
       const recur = document.getElementById('new-todo-recur').value;
+      const todoWho = getWhoValue('new-todo-who');
+      const todoType = document.getElementById('new-todo-type').value;
       await window.fbSave('todos', { id, text,
-        who:   getWhoValue('new-todo-who'),
-        type:  document.getElementById('new-todo-type').value,
+        who:   todoWho,
+        type:  todoType,
         due:   document.getElementById('new-todo-due').value || null,
         recur: recur !== 'none' ? recur : null,
         done:  false });
+      // Save as favourite if checked
+      if (document.getElementById('new-todo-save-fav').checked) {
+        const existFav = getTodoFavs().find(f => f.text.toLowerCase() === text.toLowerCase());
+        if (!existFav) {
+          const favId = 'tf' + Date.now();
+          await window.fbSave('todofavs', { id: favId, text, type: todoType, who: todoWho });
+        }
+        document.getElementById('new-todo-save-fav').checked = false;
+      }
       document.getElementById('new-todo-text').value  = '';
       document.getElementById('new-todo-due').value   = '';
       document.getElementById('new-todo-recur').value = 'none';
@@ -4495,6 +4554,7 @@ async function deleteAllMyData() {
       ['household', getHousehold()],
       ['shopfavs',  window.fbShopFavs  || []],
       ['mealfavs',  window.fbMealFavs  || []],
+      ['todofavs',  window.fbTodoFavs  || []],
     ];
     for (const [col, items] of toDelete) {
       for (const item of items) await window.fbDelete(col, item.id);
@@ -4999,6 +5059,7 @@ window.addEventListener('load', () => {
       await window.fbSeedIfEmpty('household',  sampleHousehold);
       await window.fbSeedIfEmpty('shopfavs',   sampleShopFavs);
       await window.fbSeedIfEmpty('mealfavs',   sampleMealFavs);
+      await window.fbSeedIfEmpty('todofavs',   sampleTodoFavs);
       await window.fbSeedIfEmpty('todos',    sampleTodos);
       await window.fbSeedIfEmpty('shopping', sampleShopping);
       await window.fbSeedIfEmpty('meals',    sampleMeals);

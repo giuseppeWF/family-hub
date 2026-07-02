@@ -1854,7 +1854,7 @@ Add a filter row at the top of the To-dos tab to show tasks assigned to a specif
 ---
 
 ### S4-012 · To-dos — favourites / quick picks for common chores
-**Status:** TODO
+**Status:** DONE 2026-07-02
 **Priority:** Medium
 **Category:** Feature
 

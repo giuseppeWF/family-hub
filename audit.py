@@ -40,7 +40,7 @@ required_fields = [
     'new-event-who', 'new-event-who-chips', 'new-event-recur', 'new-event-notes',
     # Todo
     'new-todo-text', 'new-todo-who', 'new-todo-who-chips',
-    'new-todo-type', 'new-todo-due', 'new-todo-recur',
+    'new-todo-type', 'new-todo-due', 'new-todo-recur', 'new-todo-save-fav',
     # Shopping
     'new-shop-name', 'new-shop-qty', 'new-shop-cat',
     'new-shop-who', 'new-shop-who-chips', 'new-shop-save-fav',
@@ -57,7 +57,7 @@ for field in required_fields:
 
 # ── 3. FIRESTORE LISTENERS ────────────────────────────────────────────────────
 required_listeners = ['events', 'todos', 'shopping', 'meals',
-                      'household', 'shopfavs', 'mealfavs']
+                      'household', 'shopfavs', 'mealfavs', 'todofavs']
 for col in required_listeners:
     check(f'listener:{col}', f"listenCol('{col}'" in content,
           f"Missing Firestore listener for collection: '{col}'")
