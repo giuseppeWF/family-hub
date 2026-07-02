@@ -37,7 +37,7 @@ else:
 required_fields = [
     # Event
     'new-event-name', 'new-event-date', 'new-event-start', 'new-event-end',
-    'new-event-who', 'new-event-who-chips', 'new-event-recur',
+    'new-event-who', 'new-event-who-chips', 'new-event-recur', 'new-event-notes',
     # Todo
     'new-todo-text', 'new-todo-who', 'new-todo-who-chips',
     'new-todo-type', 'new-todo-due', 'new-todo-recur',

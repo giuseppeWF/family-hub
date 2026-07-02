@@ -1687,6 +1687,10 @@
             <option value="monthly">Monthly</option>
           </select>
         </div>
+        <div class="modal-field">
+          <label class="modal-label">Notes <span style="font-weight:400;opacity:0.6">(optional)</span></label>
+          <textarea class="modal-input" id="new-event-notes" rows="2" placeholder="e.g. Bring ID, parking on Mill St" style="resize:none;font-family:inherit"></textarea>
+        </div>
       </div>
 
       <div id="modal-todo-fields" style="display:none">
@@ -2808,6 +2812,7 @@ function renderCalendar() {
           <div class="cal-event-meta who-${e.who}">${e.who||''}</div>
           ${e.recur && e.recur !== 'none' ? recurBadge(e.recur) : ''}
         </div>
+        ${e.notes ? `<div style="font-size:11px;color:var(--cream-muted);opacity:0.7;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px">${e.notes.replace(/</g,'&lt;')}</div>` : ''}
       </div>
     </div>`;
   }).join('') || MASCOT_EMPTY('Nothing this week yet', 'Tap + to add an event');
@@ -3378,13 +3383,16 @@ async function saveModal() {
       const who   = getWhoValue('new-event-who');
       const recur = document.getElementById('new-event-recur').value;
       const colorMap = { Giuseppe:'#E8A838', Ross:'#E07070', Malachi:'#5B9BD5', Mack:'#2EC4B6', Rachel:'#B08BE8', Everyone:'#9B8BCC' };
+      const notes = document.getElementById('new-event-notes').value.trim();
       await window.fbSave('events', { id, name, date: document.getElementById('new-event-date').value || todayStr,
         start: document.getElementById('new-event-start').value || '09:00',
         end:   document.getElementById('new-event-end').value   || '10:00',
         who, color: colorMap[who] || '#2EC4B6',
-        recur: recur !== 'none' ? recur : null });
+        recur: recur !== 'none' ? recur : null,
+        notes: notes || null });
       document.getElementById('new-event-name').value  = '';
       document.getElementById('new-event-recur').value = 'none';
+      document.getElementById('new-event-notes').value = '';
     }
     if (currentModal === 'todo') {
       const text = document.getElementById('new-todo-text').value.trim(); if (!text) return;
@@ -3577,7 +3585,9 @@ function openEditItem(type, id) {
         </select></div>
       <div class="modal-field"><label class="modal-label">Who</label>
         <div id="edit-event-who-chips" style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0"></div>
-        <input type="hidden" id="edit-event-who" value="Everyone"></div>`;
+        <input type="hidden" id="edit-event-who" value="Everyone"></div>
+      <div class="modal-field"><label class="modal-label">Notes <span style="font-weight:400;opacity:0.6">(optional)</span></label>
+        <textarea class="modal-input" id="edit-event-notes" rows="2" style="resize:none;font-family:inherit">${(e.notes||'').replace(/</g,'&lt;')}</textarea></div>`;
     document.getElementById('edit-event-recur').value = e.recur || 'none';
     renderWhoChipsWithValue('edit-event-who-chips', 'edit-event-who', e.who || 'Everyone');
   }
@@ -3635,6 +3645,7 @@ async function saveEditItem() {
     if (type === 'event') {
       const who = getWhoValue('edit-event-who');
       const colorMap = { Giuseppe:'#E8A838', Ross:'#E07070', Malachi:'#5B9BD5', Mack:'#2EC4B6', Rachel:'#B08BE8', Everyone:'#9B8BCC' };
+      const notesEl = document.getElementById('edit-event-notes');
       await window.fbUpdate('events', id, {
         name:  document.getElementById('edit-event-name').value.trim(),
         date:  document.getElementById('edit-event-date').value,
@@ -3642,6 +3653,7 @@ async function saveEditItem() {
         end:   document.getElementById('edit-event-end').value,
         recur: document.getElementById('edit-event-recur').value,
         who,   color: colorMap[who] || '#2EC4B6',
+        notes: notesEl ? notesEl.value.trim() || null : null,
       });
     }
   } catch(e) { console.error(e); setSyncStatus('error'); }
@@ -3683,6 +3695,7 @@ function showDetail(type, id) {
           <span style="font-size:12px;color:var(--cream-muted);min-width:60px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Who</span>
           <span class="who-${e.who}" style="font-size:15px;font-weight:600">${e.who||''}</span>
         </div>
+        ${e.notes ? `<div style="margin-top:12px;padding:10px 12px;background:rgba(255,255,255,0.06);border-radius:8px;font-size:14px;color:var(--cream-muted);line-height:1.5;white-space:pre-wrap">${e.notes.replace(/</g,'&lt;')}</div>` : ''}
       </div>`;
     actionBtn.style.display = 'none';
     document.getElementById('detail-edit-btn').style.display = 'flex';

@@ -1765,7 +1765,7 @@ Replace the 🏠 emoji in the header with the SVG house mascot. The mascot body 
 ---
 
 ### S4-008 · Calendar events — description/notes field
-**Status:** TODO
+**Status:** DONE 2026-07-02
 **Priority:** High
 **Category:** Feature
 
