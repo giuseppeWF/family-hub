@@ -430,7 +430,7 @@ Deploy the Phase 1 Firestore security rules to replace the current test mode (wh
 ---
 
 ### S5-005 · Privacy Policy & Data Deletion
-**Status:** TODO
+**Status:** DONE 2026-07-02
 **Priority:** High
 **Category:** Compliance / GDPR
 
@@ -1013,7 +1013,7 @@ Until proper Google Sign-In authentication (S5-003) is built, protect Settings w
 ---
 
 ### S4-004 · Data Protection — Soft Delete, Undo, and Activity Log
-**Status:** TODO
+**Status:** DONE 2026-07-02
 **Priority:** Medium
 **Category:** Security / UX / Trust
 
