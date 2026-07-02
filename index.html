@@ -73,6 +73,12 @@
     document.getElementById('app').style.display = 'none';
     const target = document.getElementById(screenId);
     if (target) target.style.display = 'flex';
+    // S5-B02: invite code input isn't focusable via the autofocus attribute
+    // alone, since it starts out display:none — focus it once actually shown.
+    if (screenId === 'family-screen') {
+      const codeInput = document.getElementById('join-family-code');
+      if (codeInput) setTimeout(() => codeInput.focus(), 0);
+    }
   }
 
   window._showApp = function() {
@@ -1743,11 +1749,11 @@
       <div style="font-size:14px;color:#A8A49D;margin-top:6px">You're signed in — now connect to your family's hub.</div>
     </div>
 
-    <!-- Create new family -->
+    <!-- Join existing family (S5-B02: primary — most new sign-ins are joining, not creating) -->
     <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:20px;margin-bottom:16px">
-      <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:800;color:#F0EDE6;margin-bottom:12px">Create a new Family Hub</div>
-      <input type="text" id="create-family-name" placeholder="e.g. The Smith Family" style="width:100%;padding:12px 14px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:12px;color:#F0EDE6;font-family:'Inter',sans-serif;font-size:15px;margin-bottom:12px;outline:none;box-sizing:border-box">
-      <button id="create-family-btn" onclick="submitCreateFamily()" style="width:100%;padding:13px;background:#2EC4B6;border:none;border-radius:12px;font-family:'Nunito',sans-serif;font-size:15px;font-weight:800;color:#0B2028;cursor:pointer">Create hub — I'll be the admin</button>
+      <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:800;color:#F0EDE6;margin-bottom:12px">Join with an invite code</div>
+      <input type="text" id="join-family-code" placeholder="6-digit code" inputmode="numeric" maxlength="6" autofocus style="width:100%;padding:12px 14px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:12px;color:#F0EDE6;font-family:'Inter',sans-serif;font-size:15px;margin-bottom:12px;outline:none;box-sizing:border-box;letter-spacing:4px;text-align:center" onkeydown="if(event.key==='Enter')submitJoinFamily()">
+      <button id="join-family-btn" onclick="submitJoinFamily()" style="width:100%;padding:13px;background:#2EC4B6;border:none;border-radius:12px;font-family:'Nunito',sans-serif;font-size:15px;font-weight:800;color:#0B2028;cursor:pointer">Join family</button>
     </div>
 
     <!-- Divider -->
@@ -1757,11 +1763,11 @@
       <div style="flex:1;height:1px;background:rgba(255,255,255,0.1)"></div>
     </div>
 
-    <!-- Join existing family -->
+    <!-- Create new family (S5-B02: secondary) -->
     <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:20px;margin-bottom:16px">
-      <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:800;color:#F0EDE6;margin-bottom:12px">Join with an invite code</div>
-      <input type="text" id="join-family-code" placeholder="6-digit code" inputmode="numeric" maxlength="6" style="width:100%;padding:12px 14px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:12px;color:#F0EDE6;font-family:'Inter',sans-serif;font-size:15px;margin-bottom:12px;outline:none;box-sizing:border-box;letter-spacing:4px;text-align:center">
-      <button id="join-family-btn" onclick="submitJoinFamily()" style="width:100%;padding:13px;background:transparent;border:1px solid rgba(255,255,255,0.25);border-radius:12px;font-family:'Nunito',sans-serif;font-size:15px;font-weight:800;color:#F0EDE6;cursor:pointer">Join family</button>
+      <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:800;color:#F0EDE6;margin-bottom:12px">Create a new Family Hub</div>
+      <input type="text" id="create-family-name" placeholder="e.g. The Smith Family" style="width:100%;padding:12px 14px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:12px;color:#F0EDE6;font-family:'Inter',sans-serif;font-size:15px;margin-bottom:12px;outline:none;box-sizing:border-box">
+      <button id="create-family-btn" onclick="submitCreateFamily()" style="width:100%;padding:13px;background:transparent;border:1px solid rgba(255,255,255,0.25);border-radius:12px;font-family:'Nunito',sans-serif;font-size:15px;font-weight:800;color:#F0EDE6;cursor:pointer">Create hub — I'll be the admin</button>
     </div>
 
     <div id="family-screen-error" style="display:none;background:rgba(224,112,112,0.12);border:1px solid rgba(224,112,112,0.3);border-radius:10px;padding:12px 14px;font-size:14px;color:#E07070;font-family:'Inter',sans-serif;text-align:center;margin-bottom:12px"></div>
@@ -2651,7 +2657,7 @@ function getActivityLog(){ return (window.fbActivityLog || []).sort((a,b) => (b.
 function getSettingsPin() { return (window.fbSettings || []).find(s => s.id === 'pin') || null; }
 
 // ── APP VERSION & WHAT'S NEW ──────────────────────────────────────────────────
-const APP_VERSION = '4.3';
+const APP_VERSION = '4.4';
 const WHATS_NEW = {
   version: '3.2',
   features: [
