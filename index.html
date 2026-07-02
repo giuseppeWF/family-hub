@@ -1412,6 +1412,7 @@
       <div id="header-row2-left">
         <div id="clock">00:00</div>
         <div id="date-str">Loading...</div>
+        <div id="header-weather" style="font-size:12px;color:var(--sage);font-weight:700;padding-left:8px"></div>
       </div>
       <div id="header-right" style="display:flex;align-items:center;gap:10px;flex-shrink:0">
         <div id="sync-status" style="font-size:12px;color:var(--cream-muted);display:flex;align-items:center;gap:5px">
@@ -1542,18 +1543,6 @@
         </div>
         <button class="card-remove-btn" onclick="removeCard('dash-household', event)">✕</button>
         <div class="dash-card-body" id="dash-household"></div>
-      </div>
-
-      <!-- Weather card (hidden by default) -->
-      <div class="dash-card hidden-card" data-card="weather" draggable="true">
-        <div class="dash-card-header">
-          <div class="dash-card-title">☀️ Weather — Bury</div>
-          <div class="dash-card-icon" style="opacity:0.4;font-size:15px">🌡</div>
-        </div>
-        <button class="card-remove-btn" onclick="removeCard('dash-weather', event)">✕</button>
-        <div class="dash-card-body" id="dash-weather">
-          <div style="color:var(--cream-muted);font-size:13px">Loading weather…</div>
-        </div>
       </div>
 
     </div>
@@ -2666,7 +2655,7 @@ async function deleteItem(colName, id) {
 }
 
 // ── DOG WALK ROTA (S3-005) ───────────────────────────────────────────────────
-// ── WEATHER WIDGET (S3-001) ───────────────────────────────────────────────────
+// ── WEATHER (S4-013) — compact header display ─────────────────────────────────
 const WEATHER_CODES = {
   0:'☀️', 1:'🌤', 2:'⛅', 3:'☁️',
   45:'🌫', 48:'🌫',
@@ -2683,36 +2672,20 @@ function weatherEmoji(code) {
   if (code >= 80 && code <= 82) return '🌦';
   return '🌡';
 }
-let _weatherCache = null;
 let _weatherFetching = false;
 async function fetchWeather() {
-  const el = document.getElementById('dash-weather');
-  if (!el) return;
-  const card = document.querySelector('[data-card="weather"]');
-  if (card && card.classList.contains('hidden-card')) return;
   if (_weatherFetching) return;
   _weatherFetching = true;
   try {
-    const url = 'https://api.open-meteo.com/v1/forecast?latitude=53.59&longitude=-2.30&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=Europe%2FLondon&forecast_days=1';
+    const url = 'https://api.open-meteo.com/v1/forecast?latitude=53.59&longitude=-2.30&current=temperature_2m,weather_code&timezone=Europe%2FLondon';
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error('API error');
     const d = await res.json();
     const temp = Math.round(d.current.temperature_2m);
     const code = d.current.weather_code;
-    const hi   = Math.round(d.daily.temperature_2m_max[0]);
-    const lo   = Math.round(d.daily.temperature_2m_min[0]);
-    _weatherCache = { temp, code, hi, lo };
-    el.innerHTML = `
-      <div style="display:flex;align-items:center;gap:12px;padding:4px 0">
-        <div style="font-size:48px;line-height:1">${weatherEmoji(code)}</div>
-        <div>
-          <div style="font-size:32px;font-weight:800;font-family:'Nunito',sans-serif;color:var(--cream);line-height:1">${temp}°C</div>
-          <div style="font-size:13px;color:var(--cream-muted);margin-top:4px">↑ ${hi}° ↓ ${lo}°</div>
-        </div>
-      </div>`;
-  } catch(_) {
-    el.innerHTML = '<div style="color:var(--cream-muted);font-size:13px;padding:8px 0">Weather unavailable</div>';
-  }
+    const el = document.getElementById('header-weather');
+    if (el) el.textContent = weatherEmoji(code) + ' ' + temp + '°';
+  } catch(_) { /* fail silently — don't show error in header */ }
   _weatherFetching = false;
 }
 setInterval(fetchWeather, 30 * 60 * 1000);
@@ -3866,12 +3839,14 @@ const cardMeta = {
   shopping:  { title:"Shopping List",     icon:"🛒"  },
   meals:     { title:"This Week's Meals", icon:"🍽"  },
   household: { title:"Household Tasks",   icon:"🔧"  },
-  weather:   { title:"Weather — Bury",    icon:"☀️"  },
 };
 
 function applyCardState() {
-  let order  = JSON.parse(localStorage.getItem('cardOrder')  || '["events","todos","shopping","meals","household","weather"]');
-  let hidden = JSON.parse(localStorage.getItem('cardHidden') || '["household","weather"]');
+  let order  = JSON.parse(localStorage.getItem('cardOrder')  || '["events","todos","shopping","meals","household"]');
+  let hidden = JSON.parse(localStorage.getItem('cardHidden') || '["household"]');
+  // Remove stale 'weather' entries from previously stored state
+  order  = order.filter(id => id !== 'weather');
+  hidden = hidden.filter(id => id !== 'weather');
   const grid   = document.getElementById('view-dashboard');
   order.forEach(id => {
     const card = document.querySelector('[data-card="' + id + '"]');
@@ -3900,7 +3875,7 @@ function toggleEditMode() {
 
 function removeCard(bodyId, e) {
   e.stopPropagation();
-  const cardMap = { 'dash-events':'events','dash-todos':'todos','dash-shop':'shopping','dash-meals':'meals','dash-household':'household','dash-weather':'weather' };
+  const cardMap = { 'dash-events':'events','dash-todos':'todos','dash-shop':'shopping','dash-meals':'meals','dash-household':'household' };
   const card = document.querySelector('[data-card="' + cardMap[bodyId] + '"]');
   if (card) { card.classList.add('hidden-card'); saveCardState(); refreshTray(); }
 }

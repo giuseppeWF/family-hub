@@ -1880,7 +1880,7 @@ Same favourites pattern as shopping and meals — a list of common chores/tasks 
 ---
 
 ### S4-013 · Weather in header instead of widget
-**Status:** TODO
+**Status:** DONE 2026-07-02
 **Priority:** Low
 **Category:** Feature
 
