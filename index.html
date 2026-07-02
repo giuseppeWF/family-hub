@@ -2811,7 +2811,7 @@ function getActivityLog(){ return (window.fbActivityLog || []).sort((a,b) => (b.
 function getSettingsPin() { return (window.fbSettings || []).find(s => s.id === 'pin') || null; }
 
 // ── APP VERSION & WHAT'S NEW ──────────────────────────────────────────────────
-const APP_VERSION = '4.6';
+const APP_VERSION = '4.7';
 const WHATS_NEW = {
   version: '3.2',
   features: [
@@ -5380,14 +5380,73 @@ function transferOwnershipFlow() {
   openPinOverlay('transfer');
 }
 
+// S5-B05: inline edit — null when no row is being edited, else the index
+// of the member currently shown as an edit form instead of a display row.
+let _editingMemberIdx = null;
+const MEMBER_COLOR_PRESETS = ['#E8A838', '#E07070', '#5B9BD5', '#2EC4B6', '#B08BE8'];
+
 function renderSettingsMembers(members) {
   document.getElementById('settings-members-list').innerHTML = members.map((m, i) =>
+    i === _editingMemberIdx ? renderMemberEditRow(m, i) :
     `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
       <div style="width:10px;height:10px;border-radius:50%;background:${m.color};flex-shrink:0"></div>
       <span style="flex:1;font-size:14px;color:var(--cream)">${m.name}</span>
+      <button onclick="editFamilyMember(${i})" style="background:rgba(255,255,255,0.08);border:none;border-radius:6px;color:var(--cream-muted);font-size:12px;padding:3px 8px;cursor:pointer;font-weight:700">✏️ Edit</button>
       <button onclick="removeFamilyMember(${i})" style="background:rgba(224,112,112,0.15);border:none;border-radius:6px;color:var(--rose);font-size:12px;padding:3px 8px;cursor:pointer;font-weight:700">Remove</button>
     </div>`
   ).join('');
+}
+
+function renderMemberEditRow(m, i) {
+  const escapedName = m.name.replace(/"/g, '&quot;');
+  const swatches = MEMBER_COLOR_PRESETS.map(c =>
+    `<button type="button" onclick="setMemberEditColor('${c}')" data-swatch="${c}" style="width:22px;height:22px;border-radius:50%;background:${c};border:2px solid ${c === m.color ? 'var(--cream)' : 'transparent'};cursor:pointer;padding:0"></button>`
+  ).join('');
+  return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
+    <input class="modal-input" id="edit-member-name" value="${escapedName}" placeholder="Name" style="width:100%;padding:8px 10px;font-size:14px;margin-bottom:8px;box-sizing:border-box">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+      ${swatches}
+      <input type="color" id="edit-member-colour" value="${m.color}" style="width:28px;height:28px;padding:2px;border-radius:6px;cursor:pointer;margin-left:4px">
+    </div>
+    <div style="font-size:11px;color:var(--cream-muted);margin-bottom:10px;line-height:1.4">⚠️ Changing a name won't update items already assigned to "${escapedName}"</div>
+    <div style="display:flex;gap:8px">
+      <button onclick="cancelFamilyMemberEdit()" style="flex:1;padding:8px;background:transparent;border:1px solid var(--border-strong);border-radius:8px;color:var(--cream-muted);font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer">Cancel</button>
+      <button onclick="saveFamilyMemberEdit(${i})" style="flex:1;padding:8px;background:var(--sage);border:none;border-radius:8px;color:var(--navy);font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer">Save</button>
+    </div>
+  </div>`;
+}
+
+function setMemberEditColor(color) {
+  const input = document.getElementById('edit-member-colour');
+  if (input) input.value = color;
+  document.querySelectorAll('[data-swatch]').forEach(btn => {
+    btn.style.border = btn.dataset.swatch === color ? '2px solid var(--cream)' : '2px solid transparent';
+  });
+}
+
+function editFamilyMember(idx) {
+  _editingMemberIdx = idx;
+  renderSettingsMembers(getFamilyMembers());
+}
+
+function cancelFamilyMemberEdit() {
+  _editingMemberIdx = null;
+  renderSettingsMembers(getFamilyMembers());
+}
+
+function saveFamilyMemberEdit(idx) {
+  const name  = document.getElementById('edit-member-name').value.trim();
+  const color = document.getElementById('edit-member-colour').value;
+  if (!name) { alert('Name cannot be empty.'); return; }
+  const members = getFamilyMembers();
+  if (members.some((m, i) => i !== idx && m.name.toLowerCase() === name.toLowerCase())) {
+    alert('That name is already in the family list.');
+    return;
+  }
+  members[idx] = { ...members[idx], name, color };
+  saveFamilyMembers(members);
+  _editingMemberIdx = null;
+  renderSettingsMembers(members);
 }
 
 function addFamilyMember() {

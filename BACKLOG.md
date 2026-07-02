@@ -1985,7 +1985,7 @@ Recipient side (on app load):
 ---
 
 ### S5-B05 · Family member editing — name, colour, and other attributes
-**Status:** TODO
+**Status:** DONE 2026-07-02 — added an ✏️ Edit button next to each member in Settings (alongside the existing Remove button). Tapping it swaps that row for an inline form: name input pre-filled, 5 colour-preset swatches (matching the family's existing palette) plus a free `<input type="color">` pre-selected to the current colour, a warning that renaming won't retroactively update existing items, and Save/Cancel. Save reuses the existing `saveFamilyMembers()` (Firestore sync + `injectMemberStyles()` + `refreshAllDropdowns()`), duplicate names are rejected. Same PIN gate as the rest of Settings — no additional admin check added. Known accepted trade-off (not fixed, out of scope per spec): renaming a member drops the CSS colour rule for their old name, so any already-rendered items still showing the old name lose their colour styling until re-rendered.
 **Priority:** High
 **Category:** Feature / UX
 
