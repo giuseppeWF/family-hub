@@ -458,7 +458,7 @@ Write and publish a privacy policy covering what data Family Hub collects, why, 
 ---
 
 ### S5-006 · Firebase API Key Restriction
-**Status:** TODO
+**Status:** DONE 2026-07-02 (API key restricted to giuseppewf.github.io/* and localhost/* via Google Cloud Console — Browser key auto created by Firebase)
 **Priority:** High
 **Category:** Security
 
