@@ -16,6 +16,20 @@
   import { getFirestore, collection, doc, onSnapshot, setDoc, deleteDoc, writeBatch, serverTimestamp }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
+  // ── S5-006: API KEY RESTRICTION (MANUAL STEP — Giuseppe must do this in Google Cloud Console)
+  // The apiKey below is currently unrestricted — anyone who reads this source could use it.
+  // Steps to restrict it:
+  //   1. Go to https://console.cloud.google.com → APIs & Services → Credentials
+  //   2. Find the "Browser key" for project "family-central-app"
+  //   3. Under "Application restrictions" → select "HTTP referrers (web sites)"
+  //   4. Add: https://giuseppewf.github.io/* (production)
+  //   5. Add: http://localhost/* (local dev)
+  //   6. Add: http://127.0.0.1/* (local dev alt)
+  //   7. Click Save, then test the app from GitHub Pages and locally
+  //   NOTE: This raises the bar — it doesn't prevent a determined attacker, but it stops
+  //   casual misuse. Full protection requires server-side auth (S5-003).
+  //   [DECISION NEEDED for SyncGo] S4-006 notes: consider also adding the SyncGo's local IP
+  //   if it has a fixed IP on your home network, or rely on the GitHub Pages domain restriction only.
   const firebaseConfig = {
     apiKey: "AIzaSyB7HcLEDGipz9uSUxBHolY8-Kp4RhUJFS4",
     authDomain: "family-central-app.firebaseapp.com",
@@ -1975,6 +1989,12 @@
       <div style="font-size:12px;font-weight:700;color:var(--cream-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">Hub Security</div>
       <button onclick="changePinFlow()" style="width:100%;padding:12px;background:transparent;border:1px solid var(--border-strong);border-radius:10px;color:var(--cream);font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;text-align:left">🔑 Change PIN</button>
       <button onclick="transferOwnershipFlow()" style="width:100%;padding:12px;background:transparent;border:1px solid var(--border-strong);border-radius:10px;color:var(--cream-muted);font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:0;text-align:left">👑 Transfer ownership</button>
+
+      <div style="height:1px;background:var(--border);margin:20px 0"></div>
+
+      <!-- Help -->
+      <div style="font-size:12px;font-weight:700;color:var(--cream-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">Help</div>
+      <a href="https://giuseppewf.github.io/family-hub/guide" target="_blank" rel="noopener" style="display:block;width:100%;padding:12px;background:transparent;border:1px solid var(--border-strong);border-radius:10px;color:var(--cream);font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:0;text-align:left;text-decoration:none;box-sizing:border-box">📖 Help &amp; Guide <span style="font-size:11px;color:var(--cream-muted)">(coming soon)</span></a>
 
       <div style="height:1px;background:var(--border);margin:20px 0"></div>
 
@@ -4696,7 +4716,10 @@ function saveHubName() {
 function closeSettings() { document.getElementById('settings-overlay').style.display = 'none'; _pinUnlocked = false; }
 function closeSettingsIfBg(e) { if (e.target === document.getElementById('settings-overlay')) closeSettings(); }
 
-function openPrivacyPolicy() { document.getElementById('privacy-overlay').style.display = 'flex'; }
+function openPrivacyPolicy() {
+  // Opens full privacy.html page hosted at /family-hub/privacy
+  window.open('/family-hub/privacy.html', '_blank', 'noopener');
+}
 function closePrivacy() { document.getElementById('privacy-overlay').style.display = 'none'; }
 
 function checkWhatsNew() {

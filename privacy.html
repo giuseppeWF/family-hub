@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — Family Hub</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Inter, sans-serif; background: #0B2028; color: #F0EDE6; padding: 40px 20px; line-height: 1.7; max-width: 680px; margin: 0 auto; }
+  h1 { font-size: 28px; font-weight: 800; color: #2EC4B6; margin-bottom: 8px; }
+  h2 { font-size: 16px; font-weight: 700; color: #F0EDE6; margin: 28px 0 8px; }
+  p, li { font-size: 15px; color: #A8A49D; margin-bottom: 12px; }
+  ul { padding-left: 20px; }
+  .date { font-size: 13px; color: #A8A49D; margin-bottom: 32px; }
+  .back { display: inline-block; margin-bottom: 32px; color: #2EC4B6; font-size: 14px; font-weight: 700; text-decoration: none; }
+  .back:hover { text-decoration: underline; }
+  .highlight { background: rgba(46,196,182,0.08); border-left: 3px solid #2EC4B6; padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 16px 0; }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+  th, td { text-align: left; padding: 10px 12px; font-size: 14px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  th { color: #F0EDE6; font-weight: 700; }
+  td { color: #A8A49D; }
+</style>
+</head>
+<body>
+
+<a class="back" href="/family-hub/">← Back to Family Hub</a>
+
+<h1>Privacy Policy</h1>
+<p class="date">Last updated: 2 July 2026</p>
+
+<div class="highlight">
+  <p style="color:#F0EDE6;margin:0">Family Hub is a private family application. It is not a public service. All data is stored in a Firebase Firestore database controlled by your family administrator.</p>
+</div>
+
+<h2>1. Who we are</h2>
+<p>Family Hub is operated by the Lucarelli family for private use. Contact: mrglucarelli@gmail.com</p>
+<p>For GDPR purposes, the family administrator (Giuseppe Lucarelli) is the data controller.</p>
+
+<h2>2. What personal data we collect</h2>
+<table>
+  <tr><th>Data</th><th>Where stored</th><th>Purpose</th></tr>
+  <tr><td>Family member names</td><td>Firestore + localStorage</td><td>Assigning tasks and events to family members</td></tr>
+  <tr><td>Calendar events</td><td>Firestore</td><td>Shared family calendar</td></tr>
+  <tr><td>To-do items</td><td>Firestore</td><td>Task management</td></tr>
+  <tr><td>Shopping lists</td><td>Firestore</td><td>Shared shopping coordination</td></tr>
+  <tr><td>Meal plans</td><td>Firestore</td><td>Weekly meal planning</td></tr>
+  <tr><td>Household tasks</td><td>Firestore</td><td>Home maintenance tracking</td></tr>
+  <tr><td>Activity log</td><td>Firestore</td><td>Audit trail — who created/edited/deleted what</td></tr>
+  <tr><td>Device user preference</td><td>localStorage only</td><td>Pre-fill "added by" when creating items</td></tr>
+  <tr><td>Hub name &amp; settings</td><td>Firestore + localStorage</td><td>App configuration</td></tr>
+</table>
+
+<p>We do <strong>not</strong> collect: email addresses, passwords, location data, biometrics, IP addresses, device identifiers, or any browsing behaviour.</p>
+
+<h2>3. Legal basis for processing (UK GDPR)</h2>
+<p>Processing is based on <strong>legitimate interests</strong> (Article 6(1)(f)) — specifically the legitimate interest of a family unit in organising shared schedules, tasks, and household management. All data subjects are members of the same family who have consented by using the application.</p>
+
+<h2>4. How data is stored and protected</h2>
+<ul>
+  <li>All data is stored in <strong>Google Firebase Firestore</strong>, hosted in Google Cloud (europe-west region where configured).</li>
+  <li>Firebase applies encryption in transit (TLS) and at rest.</li>
+  <li>Access to the application is restricted by a shared URL and PIN code.</li>
+  <li>The Firebase API key is restricted to the family-hub domain (see S5-006).</li>
+  <li>Firestore security rules restrict write access to valid data structures.</li>
+  <li>Full per-user authentication (Google Sign-In) is planned in a future release (S5-003).</li>
+</ul>
+
+<h2>5. Data retention</h2>
+<ul>
+  <li>Deleted items are <strong>soft-deleted</strong> (marked hidden, not removed) for 30 days, then permanently erased.</li>
+  <li>Activity log entries are automatically deleted after 30 days.</li>
+  <li>All other data is retained indefinitely unless the family administrator deletes it.</li>
+</ul>
+
+<h2>6. Third parties</h2>
+<p>Family Hub uses the following third-party services:</p>
+<ul>
+  <li><strong>Google Firebase / Firestore</strong> — database and hosting. <a href="https://firebase.google.com/support/privacy" style="color:#2EC4B6">Firebase Privacy Policy</a>. A Data Processing Agreement is available through Google Cloud Console.</li>
+  <li><strong>Open-Meteo</strong> — weather data (temperature and conditions for Bury, Manchester). No personal data is sent. <a href="https://open-meteo.com/en/terms" style="color:#2EC4B6">Open-Meteo Terms</a>.</li>
+  <li><strong>Google Fonts</strong> — Nunito and Inter typefaces loaded from Google CDN. No personal data is sent beyond standard HTTP request headers.</li>
+</ul>
+<p>No data is sold, shared with advertisers, or processed for analytics by any third party.</p>
+
+<h2>7. Your rights (UK GDPR)</h2>
+<p>As a data subject you have the right to:</p>
+<ul>
+  <li><strong>Access</strong> — request a copy of your data (contact the family administrator)</li>
+  <li><strong>Rectification</strong> — correct inaccurate data (edit items directly in the app)</li>
+  <li><strong>Erasure</strong> — request deletion of your data. Use "Delete all family data" in Settings, or contact the administrator.</li>
+  <li><strong>Restriction</strong> — request that processing be paused</li>
+  <li><strong>Portability</strong> — request your data in a structured format</li>
+  <li><strong>Object</strong> — object to processing on legitimate interests grounds</li>
+</ul>
+<p>To exercise any right, contact: mrglucarelli@gmail.com. We will respond within 30 days.</p>
+<p>You also have the right to lodge a complaint with the <strong>Information Commissioner's Office (ICO)</strong> at <a href="https://ico.org.uk" style="color:#2EC4B6">ico.org.uk</a>.</p>
+
+<h2>8. Cookies and tracking</h2>
+<p>Family Hub uses <strong>no cookies</strong>, no analytics, no advertising tracking, and no third-party pixels. The only browser storage used is <code>localStorage</code> for device-specific preferences (device user name, hub name cache, UI state).</p>
+
+<h2>9. Children</h2>
+<p>Family Hub is a private family application used by family members including children (under 18). All data belongs to the family unit and is controlled by the family administrator. No children's data is shared with third parties or used for any purpose other than family coordination.</p>
+
+<h2>10. Deleting your data</h2>
+<p>To permanently delete all family data:</p>
+<ol style="color:#A8A49D;padding-left:20px">
+  <li>Open Family Hub</li>
+  <li>Tap the ⚙️ settings icon (PIN required)</li>
+  <li>Scroll to <strong>Privacy &amp; Data</strong></li>
+  <li>Tap <strong>Delete all family data</strong></li>
+  <li>Confirm the deletion</li>
+</ol>
+<p>This permanently removes all data from Firestore and clears localStorage on the current device. Other devices will reload to an empty state.</p>
+
+<h2>11. Changes to this policy</h2>
+<p>This policy may be updated to reflect changes in the app or legal requirements. The "Last updated" date at the top of this page will reflect any changes. Continued use of Family Hub constitutes acceptance of the current policy.</p>
+
+<h2>12. Contact</h2>
+<p>Data controller: Giuseppe Lucarelli<br>Email: mrglucarelli@gmail.com</p>
+
+</body>
+</html>

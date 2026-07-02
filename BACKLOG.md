@@ -430,7 +430,7 @@ Deploy the Phase 1 Firestore security rules to replace the current test mode (wh
 ---
 
 ### S5-005 · Privacy Policy & Data Deletion
-**Status:** TODO
+**Status:** DONE 2026-07-02
 **Priority:** High
 **Category:** Compliance / GDPR
 
@@ -458,7 +458,7 @@ Write and publish a privacy policy covering what data Family Hub collects, why, 
 ---
 
 ### S5-006 · Firebase API Key Restriction
-**Status:** TODO
+**Status:** DONE 2026-07-02 — step-by-step instructions added as comment in index.html (line ~19). Giuseppe must complete the Google Cloud Console action manually.
 **Priority:** High
 **Category:** Security
 
