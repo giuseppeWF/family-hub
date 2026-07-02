@@ -1585,6 +1585,7 @@
         <div class="add-btn" onclick="openModal('todo')" style="width:auto;margin-top:0;padding:10px 18px">+ Add task</div>
       </div>
       <div class="view-subtitle">Tap to mark done</div>
+      <div id="todo-filter-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px"></div>
       <div id="todo-pending-label" class="todo-section-label">To do</div>
       <div id="todos-pending"></div>
       <div id="todo-done-label" class="todo-section-label" style="display:none">Done</div>
@@ -2952,9 +2953,35 @@ function filterCalDay(dStr) {
 }
 
 // ── TODOS ─────────────────────────────────────────────────────────────────────
+let _todoFilter = 'All';
+
+function setTodoFilter(name) {
+  _todoFilter = name;
+  renderTodos();
+}
+
+function renderTodoFilterChips() {
+  const el = document.getElementById('todo-filter-chips');
+  if (!el) return;
+  const members = getFamilyMembers().map(m => m.name);
+  const options = ['All', ...members];
+  const memberColors = {};
+  getFamilyMembers().forEach(m => memberColors[m.name] = m.color);
+  el.innerHTML = options.map(name => {
+    const active = _todoFilter === name;
+    const color = memberColors[name] || 'var(--sage)';
+    return `<button type="button" onclick="setTodoFilter('${name}')"
+      style="padding:5px 13px;border-radius:50px;font-size:12px;font-weight:700;font-family:'Nunito',sans-serif;cursor:pointer;border:1.5px solid ${active ? color : 'var(--border-strong)'};background:${active ? color + '22' : 'transparent'};color:${active ? color : 'var(--cream-muted)'};transition:all 0.15s">${name}</button>`;
+  }).join('');
+}
+
 function renderTodos() {
+  renderTodoFilterChips();
   const todos = getTodos();
-  const pending = todos.filter(t => !t.done);
+  const allPending = todos.filter(t => !t.done);
+  const pending = _todoFilter === 'All'
+    ? allPending
+    : allPending.filter(t => (t.who || 'Everyone').split(', ').includes(_todoFilter));
   const done    = todos.filter(t =>  t.done);
 
   document.getElementById('todos-pending').innerHTML = pending.map(t =>
@@ -2974,7 +3001,9 @@ function renderTodos() {
         </div>
         ${actionBtns('todos', t.id, 'todo')}
       </div>`)
-  ).join('') || MASCOT_EMPTY('All tasks done!', 'Tap + to add a new task or chore');
+  ).join('') || (_todoFilter !== 'All'
+    ? MASCOT_EMPTY(`Nothing for ${_todoFilter}`, 'Try a different filter or add a task')
+    : MASCOT_EMPTY('All tasks done!', 'Tap + to add a new task or chore'));
 
   const todoDoneLabel = document.getElementById('todo-done-label');
   todoDoneLabel.style.display = done.length ? 'block' : 'none';

@@ -1830,7 +1830,7 @@ Only the person who created a meal should be able to edit or delete it. Kids sho
 ---
 
 ### S4-011 · To-dos — filter by family member
-**Status:** TODO
+**Status:** DONE 2026-07-02
 **Priority:** Medium
 **Category:** Feature
 
