@@ -16,7 +16,7 @@
   import { getFirestore, collection, doc, getDocs, getDoc, onSnapshot, query, where,
            setDoc, deleteDoc, writeBatch, serverTimestamp }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-  import { getAuth, signInWithRedirect, GoogleAuthProvider,
+  import { getAuth, signInWithRedirect, signInWithPopup, GoogleAuthProvider,
            signInWithEmailAndPassword, createUserWithEmailAndPassword,
            onAuthStateChanged, getRedirectResult, signOut }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -87,7 +87,35 @@
   };
 
   // ── Sign-in helpers (called from onclick in auth-screen HTML) ─────────────────
-  window.doSignInGoogle  = () => signInWithRedirect(auth, googleProvider);
+  // Google Sign-In uses signInWithPopup first: signInWithRedirect fails on
+  // GitHub Pages because authDomain (family-central-app.firebaseapp.com) is a
+  // different origin than where the app is hosted (giuseppewf.github.io), and
+  // GitHub Pages can't serve the /__/auth/handler path needed to fix that.
+  // Popup avoids the cross-domain redirect entirely. Fall back to redirect
+  // only when the popup itself couldn't be used (blocked, or silently closed
+  // by the browser — the latter is how some mobile browsers report "popups
+  // aren't supported here").
+  window.doSignInGoogle = async () => {
+    if (typeof window.clearAuthError === 'function') window.clearAuthError();
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (popupError) {
+      if (popupError.code === 'auth/popup-blocked' ||
+          popupError.code === 'auth/popup-closed-by-user') {
+        try {
+          await signInWithRedirect(auth, googleProvider);
+        } catch (redirectError) {
+          if (typeof window.showAuthError === 'function') {
+            window.showAuthError(redirectError.code || redirectError.message || 'Sign-in error');
+          }
+        }
+        return;
+      }
+      if (typeof window.showAuthError === 'function') {
+        window.showAuthError(popupError.code || popupError.message || 'Sign-in error');
+      }
+    }
+  };
   window.doSignInEmail   = (email, pw) => signInWithEmailAndPassword(auth, email, pw);
   window.doCreateAccount = (email, pw) => createUserWithEmailAndPassword(auth, email, pw);
   window.doSignOut = async () => {
@@ -2478,7 +2506,9 @@ const AUTH_ERROR_MESSAGES = {
   'auth/weak-password':          'Password should be at least 6 characters.',
   'auth/too-many-requests':      'Too many attempts. Please wait a moment and try again.',
   'auth/network-request-failed': 'Network error. Check your connection and try again.',
-  'auth/popup-closed-by-user':   'Sign-in was cancelled.'
+  'auth/popup-closed-by-user':   'Sign-in was cancelled.',
+  'auth/cancelled-popup-request':'Please wait a moment and try again.',
+  'auth/account-exists-with-different-credential': 'An account already exists with that email using a different sign-in method.'
 };
 
 window.showAuthError = function(raw) {
