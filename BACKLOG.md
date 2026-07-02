@@ -405,7 +405,7 @@ Add Google Sign-In so family members authenticate before accessing the hub. Impl
 ---
 
 ### S5-004 · Firestore Security Rules — Phase 1 Deployment
-**Status:** DONE 2026-07-02 — rules updated in firestore.rules (added activityLog, todofavs, settings). Deploy comment added to index.html. Giuseppe must deploy via Firebase Console (see S5-004-DEPLOY).
+**Status:** TODO
 **Priority:** Critical
 **Category:** Security
 
@@ -430,7 +430,7 @@ Deploy the Phase 1 Firestore security rules to replace the current test mode (wh
 ---
 
 ### S5-005 · Privacy Policy & Data Deletion
-**Status:** DONE 2026-07-02
+**Status:** TODO
 **Priority:** High
 **Category:** Compliance / GDPR
 
@@ -458,7 +458,7 @@ Write and publish a privacy policy covering what data Family Hub collects, why, 
 ---
 
 ### S5-006 · Firebase API Key Restriction
-**Status:** DONE 2026-07-02 — step-by-step instructions added as comment in index.html (line ~19). Giuseppe must complete the Google Cloud Console action manually.
+**Status:** TODO
 **Priority:** High
 **Category:** Security
 
@@ -1013,7 +1013,7 @@ Until proper Google Sign-In authentication (S5-003) is built, protect Settings w
 ---
 
 ### S4-004 · Data Protection — Soft Delete, Undo, and Activity Log
-**Status:** DONE 2026-07-02
+**Status:** TODO
 **Priority:** Medium
 **Category:** Security / UX / Trust
 
@@ -2284,7 +2284,7 @@ Let family members choose their own colour rather than using the assigned defaul
 ---
 
 ### S5-004-DEPLOY · Deploy Firestore Security Rules to Firebase Console
-**Status:** READY TO DEPLOY — firestore.rules is up to date (updated 2026-07-02 to add activityLog, todofavs, settings rules). Giuseppe must paste into Firebase Console and Publish.
+**Status:** BLOCKED — wait for S5-003 (Google Sign-In) to be live first
 **Priority:** Critical
 **Category:** Security / Infrastructure
 
