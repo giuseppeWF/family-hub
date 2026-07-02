@@ -13,8 +13,13 @@
 <!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, collection, doc, onSnapshot, setDoc, deleteDoc, writeBatch, serverTimestamp }
+  import { getFirestore, collection, doc, getDocs, getDoc, onSnapshot, query, where,
+           setDoc, deleteDoc, writeBatch, serverTimestamp }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getAuth, signInWithRedirect, GoogleAuthProvider,
+           signInWithEmailAndPassword, createUserWithEmailAndPassword,
+           onAuthStateChanged, getRedirectResult, signOut }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
   // ── S5-004: FIRESTORE SECURITY RULES (MANUAL DEPLOY — Giuseppe must do this after every rules change)
   // The updated firestore.rules file in this repo MUST be deployed to Firebase Console manually:
@@ -26,7 +31,7 @@
   //   6. Verify the app still works after deployment (open Family Hub and add a test item)
   // DO NOT skip this step — the file in the repo is the source of truth, but Firebase
   // uses what is deployed in the Console, NOT what is in the repo.
-  // Latest change: added activityLog collection rules (S4-004 soft delete / activity log).
+  // Latest change: added families + invites collection rules (S5-003 auth).
 
   // ── S5-006: API KEY RESTRICTION (MANUAL STEP — Giuseppe must do this in Google Cloud Console)
   // The apiKey below is currently unrestricted — anyone who reads this source could use it.
@@ -38,10 +43,6 @@
   //   5. Add: http://localhost/* (local dev)
   //   6. Add: http://127.0.0.1/* (local dev alt)
   //   7. Click Save, then test the app from GitHub Pages and locally
-  //   NOTE: This raises the bar — it doesn't prevent a determined attacker, but it stops
-  //   casual misuse. Full protection requires server-side auth (S5-003).
-  //   [DECISION NEEDED for SyncGo] S4-006 notes: consider also adding the SyncGo's local IP
-  //   if it has a fixed IP on your home network, or rely on the GitHub Pages domain restriction only.
   const firebaseConfig = {
     apiKey: "AIzaSyB7HcLEDGipz9uSUxBHolY8-Kp4RhUJFS4",
     authDomain: "family-central-app.firebaseapp.com",
@@ -53,13 +54,196 @@
 
   const app = initializeApp(firebaseConfig);
   const db  = getFirestore(app);
+  const auth = getAuth(app);
+  const googleProvider = new GoogleAuthProvider();
 
-  // ── Collections ───────────────────────────────────────────────────────────
-  const COLS = { events: 'events', todos: 'todos', shopping: 'shopping', meals: 'meals' };
+  // ── Auth state (exposed globally) ────────────────────────────────────────────
+  window.currentUser     = null;
+  window.currentFamilyId  = null;
+  window.currentFamilyDoc = null;
+  window.isAdmin = () => !!(window.currentUser && window.currentFamilyDoc &&
+                             window.currentFamilyDoc.adminUid === window.currentUser.uid);
 
-  // ── Sync state from Firestore ─────────────────────────────────────────────
+  // ── Screen helpers ────────────────────────────────────────────────────────────
+  function showScreen(screenId) {
+    ['loading-screen','auth-screen','family-screen','migration-overlay'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+    document.getElementById('app').style.display = 'none';
+    const target = document.getElementById(screenId);
+    if (target) target.style.display = 'flex';
+  }
+
+  window._showApp = function() {
+    ['loading-screen','auth-screen','family-screen','migration-overlay'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+    document.getElementById('app').style.display = 'flex';
+    if (typeof renderAll === 'function') renderAll();
+    if (typeof window.renderSignedInUser === 'function') window.renderSignedInUser();
+    window.dispatchEvent(new CustomEvent('auth-ready'));
+  };
+
+  // ── Sign-in helpers (called from onclick in auth-screen HTML) ─────────────────
+  window.doSignInGoogle  = () => signInWithRedirect(auth, googleProvider);
+  window.doSignInEmail   = (email, pw) => signInWithEmailAndPassword(auth, email, pw);
+  window.doCreateAccount = (email, pw) => createUserWithEmailAndPassword(auth, email, pw);
+  window.doSignOut = async () => {
+    window.currentUser     = null;
+    window.currentFamilyId  = null;
+    window.currentFamilyDoc = null;
+    await signOut(auth);
+  };
+
+  // ── Phase B: family identity ───────────────────────────────────────────────
+  // Reverse-lookup doc userFamilies/{uid} -> { familyId } avoids a Firestore
+  // collectionGroup query just to find "which family is this user in".
+  function setMigrationText(text) {
+    const el = document.getElementById('migration-progress-text');
+    if (el) el.textContent = text;
+  }
+
+  const MIGRATE_COLLECTIONS = ['events', 'todos', 'shopping', 'meals', 'household',
+    'shopfavs', 'mealfavs', 'todofavs', 'activityLog', 'settings', 'dogwalks', 'scores'];
+
+  async function migrateLegacyData(familyId) {
+    let total = 0, done = 0;
+    const pending = {};
+    for (const col of MIGRATE_COLLECTIONS) {
+      const snap = await getDocs(collection(db, col));
+      pending[col] = snap.docs.filter(d => !d.data().familyId);
+      total += pending[col].length;
+    }
+    setMigrationText(`Setting up your hub… 0/${total} items`);
+    for (const col of MIGRATE_COLLECTIONS) {
+      const docs = pending[col];
+      for (let i = 0; i < docs.length; i += 450) {
+        const batch = writeBatch(db);
+        docs.slice(i, i + 450).forEach(d => batch.set(d.ref, { familyId }, { merge: true }));
+        await batch.commit();
+        done += Math.min(450, docs.length - i);
+        setMigrationText(`Setting up your hub… ${done}/${total} items`);
+      }
+    }
+    await setDoc(doc(db, 'settings', 'migrated'),
+      { done: true, migratedAt: serverTimestamp(), familyId }, { merge: true });
+  }
+
+  // First person ever to sign in "claims" the pre-existing single-tenant data
+  // and becomes its admin. Anyone signing in after that goes through the
+  // normal create/join flow instead.
+  async function claimLegacyFamily(user) {
+    showScreen('migration-overlay');
+    setMigrationText('Setting up your hub…');
+
+    const hubSnap = await getDoc(doc(db, 'settings', 'hub'));
+    const familyName = (hubSnap.exists() && hubSnap.data().name) ? hubSnap.data().name : 'My Family';
+
+    const familyRef = doc(collection(db, 'families'));
+    const familyId = familyRef.id;
+    await setDoc(familyRef, { name: familyName, adminUid: user.uid, createdAt: serverTimestamp() });
+    await setDoc(doc(db, 'families', familyId, 'members', user.uid), {
+      displayName: user.displayName || user.email || 'Admin',
+      email: user.email || null,
+      joinedAt: serverTimestamp()
+    });
+    await setDoc(doc(db, 'userFamilies', user.uid), { familyId });
+
+    window.currentFamilyId  = familyId;
+    window.currentFamilyDoc = { name: familyName, adminUid: user.uid };
+
+    await migrateLegacyData(familyId);
+  }
+
+  // Returns true once window.currentFamilyId is set and the app can be shown.
+  // Returns false if the family-screen (create/join) is now showing instead.
+  async function resolveFamily(user) {
+    const ufSnap = await getDoc(doc(db, 'userFamilies', user.uid));
+    if (ufSnap.exists()) {
+      const familyId = ufSnap.data().familyId;
+      const famSnap = await getDoc(doc(db, 'families', familyId));
+      if (famSnap.exists()) {
+        window.currentFamilyId  = familyId;
+        window.currentFamilyDoc = famSnap.data();
+        return true;
+      }
+      // Dangling pointer — family doc missing. Fall through to family-screen.
+    }
+
+    const migratedSnap = await getDoc(doc(db, 'settings', 'migrated'));
+    if (!migratedSnap.exists()) {
+      await claimLegacyFamily(user);
+      return true;
+    }
+
+    showScreen('family-screen');
+    return false;
+  }
+
+  window.doCreateFamily = async (name) => {
+    const user = window.currentUser;
+    const familyRef = doc(collection(db, 'families'));
+    const familyId = familyRef.id;
+    await setDoc(familyRef, { name, adminUid: user.uid, createdAt: serverTimestamp() });
+    await setDoc(doc(db, 'families', familyId, 'members', user.uid), {
+      displayName: user.displayName || user.email || 'Admin',
+      email: user.email || null,
+      joinedAt: serverTimestamp()
+    });
+    await setDoc(doc(db, 'userFamilies', user.uid), { familyId });
+    window.currentFamilyId  = familyId;
+    window.currentFamilyDoc = { name, adminUid: user.uid };
+    window._startListeners();
+    window._showApp();
+  };
+
+  window.doJoinFamily = async (code) => {
+    const user = window.currentUser;
+    const inviteRef = doc(db, 'invites', code);
+    const inviteSnap = await getDoc(inviteRef);
+    if (!inviteSnap.exists()) throw new Error('Invite code not found. Check the code and try again.');
+    const invite = inviteSnap.data();
+    if (invite.used) throw new Error('This invite code has already been used.');
+    const ageMs = Date.now() - (invite.createdAt && invite.createdAt.toMillis ? invite.createdAt.toMillis() : 0);
+    if (ageMs > 24 * 60 * 60 * 1000) throw new Error('This invite code has expired. Ask the admin for a new one.');
+
+    const familyId = invite.familyId;
+    const famSnap = await getDoc(doc(db, 'families', familyId));
+    if (!famSnap.exists()) throw new Error('That family no longer exists.');
+
+    await setDoc(doc(db, 'families', familyId, 'members', user.uid), {
+      displayName: user.displayName || user.email || 'Member',
+      email: user.email || null,
+      joinedAt: serverTimestamp()
+    });
+    await setDoc(doc(db, 'userFamilies', user.uid), { familyId });
+    await setDoc(inviteRef, { used: true, usedBy: user.uid, usedAt: serverTimestamp() }, { merge: true });
+
+    window.currentFamilyId  = familyId;
+    window.currentFamilyDoc = famSnap.data();
+    window._startListeners();
+    window._showApp();
+  };
+
+  window.doGenerateInviteCode = async () => {
+    const familyId = window.currentFamilyId;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const code = String(Math.floor(100000 + Math.random() * 900000));
+      const ref = doc(db, 'invites', code);
+      const existing = await getDoc(ref);
+      if (existing.exists() && !existing.data().used) continue;
+      await setDoc(ref, { code, familyId, createdAt: serverTimestamp(), used: false });
+      return code;
+    }
+    throw new Error('Could not generate a unique code — please try again.');
+  };
+
+  // ── Listeners (started after auth + family resolution; scoped to family) ──────
   function listenCol(name, setter) {
-    onSnapshot(collection(db, name), snap => {
+    const q = query(collection(db, name), where('familyId', '==', window.currentFamilyId));
+    onSnapshot(q, snap => {
       const data = [];
       snap.forEach(d => data.push({ id: d.id, ...d.data() }));
       setter(data);
@@ -68,24 +252,23 @@
     });
   }
 
-  // Start listeners once DOM ready
-  window.addEventListener('DOMContentLoaded', () => {
-    listenCol('events',   d => { window.fbEvents   = d; });
-    listenCol('todos',    d => { window.fbTodos    = d; });
-    listenCol('shopping', d => { window.fbShopping = d; });
-    listenCol('meals',     d => { window.fbMeals     = d; window.dispatchEvent(new CustomEvent('fb-data')); });
-    listenCol('household', d => { window.fbHousehold  = d; window.dispatchEvent(new CustomEvent('fb-data')); });
-    listenCol('shopfavs',  d => { window.fbShopFavs   = d; window.dispatchEvent(new CustomEvent('fb-data')); });
-    listenCol('mealfavs',  d => { window.fbMealFavs   = d; window.dispatchEvent(new CustomEvent('fb-data')); });
-    listenCol('todofavs',  d => { window.fbTodoFavs   = d; window.dispatchEvent(new CustomEvent('fb-data')); });
-    listenCol('settings',     d => { window.fbSettings = d; window._settingsConnected = true; window.dispatchEvent(new CustomEvent('fb-data')); });
-    listenCol('activityLog',  d => { window.fbActivityLog = d; });
-  });
+  window._startListeners = function() {
+    listenCol('events',      d => { window.fbEvents      = d; });
+    listenCol('todos',       d => { window.fbTodos       = d; });
+    listenCol('shopping',    d => { window.fbShopping    = d; });
+    listenCol('meals',       d => { window.fbMeals       = d; window.dispatchEvent(new CustomEvent('fb-data')); });
+    listenCol('household',   d => { window.fbHousehold   = d; window.dispatchEvent(new CustomEvent('fb-data')); });
+    listenCol('shopfavs',    d => { window.fbShopFavs    = d; window.dispatchEvent(new CustomEvent('fb-data')); });
+    listenCol('mealfavs',    d => { window.fbMealFavs    = d; window.dispatchEvent(new CustomEvent('fb-data')); });
+    listenCol('todofavs',    d => { window.fbTodoFavs    = d; window.dispatchEvent(new CustomEvent('fb-data')); });
+    listenCol('settings',    d => { window.fbSettings    = d; window._settingsConnected = true; window.dispatchEvent(new CustomEvent('fb-data')); });
+    listenCol('activityLog', d => { window.fbActivityLog = d; });
+  };
 
-  // ── Write helpers (exposed globally) ──────────────────────────────────────
+  // ── Write helpers (exposed globally) ──────────────────────────────────────────
   window.fbSave = async (colName, item) => {
     const id = item.id ? String(item.id) : String(Date.now());
-    await setDoc(doc(db, colName, id), { ...item, id, _ts: serverTimestamp() });
+    await setDoc(doc(db, colName, id), { ...item, id, familyId: window.currentFamilyId, _ts: serverTimestamp() });
     window.dispatchEvent(new CustomEvent('fb-saved'));
     return id;
   };
@@ -97,22 +280,60 @@
 
   window.fbUpdate = async (colName, id, fields) => {
     const ref = doc(db, colName, String(id));
-    await setDoc(ref, fields, { merge: true });
+    await setDoc(ref, { ...fields, familyId: window.currentFamilyId }, { merge: true });
     window.dispatchEvent(new CustomEvent('fb-saved'));
   };
 
-  // Seed sample data if collections are empty (first run only)
+  // Doc IDs are namespaced by familyId here because sample data uses fixed
+  // short IDs ('e1', 't1', ...) that would otherwise collide across tenants —
+  // regular user-created items already get unique Date.now() IDs from fbSave.
   window.fbSeedIfEmpty = async (colName, items) => {
-    const snap = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js")
-      .then(m => m.getDocs(collection(db, colName)));
+    const familyId = window.currentFamilyId;
+    if (!familyId) return;
+    const q = query(collection(db, colName), where('familyId', '==', familyId));
+    const snap = await getDocs(q);
     if (snap.empty) {
       const batch = writeBatch(db);
       items.forEach(item => {
-        batch.set(doc(db, colName, String(item.id)), { ...item, _ts: serverTimestamp() });
+        const id = `${familyId}_${item.id}`;
+        batch.set(doc(db, colName, id), { ...item, id, familyId, _ts: serverTimestamp() });
       });
       await batch.commit();
     }
   };
+
+  // ── Auth state listener — gates ALL app rendering ─────────────────────────────
+  window.addEventListener('DOMContentLoaded', () => {
+    // Handle Google redirect return (no-op if not a redirect)
+    getRedirectResult(auth).catch(e => {
+      if (e.code !== 'auth/no-auth-event' && e.code !== 'auth/null-user') {
+        if (typeof window.showAuthError === 'function') window.showAuthError(e.message || 'Sign-in error');
+      }
+    });
+
+    onAuthStateChanged(auth, async (user) => {
+      const ls = document.getElementById('loading-screen');
+      if (ls) ls.style.display = 'none';
+      window.currentUser = user;
+      if (!user) {
+        window.currentFamilyId  = null;
+        window.currentFamilyDoc = null;
+        showScreen('auth-screen');
+        return;
+      }
+      try {
+        const resolved = await resolveFamily(user);
+        if (resolved) {
+          window._startListeners();
+          window._showApp();
+        }
+      } catch (e) {
+        console.error('Family resolution failed', e);
+        if (typeof window.showAuthError === 'function') window.showAuthError('Could not load your family. Please try again.');
+        showScreen('auth-screen');
+      }
+    });
+  });
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -1435,7 +1656,101 @@
 </head>
 <body>
 
-<div id="app">
+<!-- LOADING SCREEN — shown while Firebase Auth initialises -->
+<div id="loading-screen" style="position:fixed;inset:0;background:#0B2028;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;font-family:'Nunito',sans-serif">
+  <div style="font-size:48px;margin-bottom:20px">🏠</div>
+  <div style="font-size:15px;color:#A8A49D;letter-spacing:0.5px">Loading…</div>
+</div>
+
+<!-- AUTH SCREEN — shown when not signed in -->
+<div id="auth-screen" style="display:none;position:fixed;inset:0;background:#0B2028;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;z-index:900;overflow-y:auto">
+  <div style="width:100%;max-width:360px;margin:0 auto">
+    <!-- Logo -->
+    <div style="text-align:center;margin-bottom:40px">
+      <div style="font-size:56px;margin-bottom:14px">🏠</div>
+      <div style="font-family:'Nunito',sans-serif;font-size:30px;font-weight:800;color:#F0EDE6">Family Hub</div>
+      <div style="font-size:14px;color:#A8A49D;margin-top:6px">Your family. All in one place.</div>
+    </div>
+
+    <!-- Google sign-in -->
+    <button onclick="window.doSignInGoogle()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:12px;padding:14px 20px;background:#ffffff;border:none;border-radius:14px;font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:#1a1a1a;cursor:pointer;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,0.3)">
+      <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Sign in with Google
+    </button>
+
+    <!-- Divider -->
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+      <div style="flex:1;height:1px;background:rgba(255,255,255,0.1)"></div>
+      <div style="font-size:13px;color:#A8A49D;font-family:'Nunito',sans-serif">or</div>
+      <div style="flex:1;height:1px;background:rgba(255,255,255,0.1)"></div>
+    </div>
+
+    <!-- Mode label -->
+    <div id="auth-mode-label" style="font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;color:#A8A49D;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">Sign in with email</div>
+
+    <!-- Email/password inputs -->
+    <input type="email" id="auth-email" placeholder="Email address" autocomplete="email" style="width:100%;padding:13px 16px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:12px;color:#F0EDE6;font-family:'Inter',sans-serif;font-size:15px;margin-bottom:10px;outline:none;box-sizing:border-box" oninput="clearAuthError()">
+    <input type="password" id="auth-password" placeholder="Password" autocomplete="current-password" style="width:100%;padding:13px 16px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:12px;color:#F0EDE6;font-family:'Inter',sans-serif;font-size:15px;margin-bottom:16px;outline:none;box-sizing:border-box" oninput="clearAuthError()" onkeydown="if(event.key==='Enter')handleAuthSubmit()">
+
+    <!-- Submit button -->
+    <button id="auth-submit-btn" onclick="handleAuthSubmit()" style="width:100%;padding:14px;background:#2EC4B6;border:none;border-radius:14px;font-family:'Nunito',sans-serif;font-size:16px;font-weight:800;color:#0B2028;cursor:pointer;margin-bottom:14px">Sign in</button>
+
+    <!-- Toggle mode -->
+    <div style="text-align:center;margin-bottom:12px">
+      <span id="auth-toggle-label" style="font-size:14px;color:#A8A49D;font-family:'Inter',sans-serif">Don't have an account? </span>
+      <button id="auth-toggle-btn" onclick="toggleAuthMode()" style="background:none;border:none;color:#2EC4B6;font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;cursor:pointer;padding:0">Create account</button>
+    </div>
+
+    <!-- Error message -->
+    <div id="auth-error" style="display:none;background:rgba(224,112,112,0.12);border:1px solid rgba(224,112,112,0.3);border-radius:10px;padding:12px 14px;font-size:14px;color:#E07070;font-family:'Inter',sans-serif;text-align:center;margin-top:4px"></div>
+  </div>
+</div>
+
+<!-- FAMILY SCREEN — shown when signed in but not yet part of a family (S5-003 Phase B) -->
+<div id="family-screen" style="display:none;position:fixed;inset:0;background:#0B2028;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;z-index:900;overflow-y:auto">
+  <div style="width:100%;max-width:360px;margin:0 auto">
+    <div style="text-align:center;margin-bottom:36px">
+      <div style="font-size:48px;margin-bottom:14px">👨‍👩‍👧‍👦</div>
+      <div style="font-family:'Nunito',sans-serif;font-size:24px;font-weight:800;color:#F0EDE6">Join or create a family hub</div>
+      <div style="font-size:14px;color:#A8A49D;margin-top:6px">You're signed in — now connect to your family's hub.</div>
+    </div>
+
+    <!-- Create new family -->
+    <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:20px;margin-bottom:16px">
+      <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:800;color:#F0EDE6;margin-bottom:12px">Create a new Family Hub</div>
+      <input type="text" id="create-family-name" placeholder="e.g. The Smith Family" style="width:100%;padding:12px 14px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:12px;color:#F0EDE6;font-family:'Inter',sans-serif;font-size:15px;margin-bottom:12px;outline:none;box-sizing:border-box">
+      <button id="create-family-btn" onclick="submitCreateFamily()" style="width:100%;padding:13px;background:#2EC4B6;border:none;border-radius:12px;font-family:'Nunito',sans-serif;font-size:15px;font-weight:800;color:#0B2028;cursor:pointer">Create hub — I'll be the admin</button>
+    </div>
+
+    <!-- Divider -->
+    <div style="display:flex;align-items:center;gap:12px;margin:20px 0">
+      <div style="flex:1;height:1px;background:rgba(255,255,255,0.1)"></div>
+      <div style="font-size:13px;color:#A8A49D;font-family:'Nunito',sans-serif">or</div>
+      <div style="flex:1;height:1px;background:rgba(255,255,255,0.1)"></div>
+    </div>
+
+    <!-- Join existing family -->
+    <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:20px;margin-bottom:16px">
+      <div style="font-family:'Nunito',sans-serif;font-size:15px;font-weight:800;color:#F0EDE6;margin-bottom:12px">Join with an invite code</div>
+      <input type="text" id="join-family-code" placeholder="6-digit code" inputmode="numeric" maxlength="6" style="width:100%;padding:12px 14px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:12px;color:#F0EDE6;font-family:'Inter',sans-serif;font-size:15px;margin-bottom:12px;outline:none;box-sizing:border-box;letter-spacing:4px;text-align:center">
+      <button id="join-family-btn" onclick="submitJoinFamily()" style="width:100%;padding:13px;background:transparent;border:1px solid rgba(255,255,255,0.25);border-radius:12px;font-family:'Nunito',sans-serif;font-size:15px;font-weight:800;color:#F0EDE6;cursor:pointer">Join family</button>
+    </div>
+
+    <div id="family-screen-error" style="display:none;background:rgba(224,112,112,0.12);border:1px solid rgba(224,112,112,0.3);border-radius:10px;padding:12px 14px;font-size:14px;color:#E07070;font-family:'Inter',sans-serif;text-align:center;margin-bottom:12px"></div>
+
+    <div style="text-align:center">
+      <button onclick="window.doSignOut()" style="background:none;border:none;color:#A8A49D;font-family:'Inter',sans-serif;font-size:13px;cursor:pointer;padding:8px">Wrong account? Sign out</button>
+    </div>
+  </div>
+</div>
+
+<!-- MIGRATION OVERLAY — shown while legacy single-tenant data is claimed (S5-003 Phase C) -->
+<div id="migration-overlay" style="display:none;position:fixed;inset:0;background:#0B2028;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;z-index:950;font-family:'Nunito',sans-serif">
+  <div style="font-size:48px;margin-bottom:20px">🏠</div>
+  <div id="migration-progress-text" style="font-size:15px;color:#A8A49D;letter-spacing:0.3px;text-align:center">Setting up your hub…</div>
+</div>
+
+<div id="app" style="display:none">
 
   <!-- DEVICE USER PICKER (S3-016) -->
   <div id="device-user-overlay" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.88);z-index:490;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px">
@@ -1961,6 +2276,32 @@
     <div style="background:var(--navy-mid);border:1px solid var(--border-strong);border-radius:20px;padding:24px;width:320px;max-height:80vh;overflow-y:auto" onclick="event.stopPropagation()">
       <div style="font-family:'Nunito',sans-serif;font-size:18px;font-weight:800;color:var(--cream);margin-bottom:20px">⚙️ Settings</div>
 
+      <!-- Account (S5-003) — no PIN required -->
+      <div style="font-size:12px;font-weight:700;color:var(--cream-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px">Account</div>
+      <div id="settings-account-info" style="padding:10px 14px;background:rgba(255,255,255,0.04);border-radius:10px;margin-bottom:8px">
+        <div id="settings-account-name" style="font-size:14px;font-weight:700;color:var(--cream)">—</div>
+        <div id="settings-account-email" style="font-size:12px;color:var(--cream-muted);margin-top:2px">—</div>
+      </div>
+      <button onclick="window.doSignOut()" style="width:100%;padding:10px;background:transparent;border:1px solid var(--border-strong);border-radius:10px;color:var(--cream-muted);font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:0;text-align:left">🔓 Sign out</button>
+
+      <div style="height:1px;background:var(--border);margin:16px 0"></div>
+
+      <!-- Family & invites (S5-003 Phase B) -->
+      <div style="font-size:12px;font-weight:700;color:var(--cream-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px">Family</div>
+      <div style="padding:10px 14px;background:rgba(255,255,255,0.04);border-radius:10px;margin-bottom:8px">
+        <div id="settings-family-name" style="font-size:14px;font-weight:700;color:var(--cream)">—</div>
+      </div>
+      <div id="settings-invite-admin-section" style="display:none;margin-bottom:8px">
+        <button id="settings-generate-invite-btn" onclick="generateInviteCodeFlow()" style="width:100%;padding:10px;background:rgba(46,196,182,0.08);border:1px solid rgba(46,196,182,0.25);border-radius:10px;color:var(--sage);font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-align:left">🔑 Generate invite code</button>
+        <div id="settings-invite-code-display" style="display:none;margin-top:8px;padding:12px 14px;background:rgba(255,255,255,0.04);border-radius:10px;text-align:center">
+          <div id="settings-invite-code-text" style="font-family:'Nunito',sans-serif;font-size:22px;font-weight:800;color:var(--cream);letter-spacing:4px"></div>
+          <div id="settings-invite-code-expiry" style="font-size:11px;color:var(--cream-muted);margin-top:4px;margin-bottom:8px"></div>
+          <button onclick="copyInviteCode(event)" style="width:100%;padding:8px;background:var(--sage);border:none;border-radius:8px;color:var(--navy);font-family:'Nunito',sans-serif;font-size:12px;font-weight:700;cursor:pointer">Copy code</button>
+        </div>
+      </div>
+
+      <div style="height:1px;background:var(--border);margin:16px 0"></div>
+
       <!-- This Device (no PIN required) -->
       <div style="font-size:12px;font-weight:700;color:var(--cream-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px">This Device</div>
       <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(255,255,255,0.04);border-radius:10px;margin-bottom:6px">
@@ -2099,6 +2440,168 @@ window.fbSettings    = [];
 window.fbActivityLog = [];
 window._settingsConnected = false;
 let _membersSeedDone = false;
+
+// ── S5-003 Phase A: auth screen ────────────────────────────────────────────────
+let _authMode = 'signin';
+
+function toggleAuthMode() {
+  _authMode = _authMode === 'signin' ? 'signup' : 'signin';
+  const modeLabel   = document.getElementById('auth-mode-label');
+  const submitBtn   = document.getElementById('auth-submit-btn');
+  const toggleLabel = document.getElementById('auth-toggle-label');
+  const toggleBtn   = document.getElementById('auth-toggle-btn');
+  if (_authMode === 'signup') {
+    modeLabel.textContent   = 'Create an account';
+    submitBtn.textContent   = 'Create account';
+    toggleLabel.textContent = 'Already have an account? ';
+    toggleBtn.textContent   = 'Sign in';
+  } else {
+    modeLabel.textContent   = 'Sign in with email';
+    submitBtn.textContent   = 'Sign in';
+    toggleLabel.textContent = "Don't have an account? ";
+    toggleBtn.textContent   = 'Create account';
+  }
+  clearAuthError();
+}
+
+function clearAuthError() {
+  const el = document.getElementById('auth-error');
+  if (el) { el.style.display = 'none'; el.textContent = ''; }
+}
+
+const AUTH_ERROR_MESSAGES = {
+  'auth/invalid-email':          'That email address looks invalid.',
+  'auth/user-not-found':         'No account found with that email.',
+  'auth/wrong-password':         'Incorrect password.',
+  'auth/invalid-credential':     'Incorrect email or password.',
+  'auth/email-already-in-use':   'An account already exists with that email.',
+  'auth/weak-password':          'Password should be at least 6 characters.',
+  'auth/too-many-requests':      'Too many attempts. Please wait a moment and try again.',
+  'auth/network-request-failed': 'Network error. Check your connection and try again.',
+  'auth/popup-closed-by-user':   'Sign-in was cancelled.'
+};
+
+window.showAuthError = function(raw) {
+  const el = document.getElementById('auth-error');
+  if (!el) return;
+  const message = String(raw || '');
+  const codeMatch = message.match(/auth\/[a-z-]+/);
+  const code = codeMatch ? codeMatch[0] : null;
+  if (code) {
+    el.textContent = AUTH_ERROR_MESSAGES[code] || 'Something went wrong. Please try again.';
+  } else {
+    // Not a Firebase error code — a plain validation message passed by our own code.
+    el.textContent = message || 'Something went wrong. Please try again.';
+  }
+  el.style.display = 'block';
+};
+
+async function handleAuthSubmit() {
+  clearAuthError();
+  const email    = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  if (!email || !password) { window.showAuthError('Enter your email and password.'); return; }
+  const btn = document.getElementById('auth-submit-btn');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Please wait…';
+  try {
+    if (_authMode === 'signup') {
+      await window.doCreateAccount(email, password);
+    } else {
+      await window.doSignInEmail(email, password);
+    }
+  } catch (e) {
+    window.showAuthError(e.code || e.message || 'Sign-in failed');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+window.renderSignedInUser = function() {
+  const user = window.currentUser;
+  if (!user) return;
+  const nameEl  = document.getElementById('settings-account-name');
+  const emailEl = document.getElementById('settings-account-email');
+  if (nameEl)  nameEl.textContent  = user.displayName || (user.email ? user.email.split('@')[0] : 'Signed in');
+  if (emailEl) emailEl.textContent = user.email || '';
+  renderFamilySettings();
+};
+
+// ── S5-003 Phase B: family-screen + invites ────────────────────────────────────
+function renderFamilySettings() {
+  const nameEl = document.getElementById('settings-family-name');
+  if (nameEl) nameEl.textContent = (window.currentFamilyDoc && window.currentFamilyDoc.name) || 'My Family';
+  const adminSection = document.getElementById('settings-invite-admin-section');
+  if (adminSection) adminSection.style.display = window.isAdmin() ? 'block' : 'none';
+}
+
+async function submitCreateFamily() {
+  const nameInput = document.getElementById('create-family-name');
+  const name = (nameInput.value || '').trim() || 'My Family';
+  const btn = document.getElementById('create-family-btn');
+  const errEl = document.getElementById('family-screen-error');
+  errEl.style.display = 'none';
+  btn.disabled = true;
+  try {
+    await window.doCreateFamily(name);
+  } catch (e) {
+    errEl.textContent = e.message || 'Could not create your family. Please try again.';
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function submitJoinFamily() {
+  const codeInput = document.getElementById('join-family-code');
+  const code = (codeInput.value || '').trim();
+  const btn = document.getElementById('join-family-btn');
+  const errEl = document.getElementById('family-screen-error');
+  errEl.style.display = 'none';
+  if (!/^\d{6}$/.test(code)) {
+    errEl.textContent = 'Enter the 6-digit invite code.';
+    errEl.style.display = 'block';
+    return;
+  }
+  btn.disabled = true;
+  try {
+    await window.doJoinFamily(code);
+  } catch (e) {
+    errEl.textContent = e.message || 'Could not join. Check the code and try again.';
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+let _lastInviteCode = null;
+async function generateInviteCodeFlow() {
+  const btn = document.getElementById('settings-generate-invite-btn');
+  btn.disabled = true;
+  try {
+    const code = await window.doGenerateInviteCode();
+    _lastInviteCode = code;
+    document.getElementById('settings-invite-code-text').textContent = code;
+    document.getElementById('settings-invite-code-expiry').textContent = 'Expires in 24 hours · single use';
+    document.getElementById('settings-invite-code-display').style.display = 'block';
+  } catch (e) {
+    alert(e.message || 'Could not generate an invite code.');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function copyInviteCode(event) {
+  if (!_lastInviteCode) return;
+  navigator.clipboard.writeText(_lastInviteCode).then(() => {
+    const btn = event.target;
+    const original = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = original; }, 1500);
+  }).catch(() => {});
+}
 
 // Local getters — always read from Firebase-synced globals, filtering soft-deleted items
 function getEvents()     { return (window.fbEvents   || []).filter(i => !i.deleted); }
@@ -5268,9 +5771,13 @@ function setupPwa() {
   mlink.href = URL.createObjectURL(mblob);
 }
 
-// Seed sample data on first run (runs after Firebase module loads)
-window.addEventListener('load', () => {
-  setupPwa();
+// Seed sample data for brand-new families (runs once currentFamilyId is set — S5-003)
+window.addEventListener('load', () => setupPwa());
+
+let _seedAttempted = false;
+window.addEventListener('auth-ready', () => {
+  if (_seedAttempted || !window.currentFamilyId) return;
+  _seedAttempted = true;
   setTimeout(async () => {
     const obOv = document.getElementById('onboarding-overlay');
     if (obOv && obOv.style.display !== 'none') return;

@@ -365,7 +365,7 @@ When events are added directly on the Family Hub, show a prompt: "3 events were 
 ## 🔐 SPRINT 5 — Security & Multi-tenancy
 
 ### S5-003 · Google Sign-In + Multi-tenant Firestore
-**Status:** TODO
+**Status:** IN PROGRESS 2026-07-02 — Phases A-D implemented (auth screen, family create/join + invite codes, legacy data migration, familyId-scoped listeners/writes). Email sign-in, account creation, and legacy data migration verified working on localhost — existing data intact after migration. NOT DONE: still needs testing on the live GitHub Pages URL, and Google Sign-In specifically has not been tested end-to-end (requires the redirect flow + authorised domain, can't be verified from localhost alone). Also needs every family member to actually join the migrated hub before this is considered complete. Phase E (deploying the Phase 2 Firestore rules) remains Giuseppe's manual step — do not deploy until all of the above is verified.
 **Priority:** Critical
 **Category:** Infrastructure / Security
 
