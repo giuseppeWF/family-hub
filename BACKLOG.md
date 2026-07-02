@@ -2017,7 +2017,8 @@ Family members can currently be added and removed in Settings but cannot be edit
 ---
 
 ### S5-B06 · Admin notification when a family member joins
-**Status:** TODO
+**Status:** DONE 2026-07-03 — `redeemInvite()` writes a best-effort `notifications/{familyId}/items/{notifId}` doc on join (failure never blocks the join itself). Admin-only `onSnapshot` listener (gated on `window.isAdmin()`) shows an 8-second toast per unseen notification, queued one at a time so simultaneous joins don't stack; tapping or the 8s timeout both mark it `seen: true` and tapping also opens Settings. A small dot appears on the Settings ⚙️ icon while any unseen notifications exist. Settings' family members list now shows ✅ (has signed in — matched by displayName against `families/{familyId}/members`) or 📧 (roster name only, no account) next to each name, fetched once when Settings opens.
+  **⚠️ Firestore rules NOT updated for this** (explicit instruction this session was not to touch firestore.rules — Giuseppe deploys manually). The new `notifications` collection has no entry in either the active Phase 1 rules or the commented-out Phase 2 draft. It works now because live Firestore is evidently more permissive than either draft (consistent with families/userFamilies/invites also working before they had rules), but **Phase 2 rules must gain a `notifications/{familyId}/items/{notifId}` match block before they can ever be deployed**, or this feature will break for every family the moment Phase 2 goes live.
 **Priority:** Medium
 **Category:** Feature / UX
 

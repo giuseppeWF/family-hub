@@ -299,6 +299,19 @@
     await setDoc(doc(db, 'userFamilies', user.uid), { familyId });
     await setDoc(inviteRef, { used: true, usedBy: user.uid, usedAt: serverTimestamp() }, { merge: true });
 
+    // S5-B06: notify the admin. Best-effort — a failure here must never
+    // block the join itself, which is the operation that actually matters.
+    try {
+      const notifRef = doc(collection(db, 'notifications', familyId, 'items'));
+      await setDoc(notifRef, {
+        type: 'member_joined',
+        name: user.displayName || user.email || 'A family member',
+        uid: user.uid,
+        joinedAt: serverTimestamp(),
+        seen: false
+      });
+    } catch (e) { /* non-critical */ }
+
     window.currentFamilyId  = familyId;
     window.currentFamilyDoc = famSnap.data();
   }
@@ -409,6 +422,44 @@
     listenCol('todofavs',    d => { window.fbTodoFavs    = d; window.dispatchEvent(new CustomEvent('fb-data')); });
     listenCol('settings',    d => { window.fbSettings    = d; window._settingsConnected = true; window.dispatchEvent(new CustomEvent('fb-data')); });
     listenCol('activityLog', d => { window.fbActivityLog = d; });
+    startNotificationsListener();
+  };
+
+  // ── S5-B06: admin join notifications ───────────────────────────────────────
+  // Only the admin listens — "member_joined" notifications are informational
+  // for whoever owns the hub, not for every signed-in family member.
+  function startNotificationsListener() {
+    if (!window.isAdmin() || !window.currentFamilyId) return;
+    const q = query(
+      collection(db, 'notifications', window.currentFamilyId, 'items'),
+      where('seen', '==', false)
+    );
+    onSnapshot(q, snap => {
+      if (typeof window.updateNotifDot === 'function') window.updateNotifDot(snap.size);
+      snap.docChanges().forEach(change => {
+        if (change.type === 'added' && typeof window.showJoinToast === 'function') {
+          window.showJoinToast(change.doc.id, change.doc.data());
+        }
+      });
+    });
+  }
+
+  window.markJoinNotifSeen = async (notifId) => {
+    if (!window.currentFamilyId) return;
+    try {
+      await setDoc(doc(db, 'notifications', window.currentFamilyId, 'items', notifId), { seen: true }, { merge: true });
+    } catch (e) { /* non-critical */ }
+  };
+
+  // S5-B06: which roster ("who") names correspond to someone who has actually
+  // signed in and joined the family, vs a name only ever used for task
+  // attribution (matched case-insensitively against Google displayName).
+  window.fetchAuthenticatedMemberNames = async () => {
+    if (!window.currentFamilyId) return [];
+    try {
+      const snap = await getDocs(collection(db, 'families', window.currentFamilyId, 'members'));
+      return snap.docs.map(d => (d.data().displayName || '').toLowerCase()).filter(Boolean);
+    } catch (e) { return []; }
   };
 
   // ── Write helpers (exposed globally) ──────────────────────────────────────────
@@ -1976,6 +2027,11 @@
     <button onclick="undoDelete()" style="background:var(--sage);color:var(--navy);border:none;border-radius:8px;padding:6px 16px;font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer">Undo</button>
   </div>
 
+  <!-- JOIN TOAST (S5-B06) — admin-only, shown when a family member joins via invite -->
+  <div id="join-toast" onclick="handleJoinToastTap()" style="display:none;position:fixed;top:16px;left:50%;transform:translateX(-50%);background:var(--navy-mid);border:1px solid var(--sage);border-radius:14px;padding:14px 20px;z-index:700;box-shadow:0 8px 24px rgba(0,0,0,0.5);font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;color:var(--cream);max-width:88vw;text-align:center;cursor:pointer">
+    <span id="join-toast-msg">🎉 Someone just joined!</span>
+  </div>
+
   <!-- NAV -->
   <div id="nav">
     <div class="nav-tab active" data-view="dashboard" onclick="switchView('dashboard')">
@@ -2811,7 +2867,7 @@ function getActivityLog(){ return (window.fbActivityLog || []).sort((a,b) => (b.
 function getSettingsPin() { return (window.fbSettings || []).find(s => s.id === 'pin') || null; }
 
 // ── APP VERSION & WHAT'S NEW ──────────────────────────────────────────────────
-const APP_VERSION = '4.7';
+const APP_VERSION = '4.8';
 const WHATS_NEW = {
   version: '3.2',
   features: [
@@ -3479,6 +3535,65 @@ function showUndoToast(col, item) {
     _undoItem = null;
   }, 5000);
 }
+
+// ── S5-B06: admin join notifications ─────────────────────────────────────────
+let _joinToastQueue = [];
+let _joinToastShowing = false;
+let _joinToastTimer = null;
+let _joinToastCurrentNotifId = null;
+
+window.showJoinToast = function(notifId, data) {
+  _joinToastQueue.push({ notifId, data });
+  processJoinToastQueue();
+};
+
+function processJoinToastQueue() {
+  if (_joinToastShowing || _joinToastQueue.length === 0) return;
+  _joinToastShowing = true;
+  const { notifId, data } = _joinToastQueue.shift();
+  _joinToastCurrentNotifId = notifId;
+  const hubName = (window.currentFamilyDoc && window.currentFamilyDoc.name) || 'the hub';
+  const msg = document.getElementById('join-toast-msg');
+  if (msg) msg.textContent = `🎉 ${data.name || 'Someone'} just joined ${hubName}!`;
+  const toast = document.getElementById('join-toast');
+  if (toast) toast.style.display = 'block';
+  clearTimeout(_joinToastTimer);
+  _joinToastTimer = setTimeout(() => dismissJoinToast(false), 8000);
+}
+
+function dismissJoinToast(openSettingsAfter) {
+  clearTimeout(_joinToastTimer);
+  const toast = document.getElementById('join-toast');
+  if (toast) toast.style.display = 'none';
+  if (_joinToastCurrentNotifId) window.markJoinNotifSeen(_joinToastCurrentNotifId);
+  _joinToastCurrentNotifId = null;
+  _joinToastShowing = false;
+  if (openSettingsAfter && typeof openSettings === 'function') openSettings();
+  processJoinToastQueue();
+}
+
+function handleJoinToastTap() {
+  dismissJoinToast(true);
+}
+
+// Small red dot on the Settings ⚙️ icon while unseen join notifications exist.
+window.updateNotifDot = function(count) {
+  const btn = document.getElementById('settings-btn');
+  if (!btn) return;
+  let dot = document.getElementById('settings-notif-dot');
+  if (count > 0) {
+    if (!dot) {
+      dot = document.createElement('span');
+      dot.id = 'settings-notif-dot';
+      dot.style.cssText = 'position:absolute;top:-2px;right:-2px;width:10px;height:10px;border-radius:50%;background:var(--rose);border:2px solid var(--navy);pointer-events:none';
+      btn.style.position = 'relative';
+      btn.appendChild(dot);
+    }
+    dot.style.display = 'block';
+  } else if (dot) {
+    dot.style.display = 'none';
+  }
+};
 
 async function undoDelete() {
   if (!_undoItem) return;
@@ -4998,6 +5113,15 @@ function _openSettingsPanel() {
   renderDeviceUserInSettings();
   renderActivityLog();
   overlay.style.display = 'flex';
+  // S5-B06: fetch which roster names have an actual signed-in account, then
+  // re-render with the ✅/📧 status icons once that resolves (progressive —
+  // the list already shows names immediately above, without waiting).
+  if (typeof window.fetchAuthenticatedMemberNames === 'function') {
+    window.fetchAuthenticatedMemberNames().then(names => {
+      _authenticatedMemberNames = names;
+      renderSettingsMembers(getFamilyMembers());
+    });
+  }
 }
 
 function renderActivityLog() {
@@ -5385,16 +5509,24 @@ function transferOwnershipFlow() {
 let _editingMemberIdx = null;
 const MEMBER_COLOR_PRESETS = ['#E8A838', '#E07070', '#5B9BD5', '#2EC4B6', '#B08BE8'];
 
+// S5-B06: lowercased Google displayNames of everyone who has actually signed
+// in and joined this family, refreshed each time Settings is opened — used
+// to show a ✅ (has an account) vs 📧 (roster-only, no account yet) icon.
+let _authenticatedMemberNames = [];
+
 function renderSettingsMembers(members) {
-  document.getElementById('settings-members-list').innerHTML = members.map((m, i) =>
-    i === _editingMemberIdx ? renderMemberEditRow(m, i) :
-    `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
+  document.getElementById('settings-members-list').innerHTML = members.map((m, i) => {
+    if (i === _editingMemberIdx) return renderMemberEditRow(m, i);
+    const hasAccount = _authenticatedMemberNames.includes(m.name.toLowerCase());
+    const statusIcon = hasAccount ? '✅' : '📧';
+    const statusTitle = hasAccount ? 'Signed in with an account' : 'No account yet — roster name only';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
       <div style="width:10px;height:10px;border-radius:50%;background:${m.color};flex-shrink:0"></div>
-      <span style="flex:1;font-size:14px;color:var(--cream)">${m.name}</span>
+      <span style="flex:1;font-size:14px;color:var(--cream)">${m.name} <span title="${statusTitle}" style="font-size:12px">${statusIcon}</span></span>
       <button onclick="editFamilyMember(${i})" style="background:rgba(255,255,255,0.08);border:none;border-radius:6px;color:var(--cream-muted);font-size:12px;padding:3px 8px;cursor:pointer;font-weight:700">✏️ Edit</button>
       <button onclick="removeFamilyMember(${i})" style="background:rgba(224,112,112,0.15);border:none;border-radius:6px;color:var(--rose);font-size:12px;padding:3px 8px;cursor:pointer;font-weight:700">Remove</button>
-    </div>`
-  ).join('');
+    </div>`;
+  }).join('');
 }
 
 function renderMemberEditRow(m, i) {
