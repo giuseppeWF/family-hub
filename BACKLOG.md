@@ -1825,7 +1825,7 @@ Home screen bookmark icons on iOS/Android don't update when a new version is dep
 ## 🐛 SPRINT 5 — Bugs & Fixes from Testing (Jul 2026)
 
 ### S5-B01 · Admin indicator not showing in Settings
-**Status:** TODO
+**Status:** DONE 2026-07-02 — "Hub Admin 👑" badge added under account name in Settings, shown/hidden via window.isAdmin() alongside the existing admin-only invite section.
 **Priority:** High
 **Category:** Bug
 

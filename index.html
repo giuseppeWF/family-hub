@@ -2308,6 +2308,7 @@
       <div style="font-size:12px;font-weight:700;color:var(--cream-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px">Account</div>
       <div id="settings-account-info" style="padding:10px 14px;background:rgba(255,255,255,0.04);border-radius:10px;margin-bottom:8px">
         <div id="settings-account-name" style="font-size:14px;font-weight:700;color:var(--cream)">—</div>
+        <div id="settings-admin-badge" style="display:none;font-size:11px;font-weight:800;color:var(--amber);margin-top:3px">Hub Admin 👑</div>
         <div id="settings-account-email" style="font-size:12px;color:var(--cream-muted);margin-top:2px">—</div>
       </div>
       <button onclick="window.doSignOut()" style="width:100%;padding:10px;background:transparent;border:1px solid var(--border-strong);border-radius:10px;color:var(--cream-muted);font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:0;text-align:left">🔓 Sign out</button>
@@ -2563,8 +2564,12 @@ window.renderSignedInUser = function() {
 function renderFamilySettings() {
   const nameEl = document.getElementById('settings-family-name');
   if (nameEl) nameEl.textContent = (window.currentFamilyDoc && window.currentFamilyDoc.name) || 'My Family';
+  const admin = window.isAdmin();
   const adminSection = document.getElementById('settings-invite-admin-section');
-  if (adminSection) adminSection.style.display = window.isAdmin() ? 'block' : 'none';
+  if (adminSection) adminSection.style.display = admin ? 'block' : 'none';
+  // S5-B01: admin indicator next to the account name in Settings
+  const badge = document.getElementById('settings-admin-badge');
+  if (badge) badge.style.display = admin ? 'block' : 'none';
 }
 
 async function submitCreateFamily() {
@@ -2646,7 +2651,7 @@ function getActivityLog(){ return (window.fbActivityLog || []).sort((a,b) => (b.
 function getSettingsPin() { return (window.fbSettings || []).find(s => s.id === 'pin') || null; }
 
 // ── APP VERSION & WHAT'S NEW ──────────────────────────────────────────────────
-const APP_VERSION = '4.2';
+const APP_VERSION = '4.3';
 const WHATS_NEW = {
   version: '3.2',
   features: [
