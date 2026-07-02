@@ -311,6 +311,9 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
+    overflow-y: auto;
+    max-height: 220px;
+    -webkit-overflow-scrolling: touch;
   }
 
   /* ── CALENDAR DASH ──────────────────────── */
@@ -2289,6 +2292,7 @@ function setSyncStatus(state) {
 
 // Watch for Firestore connection via custom events
 let connected = false;
+let recurGenerated = false;
 window.addEventListener('fb-data', () => {
   if (!connected) { connected = true; setSyncStatus('live'); }
   // If this device has never done setup but Firestore already has data,
@@ -2344,7 +2348,10 @@ window.addEventListener('fb-data', () => {
     }
   }
   if (typeof renderAll === 'function') renderAll();
-  processRecurringEvents();
+  if (!recurGenerated && getEvents().length > 0) {
+    recurGenerated = true;
+    processRecurringEvents();
+  }
   if (typeof checkDeviceUserPrompt === 'function') checkDeviceUserPrompt();
   if (typeof generateTodayDogwalk === 'function') generateTodayDogwalk();
 });
@@ -2360,7 +2367,7 @@ function updateSummary() {
   const pendingShop  = shopping.filter(s => !s.done);
   const mealsCount   = meals.filter(m => !!m.day).length;
   const household    = typeof getHousehold === 'function' ? getHousehold() : [];
-  const highPrio     = household.filter(h => !h.done && h.priority === 'High');
+  const highPrio     = household.filter(h => !h.done && h.priority === 'high');
 
   const el = id => document.getElementById(id);
   const setBadge = (id, count) => {
@@ -2475,9 +2482,9 @@ function renderHousehold() {
     (r === activeRoom ? 'var(--sage)' : 'var(--cream-muted)') + '">' + r + '</div>'
   ).join('');
 
-  const priorityOrder = { High: 0, Medium: 1, Low: 2 };
+  const priorityOrder = { high: 0, medium: 1, low: 2 };
   const filtered = (activeRoom === 'All' ? pending : pending.filter(t => t.room === activeRoom))
-    .slice().sort((a, b) => (priorityOrder[a.priority] ?? 3) - (priorityOrder[b.priority] ?? 3));
+    .slice().sort((a, b) => (priorityOrder[a.priority] ?? 99) - (priorityOrder[b.priority] ?? 99));
   const priorityColor = { high: 'var(--rose)', medium: 'var(--amber)', low: 'var(--cream-muted)' };
 
   document.getElementById('household-pending').innerHTML = filtered.map(t =>
