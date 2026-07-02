@@ -1953,7 +1953,7 @@ Tapping the circle/checkbox on a task or shopping item opens the detail modal ra
 ## 🐛 SPRINT 4 — Carry-over Bugs (found Jul 2026 testing)
 
 ### S4-B01 · Repeat events not generating future occurrences
-**Status:** TODO
+**Status:** DONE 2026-07-02 (fixed via S4-B04 — timing issue resolved, generation now runs inside fb-data handler)
 **Priority:** High
 **Category:** Bug
 
@@ -1983,7 +1983,7 @@ Also verify: `generateRecurringEvents()` function exists and correctly compares 
 ---
 
 ### S4-B02 · Overview widget internal scroll not working
-**Status:** TODO
+**Status:** DONE 2026-07-02 (fixed — dash-card-body max-height and overflow-y applied)
 **Priority:** High
 **Category:** Bug
 
@@ -2010,7 +2010,7 @@ Verify no parent element has `overflow: hidden` that would block the inner scrol
 ---
 
 ### S4-B03 · House tasks not sorting by priority
-**Status:** TODO
+**Status:** DONE 2026-07-02 (fixed — sort now runs after Firestore data loads)
 **Priority:** Medium
 **Category:** Bug
 
@@ -2036,7 +2036,7 @@ const pending = tasks
 ## 🚀 SPRINT 4 — Features & Polish
 
 ### S4-007 · Mascot — implement in app with pale mint background
-**Status:** TODO
+**Status:** DONE 2026-07-02 (mascot implemented, pale mint background, sleeping empty states)
 **Priority:** High
 **Category:** Design
 
@@ -2061,7 +2061,7 @@ Replace the 🏠 emoji in the header with the SVG house mascot. The mascot body 
 ---
 
 ### S4-008 · Calendar events — description/notes field
-**Status:** TODO
+**Status:** DONE 2026-07-02 (notes field added to add and edit modals, shows in detail view)
 **Priority:** High
 **Category:** Feature
 
@@ -2077,7 +2077,7 @@ Add an optional notes/description field to calendar events so extra information 
 ---
 
 ### S4-009 · Calendar events — multi-day support
-**Status:** TODO
+**Status:** DONE 2026-07-02 (end date field added, multi-day events span calendar correctly)
 **Priority:** High
 **Category:** Feature
 
@@ -2102,7 +2102,7 @@ Events should support an end date for multi-day events (holidays, work trips, sc
 ---
 
 ### S4-010 · Meals — creator-only edit/delete protection
-**Status:** TODO
+**Status:** DONE 2026-07-02 (createdBy field stored, protection logic implemented — bug S4-B05 fixed this sprint)
 **Priority:** High
 **Category:** Feature / Security
 
@@ -2126,7 +2126,7 @@ Only the person who created a meal should be able to edit or delete it. Kids sho
 ---
 
 ### S4-011 · To-dos — filter by family member
-**Status:** TODO
+**Status:** DONE 2026-07-02 (filter chips row added to todos tab)
 **Priority:** Medium
 **Category:** Feature
 
@@ -2150,7 +2150,7 @@ Add a filter row at the top of the To-dos tab to show tasks assigned to a specif
 ---
 
 ### S4-012 · To-dos — favourites / quick picks for common chores
-**Status:** TODO
+**Status:** DONE 2026-07-02 (todofavs collection, quick-pick chips in add modal)
 **Priority:** Medium
 **Category:** Feature
 
@@ -2176,7 +2176,7 @@ Same favourites pattern as shopping and meals — a list of common chores/tasks 
 ---
 
 ### S4-013 · Weather in header instead of widget
-**Status:** TODO
+**Status:** DONE 2026-07-02 (weather moved to header row 2, widget removed)
 **Priority:** Low
 **Category:** Feature
 
@@ -2202,7 +2202,7 @@ Move weather from a dashboard widget to a small persistent display in the header
 ---
 
 ### S4-014 · Dog walk rota — remove as dedicated feature
-**Status:** TODO
+**Status:** DONE 2026-07-02 (dog walk rota removed, families use calendar recurring events instead)
 **Priority:** Medium
 **Category:** Decision / Removal
 
@@ -2280,3 +2280,30 @@ Let family members choose their own colour rather than using the assigned defaul
 | – | Top add button all tabs | 2 | Jun 2026 |
 | – | Summary banner under header | 2 | Jun 2026 |
 | – | Built-in QA audit tool | 2 | Jun 2026 |
+
+---
+
+### S5-004-DEPLOY · Deploy Firestore Security Rules to Firebase Console
+**Status:** DECISION NEEDED — requires Giuseppe to action manually
+**Priority:** Critical
+**Category:** Security / Infrastructure
+
+**Description:**
+The `firestore.rules` file is already written and committed to the repo. It needs to be deployed to Firebase Console by Giuseppe — the agent cannot do this as it requires browser access to the Firebase Console.
+
+**Steps for Giuseppe:**
+1. Go to https://console.firebase.google.com
+2. Select `family-central-app` project
+3. Click **Firestore Database** → **Rules** tab
+4. Delete all existing rules
+5. Paste the contents of `firestore.rules` from the repo
+6. Click **Publish**
+7. Verify the app still works after deployment
+
+**This must be done AFTER S4-004 (soft delete) is built** — the soft delete changes what collections the app writes to, and the rules must cover those collections.
+
+**Acceptance criteria:**
+- [ ] Rules deployed to Firebase Console
+- [ ] App still functions correctly after deployment
+- [ ] Firebase Console shows new rules version in history
+- [ ] Test mode is no longer active
