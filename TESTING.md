@@ -39,6 +39,14 @@ For EACH of: Calendar, To-dos, Shopping, Meals, Household —
 - [ ] Can delete the item and it disappears
 - [ ] Empty state shows correctly when the list has zero items (temporarily delete all to verify, then restore)
 
+### A2a. Runtime checks the agent cannot verify by code-reading alone
+**These must be verified by reasoning through the actual rendered output, not just code structure:**
+- [ ] **Widget internal scroll:** On the overview/dashboard, add 8+ todo items and 8+ shopping items. Verify that inside each dashboard card, you can scroll within the card body to see all items. The card body element (`dash-card-body`) must have `overflow-y: auto` AND a `max-height` set — both are required. Verify both exist in CSS.
+- [ ] **Priority sort timing:** In `renderHousehold()`, the sort must happen INSIDE the Firestore `onSnapshot` callback or the `fb-data` event handler — NOT on app init before data loads. Verify by tracing: where does `pending.sort(...)` appear relative to where `window.fbHousehold` is populated?
+- [ ] **Repeat event generation timing:** The recurring event generation function must be called AFTER Firestore data has loaded (i.e. inside the `fb-data` handler or after `getEvents()` returns non-empty results). Verify the function is actually called somewhere and not just defined.
+- [ ] **Tab badges:** After adding/deleting items, verify badge counts update immediately without a page refresh. Verify badges show `-` or nothing when count is 0, never a blank bubble.
+- [ ] **Mark done without modal:** Tapping the circle/checkbox element directly must call toggle function, not showDetail. Verify the circle element has its OWN onclick that does NOT call showDetail.
+
 ### A3. Who / assignment
 - [ ] Who-chip selector appears on all five add modals
 - [ ] Selecting multiple people works (e.g. Giuseppe + Ross on one task)
@@ -135,11 +143,12 @@ When new issues are found during family testing, add them here with date, finder
 
 | Date | Found by | Description | Backlog ID | Status |
 |------|----------|--------------|------------|--------|
-| 2026-06-30 | Malachi | Got into Settings without PIN | S3-015 | FIXED (PIN overlay implemented) |
-| 2026-06-30 | Malachi | Could delete other people's items | S4-004 | Pending S4-004 ship |
-| 2026-06-30 | Malachi | Could change other people's assignments | — | Decision: by design (see B3) |
-| 2026-06-30 | Claude Code agent | Meal add modal silently deleted existing meal for same day without confirmation | S3-017 | FIXED (confirm dialog added) |
-| 2026-06-30 | Claude Code agent | Shopping items could be saved with "Everyone" as the "Added by" field — not useful for accountability | S3-016 | FIXED (required field, excludes Everyone) |
+| 2026-06-30 | Malachi | Got into Settings without PIN | S3-015 | Fixed S3-015 |
+| 2026-06-30 | Malachi | Could delete other people's items | S4-004 | Pending S4-004 |
+| 2026-06-30 | Malachi | Could change other people's assignments | — | Accepted by design (see B3) |
+| 2026-07-02 | Giuseppe | Repeat events not generating future occurrences on app load | S4-B01 | Open |
+| 2026-07-02 | Giuseppe | Overview widget internal scroll not working (page scrolls fine, card content clips) | S4-B02 | Open |
+| 2026-07-02 | Giuseppe | House tasks not sorted by priority — sort runs before Firestore data loads | S4-B03 | Open |
 
 ---
 

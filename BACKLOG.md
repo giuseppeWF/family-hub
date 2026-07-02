@@ -1652,6 +1652,91 @@ Tapping the circle/checkbox on a task or shopping item opens the detail modal ra
 
 ---
 
+---
+
+## 🐛 SPRINT 4 — Carry-over Bugs (found Jul 2026 testing)
+
+### S4-B01 · Repeat events not generating future occurrences
+**Status:** TODO
+**Priority:** High
+**Category:** Bug
+
+The recur field saves correctly and shows in the edit modal. But future occurrences are not being generated. Most likely cause: the generation function is called before Firestore data has loaded (timing issue), or the function is defined but never called.
+
+**Fix:** Move the recurring event generation call to run INSIDE the `fb-data` event handler — after `window.fbEvents` is populated. Use a session flag to ensure it only runs once per app load, not on every Firestore update.
+
+```javascript
+let recurGenerated = false;
+window.addEventListener('fb-data', () => {
+  if (!recurGenerated && getEvents().length > 0) {
+    recurGenerated = true;
+    generateRecurringEvents();
+  }
+});
+```
+
+Also verify: `generateRecurringEvents()` function exists and correctly compares dates as strings (`YYYY-MM-DD` format throughout — no Date object vs string mixing).
+
+**Acceptance criteria:**
+- [ ] Weekly recurring event (e.g. dog walk) generates next occurrence after marked done
+- [ ] Generation runs after Firestore data has loaded, not before
+- [ ] No duplicate events generated (pastRecurring flag working)
+- [ ] Tested: add a weekly recurring event dated yesterday → verify new one appears for next week
+- [ ] Audit + TESTING.md A2a passes
+
+---
+
+### S4-B02 · Overview widget internal scroll not working
+**Status:** TODO
+**Priority:** High
+**Category:** Bug
+
+Clarification: the page-level scroll between widgets works fine. The issue is that inside each dashboard card, only 3-4 items are visible and you cannot scroll WITHIN the card to see more. You must navigate to the full tab.
+
+**Fix:** `.dash-card-body` needs BOTH properties — just `overflow-y: auto` alone doesn't work without a `max-height`:
+
+```css
+.dash-card-body {
+  overflow-y: auto;
+  max-height: 220px;
+  -webkit-overflow-scrolling: touch;
+}
+```
+
+Verify no parent element has `overflow: hidden` that would block the inner scroll. Also ensure the dashboard card itself (`dash-card`) does not have a conflicting fixed height.
+
+**Acceptance criteria:**
+- [ ] Add 8+ todo items — dashboard todo card shows first few, scrolls to reveal rest
+- [ ] Same for shopping, meals, calendar cards
+- [ ] Scrolling inside card does not accidentally scroll the whole page on mobile
+- [ ] Audit + TESTING.md A2a passes
+
+---
+
+### S4-B03 · House tasks not sorting by priority
+**Status:** TODO
+**Priority:** Medium
+**Category:** Bug
+
+Priority sort is not being applied correctly — HIGH tasks appear mixed with MEDIUM and LOW. Root cause: sort likely runs before Firestore data loads, sorting an empty or partial array.
+
+**Fix:** Ensure sort runs on the actual data inside `renderHousehold()`, after `getHousehold()` returns populated data:
+
+```javascript
+const priorityOrder = { high: 0, medium: 1, low: 2 };
+const pending = tasks
+  .filter(t => !t.done)
+  .sort((a, b) => (priorityOrder[a.priority] ?? 99) - (priorityOrder[b.priority] ?? 99));
+```
+
+**Acceptance criteria:**
+- [ ] All HIGH tasks appear before MEDIUM tasks
+- [ ] All MEDIUM tasks appear before LOW tasks
+- [ ] Sort applies within each room filter too
+- [ ] Tested with at least 2 HIGH, 2 MEDIUM, 1 LOW task in mixed order
+- [ ] Audit + TESTING.md A2a passes
+
+
 ## 🚀 SPRINT 4 — Features & Polish
 
 ### S4-007 · Mascot — implement in app with pale mint background
