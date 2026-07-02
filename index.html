@@ -52,7 +52,8 @@
     listenCol('shopfavs',  d => { window.fbShopFavs   = d; window.dispatchEvent(new CustomEvent('fb-data')); });
     listenCol('mealfavs',  d => { window.fbMealFavs   = d; window.dispatchEvent(new CustomEvent('fb-data')); });
     listenCol('todofavs',  d => { window.fbTodoFavs   = d; window.dispatchEvent(new CustomEvent('fb-data')); });
-    listenCol('settings',  d => { window.fbSettings = d; window._settingsConnected = true; window.dispatchEvent(new CustomEvent('fb-data')); });
+    listenCol('settings',     d => { window.fbSettings = d; window._settingsConnected = true; window.dispatchEvent(new CustomEvent('fb-data')); });
+    listenCol('activityLog',  d => { window.fbActivityLog = d; });
   });
 
   // ── Write helpers (exposed globally) ──────────────────────────────────────
@@ -1983,6 +1984,13 @@
       <button onclick="deleteAllMyData()" style="width:100%;padding:12px;background:rgba(224,112,112,0.08);border:1px solid rgba(224,112,112,0.3);border-radius:10px;color:var(--rose);font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;cursor:pointer;text-align:left">🗑 Delete all family data</button>
 
       <div style="height:1px;background:var(--border);margin:20px 0"></div>
+
+      <!-- Recent Activity (admin only — settings requires PIN) -->
+      <div style="font-size:12px;font-weight:700;color:var(--cream-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">Recent Activity</div>
+      <div id="activity-log-list" style="margin-bottom:12px;max-height:220px;overflow-y:auto"></div>
+      <button onclick="renderActivityLog()" style="width:100%;padding:10px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:10px;color:var(--cream-muted);font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:0">↻ Refresh activity</button>
+
+      <div style="height:1px;background:var(--border);margin:20px 0"></div>
       <button onclick="closeSettings()" style="width:100%;padding:12px;background:transparent;border:1px solid var(--border-strong);border-radius:10px;color:var(--cream-muted);font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;cursor:pointer">Close</button>
     </div>
   </div>
@@ -2056,18 +2064,20 @@ window.fbShopFavs    = [];
 window.fbMealFavs    = [];
 window.fbTodoFavs    = [];
 window.fbSettings    = [];
+window.fbActivityLog = [];
 window._settingsConnected = false;
 let _membersSeedDone = false;
 
-// Local getters — always read from Firebase-synced globals
-function getEvents()   { return window.fbEvents   || []; }
-function getTodos()    { return window.fbTodos    || []; }
-function getShopping() { return window.fbShopping || []; }
-function getMeals()     { return window.fbMeals     || []; }
-function getHousehold()  { return window.fbHousehold  || []; }
+// Local getters — always read from Firebase-synced globals, filtering soft-deleted items
+function getEvents()     { return (window.fbEvents   || []).filter(i => !i.deleted); }
+function getTodos()      { return (window.fbTodos    || []).filter(i => !i.deleted); }
+function getShopping()   { return (window.fbShopping || []).filter(i => !i.deleted); }
+function getMeals()      { return (window.fbMeals    || []).filter(i => !i.deleted); }
+function getHousehold()  { return (window.fbHousehold  || []).filter(i => !i.deleted); }
 function getShopFavs()   { return window.fbShopFavs   || []; }
 function getMealFavs()   { return window.fbMealFavs   || []; }
 function getTodoFavs()   { return window.fbTodoFavs   || []; }
+function getActivityLog(){ return (window.fbActivityLog || []).sort((a,b) => (b.at||'').localeCompare(a.at||'')); }
 function getSettingsPin() { return (window.fbSettings || []).find(s => s.id === 'pin') || null; }
 
 // ── APP VERSION & WHAT'S NEW ──────────────────────────────────────────────────
@@ -2410,6 +2420,7 @@ window.addEventListener('fb-data', () => {
   if (!recurGenerated && getEvents().length > 0) {
     recurGenerated = true;
     processRecurringEvents();
+    cleanupOldData();
   }
   if (typeof checkDeviceUserPrompt === 'function') checkDeviceUserPrompt();
 });
@@ -2506,6 +2517,32 @@ function nextOccurrence(doneDate, freq) {
   if (freq === 'fortnightly') d.setDate(d.getDate() + 14);
   if (freq === 'monthly')   d.setMonth(d.getMonth() + 1);
   return d.toISOString().split('T')[0];
+}
+
+async function cleanupOldData() {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 30);
+  const cutoffStr = cutoff.toISOString();
+  const allCols = [
+    { col: 'events', raw: window.fbEvents },
+    { col: 'todos', raw: window.fbTodos },
+    { col: 'shopping', raw: window.fbShopping },
+    { col: 'meals', raw: window.fbMeals },
+    { col: 'household', raw: window.fbHousehold },
+  ];
+  for (const { col, raw } of allCols) {
+    for (const item of (raw || [])) {
+      if (item.deleted && item.deletedAt && item.deletedAt < cutoffStr) {
+        try { await window.fbDelete(col, item.id); } catch(_) {}
+      }
+    }
+  }
+  // Purge activity log entries older than 30 days
+  for (const entry of (window.fbActivityLog || [])) {
+    if (entry.at && entry.at < cutoffStr) {
+      try { await window.fbDelete('activityLog', entry.id); } catch(_) {}
+    }
+  }
 }
 
 function recurBadge(freq) {
@@ -2620,7 +2657,11 @@ async function toggleHousehold(id) {
   if (!t) return;
   if (!t.done) _justDone = { col: 'household', id };
   setSyncStatus('saving');
-  try { await window.fbUpdate('household', id, { done: !t.done }); } catch(e) { setSyncStatus('error'); }
+  try {
+    const nowDone = !t.done;
+    await window.fbUpdate('household', id, { done: nowDone });
+    await logActivity(nowDone ? 'done' : 'undone', 'household', t.text || '', id);
+  } catch(e) { setSyncStatus('error'); }
 }
 
 function renderAll() {
@@ -2716,18 +2757,31 @@ async function undoDelete() {
   if (toast) toast.style.display = 'none';
   const { col, item } = _undoItem;
   _undoItem = null;
+  if (!item || !item.id) return;
   setSyncStatus('saving');
-  try { await window.fbSave(col, item); } catch(e) { setSyncStatus('error'); }
+  try {
+    await window.fbUpdate(col, item.id, { deleted: false, deletedAt: null, deletedBy: null });
+    await logActivity('restored', col, item.text || item.name || '', item.id);
+  } catch(e) { setSyncStatus('error'); }
+}
+
+async function logActivity(action, col, itemName, itemId) {
+  const who = getDeviceUser() || 'Unknown';
+  const id = 'log_' + Date.now();
+  try {
+    await window.fbSave('activityLog', { id, action, col, itemName: itemName || '', itemId: itemId || '', who, at: new Date().toISOString() });
+  } catch(_) {}
 }
 
 async function deleteItem(colName, id) {
-  const getterMap = { events: getEvents, todos: getTodos, shopping: getShopping, meals: getMeals, household: getHousehold };
-  const getter = getterMap[colName];
-  const item = getter ? (getter() || []).find(x => String(x.id) === String(id)) : null;
+  const rawItems = window['fb' + colName.charAt(0).toUpperCase() + colName.slice(1)] || [];
+  const item = rawItems.find(x => String(x.id) === String(id));
   setSyncStatus('saving');
   try {
-    await window.fbDelete(colName, id);
+    const who = getDeviceUser() || 'Unknown';
+    await window.fbUpdate(colName, id, { deleted: true, deletedAt: new Date().toISOString(), deletedBy: who });
     showUndoToast(colName, item);
+    await logActivity('deleted', colName, item ? (item.text || item.name || '') : '', id);
   } catch(e) { setSyncStatus('error'); }
 }
 
@@ -3126,6 +3180,7 @@ async function toggleTodo(id) {
   try {
     const nowDone = !t.done;
     await window.fbUpdate('todos', id, { done: nowDone });
+    await logActivity(nowDone ? 'done' : 'undone', 'todos', t.text || '', id);
     // If marking done and task is recurring, spawn next occurrence
     if (nowDone && t.recur && t.recur !== 'none') {
       const newId  = 'id_' + Date.now();
@@ -3234,7 +3289,11 @@ async function toggleShop(id) {
   if (!s) return;
   if (!s.done) _justDone = { col: 'shopping', id };
   setSyncStatus('saving');
-  try { await window.fbUpdate('shopping', id, { done: !s.done }); } catch(e) { setSyncStatus('error'); }
+  try {
+    const nowDone = !s.done;
+    await window.fbUpdate('shopping', id, { done: nowDone });
+    await logActivity(nowDone ? 'done' : 'undone', 'shopping', s.name || '', id);
+  } catch(e) { setSyncStatus('error'); }
 }
 
 // ── MEALS ─────────────────────────────────────────────────────────────────────
@@ -3546,6 +3605,7 @@ function closeModalIfBackground(e) { if (e.target === document.getElementById('m
 
 async function saveModal() {
   setSyncStatus('saving');
+  let _savedName = '', _savedCol = '', _savedId = '';
   try {
     const id = 'id_' + Date.now();
     if (currentModal === 'event') {
@@ -3567,6 +3627,7 @@ async function saveModal() {
         who, color: colorMap[firstWho] || '#2EC4B6',
         recur: recur !== 'none' ? recur : null,
         notes: notes || null });
+      _savedName = name; _savedCol = 'events'; _savedId = id;
       document.getElementById('new-event-name').value     = '';
       document.getElementById('new-event-recur').value    = 'none';
       toggleRecurChips();
@@ -3584,6 +3645,7 @@ async function saveModal() {
         due:   document.getElementById('new-todo-due').value || null,
         recur: recur !== 'none' ? recur : null,
         done:  false });
+      _savedName = text; _savedCol = 'todos'; _savedId = id;
       // Save as favourite if checked
       if (document.getElementById('new-todo-save-fav').checked) {
         const existFav = getTodoFavs().find(f => f.text.toLowerCase() === text.toLowerCase());
@@ -3616,6 +3678,7 @@ async function saveModal() {
       }
       const store = (document.getElementById('new-shop-store').value || '').trim() || null;
       await window.fbSave('shopping', { id, name, qty, cat, store, who, done: false });
+      _savedName = name; _savedCol = 'shopping'; _savedId = id;
       // Save as favourite if ticked
       if (document.getElementById('new-shop-save-fav').checked) {
         const favId = 'sf_' + Date.now();
@@ -3638,6 +3701,7 @@ async function saveModal() {
         await window.fbDelete('meals', existing.id);
       }
       await window.fbSave('meals', { id, day, name, notes, who: getWhoValue('new-meal-who'), tag: 'New', createdBy: getDeviceUser() || null });
+      _savedName = name; _savedCol = 'meals'; _savedId = id;
       // Save as favourite if ticked
       if (document.getElementById('new-meal-save-fav').checked) {
         const favId = 'mf_' + Date.now();
@@ -3657,8 +3721,10 @@ async function saveModal() {
         priority: document.getElementById('new-house-priority').value,
         notes:    document.getElementById('new-house-notes').value || '',
         done:     false });
+      _savedName = text; _savedCol = 'household'; _savedId = id;
       document.getElementById('new-house-text').value = '';
     }
+    if (_savedCol) await logActivity('created', _savedCol, _savedName, _savedId);
   } catch(e) { console.error(e); setSyncStatus('error'); }
   closeModal();
 }
@@ -3855,6 +3921,12 @@ async function saveEditItem() {
         notes: notesEl ? notesEl.value.trim() || null : null,
       });
     }
+    const colMap = { todo:'todos', shop:'shopping', household:'household', meal:'meals', event:'events' };
+    const nameEl = { todo:'edit-todo-text', shop:'edit-shop-name', household:'edit-house-text', meal:'edit-meal-name', event:'edit-event-name' };
+    const col = colMap[type] || type;
+    const nameField = nameEl[type];
+    const itemName = nameField ? (document.getElementById(nameField) || {}).value || '' : '';
+    await logActivity('edited', col, itemName.trim(), id);
   } catch(e) { console.error(e); setSyncStatus('error'); }
   closeEditItem();
 }
@@ -4194,7 +4266,39 @@ function _openSettingsPanel() {
     localStorage.getItem('fh_hub_name') || 'The Family Hub';
   renderSettingsMembers(members);
   renderDeviceUserInSettings();
+  renderActivityLog();
   overlay.style.display = 'flex';
+}
+
+function renderActivityLog() {
+  const el = document.getElementById('activity-log-list');
+  if (!el) return;
+  const entries = getActivityLog().slice(0, 50);
+  if (!entries.length) { el.innerHTML = '<div style="color:var(--cream-muted);font-size:13px;padding:8px 0">No activity yet</div>'; return; }
+  const actionIcon = { created:'✚', edited:'✎', deleted:'🗑', done:'✓', undone:'↩', restored:'↩' };
+  el.innerHTML = entries.map(e => {
+    const d = e.at ? new Date(e.at).toLocaleDateString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
+    const icon = actionIcon[e.action] || '•';
+    const isDeleted = e.action === 'deleted';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:8px;margin-bottom:4px">
+      <div style="font-size:13px;min-width:18px;text-align:center;color:${isDeleted?'var(--rose)':'var(--cream-muted)'}">${icon}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;color:var(--cream);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.itemName||'—'}</div>
+        <div style="font-size:11px;color:var(--cream-muted)">${e.who||'?'} · ${e.action} · ${d}</div>
+      </div>
+      ${isDeleted ? `<button onclick="restoreDeleted('${e.col}','${e.itemId}')" style="padding:4px 10px;background:rgba(46,196,182,0.12);border:1px solid rgba(46,196,182,0.3);border-radius:6px;color:var(--sage);font-family:'Nunito',sans-serif;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0">Restore</button>` : ''}
+    </div>`;
+  }).join('');
+}
+
+async function restoreDeleted(col, itemId) {
+  if (!col || !itemId) return;
+  setSyncStatus('saving');
+  try {
+    await window.fbUpdate(col, itemId, { deleted: false, deletedAt: null, deletedBy: null });
+    await logActivity('restored', col, '', itemId);
+    renderActivityLog();
+  } catch(e) { setSyncStatus('error'); }
 }
 
 // ── PIN LOCK ────────────────────────────────────────────────────────────────
@@ -4622,14 +4726,15 @@ async function deleteAllMyData() {
   setSyncStatus('saving');
   try {
     const toDelete = [
-      ['events',    getEvents()],
-      ['todos',     getTodos()],
-      ['shopping',  getShopping()],
-      ['meals',     getMeals()],
-      ['household', getHousehold()],
-      ['shopfavs',  window.fbShopFavs  || []],
-      ['mealfavs',  window.fbMealFavs  || []],
-      ['todofavs',  window.fbTodoFavs  || []],
+      ['events',      window.fbEvents      || []],
+      ['todos',       window.fbTodos       || []],
+      ['shopping',    window.fbShopping    || []],
+      ['meals',       window.fbMeals       || []],
+      ['household',   window.fbHousehold   || []],
+      ['shopfavs',    window.fbShopFavs    || []],
+      ['mealfavs',    window.fbMealFavs    || []],
+      ['todofavs',    window.fbTodoFavs    || []],
+      ['activityLog', window.fbActivityLog || []],
     ];
     for (const [col, items] of toDelete) {
       for (const item of items) await window.fbDelete(col, item.id);

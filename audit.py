@@ -57,7 +57,7 @@ for field in required_fields:
 
 # ── 3. FIRESTORE LISTENERS ────────────────────────────────────────────────────
 required_listeners = ['events', 'todos', 'shopping', 'meals',
-                      'household', 'shopfavs', 'mealfavs', 'todofavs']
+                      'household', 'shopfavs', 'mealfavs', 'todofavs', 'activityLog']
 for col in required_listeners:
     check(f'listener:{col}', f"listenCol('{col}'" in content,
           f"Missing Firestore listener for collection: '{col}'")
@@ -141,6 +141,7 @@ core_fns = [
     'function closeModal', 'function openEditItem', 'function saveEditItem',
     'function showDetail', 'function deleteItem', 'function setSyncStatus',
     'function runQA', 'function switchView', 'function applyCardState',
+    'async function logActivity', 'function renderActivityLog',
 ]
 for fn in core_fns:
     check(f'fn:{fn}', fn in content, f"Missing core function: {fn}")
