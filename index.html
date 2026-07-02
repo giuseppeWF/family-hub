@@ -16,6 +16,18 @@
   import { getFirestore, collection, doc, onSnapshot, setDoc, deleteDoc, writeBatch, serverTimestamp }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
+  // ── S5-004: FIRESTORE SECURITY RULES (MANUAL DEPLOY — Giuseppe must do this after every rules change)
+  // The updated firestore.rules file in this repo MUST be deployed to Firebase Console manually:
+  //   1. Go to https://console.firebase.google.com → project "family-central-app"
+  //   2. Click Firestore Database → Rules tab
+  //   3. Delete all existing rules
+  //   4. Paste the full contents of firestore.rules from this repo
+  //   5. Click Publish
+  //   6. Verify the app still works after deployment (open Family Hub and add a test item)
+  // DO NOT skip this step — the file in the repo is the source of truth, but Firebase
+  // uses what is deployed in the Console, NOT what is in the repo.
+  // Latest change: added activityLog collection rules (S4-004 soft delete / activity log).
+
   // ── S5-006: API KEY RESTRICTION (MANUAL STEP — Giuseppe must do this in Google Cloud Console)
   // The apiKey below is currently unrestricted — anyone who reads this source could use it.
   // Steps to restrict it:

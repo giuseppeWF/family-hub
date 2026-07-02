@@ -132,6 +132,35 @@ service cloud.firestore {
       allow write: if isSignedIn();
     }
 
+    // Activity log (S4-004) — read-only for all signed-in users, append-only writes
+    // Admins restore deleted items by updating the original collection, not the log
+    match /activityLog/{entryId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasAll(['action', 'col', 'itemName', 'who', 'at'])
+        && request.resource.data.action is string
+        && request.resource.data.who is string;
+      allow update: if false;  // log entries are immutable
+      allow delete: if isSignedIn();  // cleanup function needs to purge old entries
+    }
+
+    // Todo favourites
+    match /todofavs/{favId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasAll(['text'])
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0;
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    // Settings collection (hub name, members, PIN hash)
+    match /settings/{settingId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
     // ── PHASE 2 RULES (add once Google Auth is implemented) ─────────────────
     // Uncomment and replace Phase 1 rules above with these once S5-003 is done.
     // These enforce strict per-family data isolation.
