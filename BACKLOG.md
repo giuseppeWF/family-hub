@@ -1825,7 +1825,7 @@ Home screen bookmark icons on iOS/Android don't update when a new version is dep
 ## 🐛 SPRINT 5 — Bugs & Fixes from Testing (Jul 2026)
 
 ### S5-B01 · Admin indicator not showing in Settings
-**Status:** DONE 2026-07-02 — "Hub Admin 👑" badge added under account name in Settings, shown/hidden via window.isAdmin() alongside the existing admin-only invite section.
+**Status:** TODO
 **Priority:** High
 **Category:** Bug
 
@@ -1847,7 +1847,7 @@ Giuseppe is the hub admin (first to sign in, created the family) but Settings sh
 ---
 
 ### S5-B02 · Join hub should appear before Create hub on first sign-in
-**Status:** DONE 2026-07-02 — swapped order (Join card now first, solid/primary button; Create card second, outline/secondary button) and the invite-code input is explicitly focused when the family-screen is shown (showScreen() calls .focus() since the input starts display:none, so the plain autofocus attribute alone wouldn't fire reliably).
+**Status:** TODO
 **Priority:** High
 **Category:** UX Bug
 
@@ -1868,7 +1868,7 @@ Also: the "Join" option should be the default focused state so users can immedia
 ---
 
 ### S5-B03 · Dashboard card wobble too subtle in Arrange mode
-**Status:** DONE 2026-07-02 — replaced the old 2-stop `wiggle` keyframe (±0.4deg, no rest point) with a 4-stop `cardWobble` keyframe (0deg → -1.5deg → 1.5deg → 0deg) matching iOS home-screen intensity, applied to `.edit-mode .dash-card`. Added per-card animation-delay stagger (nth-child 2-6) so cards don't wobble in sync, plus a `prefers-reduced-motion` override.
+**Status:** TODO
 **Priority:** Low
 **Category:** UX / Polish
 
@@ -1933,6 +1933,53 @@ Giuseppe to help them — which requires temporarily reopening the rules again.
 - [ ] All five confirmed — rules safe to deploy
 - [ ] Rules deployed by Giuseppe via Firebase Console
 - [ ] App tested on all five devices after deployment
+
+
+---
+
+### S5-B04 · Invite link instead of separate code + URL
+**Status:** TODO
+**Priority:** High
+**Category:** UX / Feature
+
+Instead of sharing a URL and a 6-digit code separately, generate a single shareable invite link that contains the code. Admin taps one button, gets a link to share via WhatsApp/iMessage/email. Family member taps the link, lands on the app pre-filled with the code, signs in and joins automatically.
+
+**Invite link format:**
+`https://giuseppewf.github.io/family-hub/?invite=847291`
+
+**Implementation:**
+
+Admin side (Settings):
+- Replace "Generate invite code" with "📨 Invite a family member"
+- Generates the 6-digit code in Firestore as before (single-use, 24hr expiry)
+- Constructs the full invite URL with the code as a query parameter
+- Calls `navigator.share({ title: 'Join The Lucarelli Hub', url: inviteUrl })`
+  which opens the native iOS/Android share sheet
+- Falls back to copying the URL to clipboard if navigator.share not supported
+- Shows "Link copied!" confirmation
+
+Recipient side (on app load):
+- On every app load, check `new URLSearchParams(window.location.search).get('invite')`
+- If invite parameter found AND user is not yet in a family:
+  - Show a special "You've been invited!" screen instead of the generic join screen
+  - Pre-fill the invite code
+  - Show hub name (look up from the invite doc): "Join The Lucarelli Hub"
+  - Single button: "Sign in with Google to join" or "Join with email"
+  - After sign-in, automatically redeem the code — no manual typing needed
+- If user is already in a family: ignore the invite parameter, load normally
+- After joining: clean the URL (remove ?invite= parameter) using `history.replaceState`
+
+**Acceptance criteria:**
+- [ ] "Invite a family member" button in Settings (admin only)
+- [ ] Tapping generates code and opens native share sheet with full URL
+- [ ] Falls back to clipboard copy if share sheet not available
+- [ ] Opening invite link shows "You've been invited to join [Hub Name]"
+- [ ] Code is pre-filled — no manual typing required
+- [ ] Sign in → automatically joins the family
+- [ ] URL cleaned after joining (no ?invite= in address bar)
+- [ ] Expired or used codes show friendly error: "This invite has expired — ask your family admin for a new one"
+- [ ] Works on iOS Safari, Android Chrome, desktop Chrome
+- [ ] Audit passes
 
 
 ## 💡 FUTURE / COMMERCIAL
