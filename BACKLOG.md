@@ -1396,6 +1396,302 @@ Add this as a documented step in `AGENTS.md` deployment workflow.
 - [ ] Audit passes with zero issues
 
 
+---
+
+## 🐛 SPRINT 4 — Bugs Found in Testing (Jul 2026)
+
+### S4-B04 · Recurring event frequency not being saved correctly — weekly saves as daily
+**Status:** TODO
+**Priority:** Critical
+**Category:** Bug
+
+When adding a weekly recurring event, the generated occurrences appear daily instead. The recur field value is not being read correctly when generating next occurrences — it's likely defaulting to 'daily' regardless of what was selected.
+
+**Fix:** In `nextOccurrence(date, freq)` — add console.log to verify `freq` value received. Check that the `recur` field is saved correctly to Firestore AND read back correctly. Verify the select value ('weekly', 'daily' etc.) matches exactly what `nextOccurrence()` checks against. Case sensitivity may be the issue.
+
+**Acceptance criteria:**
+- [ ] Weekly recurring event generates next occurrence 7 days later, not 1
+- [ ] Daily generates +1 day, fortnightly +14, monthly +1 month
+- [ ] Add a weekly event → verify next occurrence date is exactly 7 days ahead
+- [ ] Audit + TESTING.md A2a passes
+
+---
+
+### S4-B05 · Meals creator protection not working — anyone can edit/delete
+**Status:** TODO
+**Priority:** High
+**Category:** Bug
+
+Kids can still edit and delete meals that parents planned. No message is shown. The `createdBy` field is either not being stored, not being read, or the UI check is not firing.
+
+**Fix:** Verify: (1) `createdBy` field is actually being written to Firestore when a meal is saved — check saveModal for meal type. (2) In showDetail for meal type — verify the check `if (meal.createdBy && meal.createdBy !== currentDeviceUser)` is present and using the correct variable for current user. (3) Verify `fh_this_device_user` is set in localStorage — if not set, the check may be skipping silently.
+
+**Acceptance criteria:**
+- [ ] Meal created by Giuseppe — Ross/Malachi/Mack see message "Created by Giuseppe — only they can edit this" instead of Edit/Delete
+- [ ] Meal created by Giuseppe — Giuseppe sees Edit/Delete normally
+- [ ] Admin (PIN holder) can always edit/delete
+- [ ] Meals with no createdBy field remain editable by anyone (backward compatible)
+- [ ] Audit passes
+
+---
+
+### S4-B06 · Calendar week strip — selected day highlight doesn't move
+**Status:** TODO
+**Priority:** High
+**Category:** Bug
+
+When tapping a different day in the week strip at the top of the Calendar tab, the highlighted "selected" day doesn't visually update. The content below changes correctly but the strip doesn't show which day is selected. From screenshot: 2nd July selected but 3rd July highlighted.
+
+**Fix:** The week strip is re-rendered on `renderCalendar()` but the selected day state variable may not be updating before the render. Check: does `filterCalDay(dStr)` update a `selectedDay` variable AND trigger a re-render of the strip? The strip needs to know which day is selected to apply the `.today` or `.selected` class correctly.
+
+```javascript
+let selectedCalDay = todayStr; // track selected day
+function filterCalDay(dStr) {
+  selectedCalDay = dStr;
+  renderWeekStrip(); // re-render strip with new selection
+  // ... rest of filter logic
+}
+```
+
+**Acceptance criteria:**
+- [ ] Tapping Monday in the week strip highlights Monday
+- [ ] Previously highlighted day loses highlight
+- [ ] Today's date still shown distinctly from selected day (different style)
+- [ ] Audit passes
+
+---
+
+### S4-B07 · Mascot design changed from agreed version
+**Status:** TODO
+**Priority:** Medium
+**Category:** Bug / Design
+
+The agent rebuilt the mascot SVG rather than using the existing one from the app. The agreed mascot (from product session, screenshot shared) has: dark teal body, white-sclera eyes with teal iris, rosy cheeks, teal roof with softened peak, teal arms and legs, gold star in right hand. The current version looks different.
+
+**Fix:** The agent must use the EXACT mascot SVG that was already built into the app (visible in the app screenshot provided during design session). Do NOT redesign or rebuild it. Extract the existing SVG from index.html and reuse it. The only change needed is the background: pale mint `#E8F8F6` behind the mascot, and the icon should be in a rounded SQUARE (not a circle/bubble).
+
+**Acceptance criteria:**
+- [ ] Mascot matches the dark teal house character with white-sclera eyes from the app screenshot
+- [ ] Background is pale mint `#E8F8F6`
+- [ ] Icon container is a rounded square, not a circle
+- [ ] Sleeping version matches same character with half-closed eyes
+- [ ] Audit passes
+
+---
+
+### S4-B08 · Hub name disappears in portrait on mobile
+**Status:** TODO
+**Priority:** Medium
+**Category:** Bug / Layout
+
+The hub name ("THE LUCARELLI HUB") shows correctly in landscape and on desktop but disappears in portrait mode on mobile. It's likely being hidden by the narrow-screen CSS rule that hides `#header-center`.
+
+**Fix:** The header redesign added a two-row layout. Row 1 should ALWAYS show the hub name regardless of screen width. The `display: none` rule for narrow screens must only apply to specific elements within the header, not the hub name row itself. Check the `@media (max-width: 620px)` block — it likely hides `#header-center` entirely, which now contains the hub name.
+
+**Acceptance criteria:**
+- [ ] Hub name visible in portrait on mobile (390px width)
+- [ ] Hub name visible in landscape on mobile
+- [ ] Hub name visible on desktop
+- [ ] If hub name is very long, truncate with ellipsis rather than hiding
+- [ ] Audit passes
+
+---
+
+### S4-B09 · Tab badges disappear when count is 0 (regression)
+**Status:** TODO
+**Priority:** Medium
+**Category:** Bug / Regression
+
+When a tab has zero items (e.g. all tasks done, empty shopping list), the badge completely disappears. Previous behaviour showed a `-` dash. The agreed design is: number when > 0, dash `-` when 0, never a blank bubble and never nothing.
+
+**Fix:** In `updateSummary()` / badge update logic:
+```javascript
+badge.textContent = count > 0 ? count : '-';
+badge.style.display = ''; // always show, never hide completely
+```
+
+Also: the suggestion to show the sleeping mascot icon instead of a dash is good — but add this as enhancement S4-018 rather than mixing into this bug fix. Keep this fix simple: just restore the `-` behaviour.
+
+**Acceptance criteria:**
+- [ ] All tab badges show `-` when count is 0
+- [ ] No badge is ever completely hidden or blank
+- [ ] Number shows correctly when count > 0
+- [ ] Tested: complete all todos → badge shows `-` not blank
+- [ ] Audit passes
+
+---
+
+### S4-B10 · Multi-day event colour defaults to teal, ignores assignee colour
+**Status:** TODO
+**Priority:** Medium
+**Category:** Bug
+
+Multi-day events span correctly across the calendar but use a default teal colour rather than the colour of the person(s) assigned. Single-day events use the correct person colour.
+
+**Fix:** When rendering multi-day event spans, apply the same `colorMap` lookup as single-day events. If multiple people are assigned (comma-separated `who` field), use the first named person's colour, or a blend. Simplest fix: use first assignee's colour.
+
+```javascript
+const firstWho = (event.who || 'Everyone').split(',')[0].trim();
+const color = colorMap[firstWho] || '#2EC4B6';
+```
+
+**Acceptance criteria:**
+- [ ] Giuseppe's events show in amber (#E8A838)
+- [ ] Ross's events show in rose (#E07070)  
+- [ ] Multi-person events use the first named person's colour
+- [ ] "Everyone" events use the existing default teal/purple
+- [ ] Audit passes
+
+---
+
+### S4-B11 · No warning when saving recurring event without end date
+**Status:** TODO
+**Priority:** Low
+**Category:** Bug / UX
+
+A recurring event can be saved with no end date (end date defaults to same as start date). This creates an infinite loop of event generation. The user should be warned or blocked.
+
+**Fix:** In saveModal for event type — if `recur` is set (not 'none') AND `endDate === date`, show an inline warning: "⚠️ You've set this to repeat but haven't set an end date." Do not block saving entirely — let them proceed if they confirm, but make it deliberate. See S4-015 for the full end date UX improvement.
+
+**Acceptance criteria:**
+- [ ] Warning shown if recurring event saved without end date
+- [ ] User can dismiss warning and save anyway (not hard blocked)
+- [ ] Warning not shown for non-recurring events
+- [ ] Audit passes
+
+---
+
+## ✨ SPRINT 4 — Enhancements from Testing
+
+### S4-015 · Recurring events — end date UX with quick-pick chips
+**Status:** TODO
+**Priority:** High
+**Category:** Feature / UX
+
+When setting a recurring event, prompt the user to set an end date. Make it easy with quick-pick chips rather than requiring manual date entry.
+
+**Implementation:**
+- When recur select changes to anything other than 'none', show the end date field and a row of chips:
+  `[1 month] [3 months] [6 months] [1 year]`
+- Tapping a chip auto-fills the end date relative to the start date
+- End date field becomes highlighted/required when recur is set
+- Chips are the primary UX, manual date picker is secondary
+
+**Acceptance criteria:**
+- [ ] Recur chips row appears when recurring frequency selected
+- [ ] Tapping "1 month" sets end date to start date + 1 month
+- [ ] Tapping "1 year" sets end date to start date + 1 year
+- [ ] End date field is visually highlighted when recur is set (e.g. teal border)
+- [ ] Warning if end date not changed from start date (per S4-B11)
+- [ ] Audit passes
+
+---
+
+### S4-016 · Recurring events visible in month view
+**Status:** TODO
+**Priority:** High
+**Category:** Feature
+
+Generated recurring event occurrences should appear in the month view calendar. Currently the month view may only show the original event, not the generated copies.
+
+**Fix:** Month view renders events from `getEvents()` filtered by date. Generated recurring occurrences are saved as separate Firestore documents with their own dates — they should appear automatically if the month view query includes all events. Check if month view is filtering to only the current week, or if it's correctly pulling all events for the displayed month.
+
+**Acceptance criteria:**
+- [ ] Weekly recurring events show on correct dates in month view
+- [ ] Month navigation (‹ ›) shows recurring events in future months
+- [ ] Audit passes
+
+---
+
+### S4-017 · Calendar notes — show first sentence in overview widget
+**Status:** TODO
+**Priority:** Medium
+**Category:** Enhancement
+
+Event notes are shown in the detail view (working) but don't appear on the overview dashboard widget. Show the first line or first 60 characters in the overview, truncated with ellipsis. Full notes in detail view.
+
+**Implementation:**
+```javascript
+const notePreview = e.notes 
+  ? e.notes.split('.')[0].substring(0, 60) + (e.notes.length > 60 ? '…' : '')
+  : '';
+```
+
+**Acceptance criteria:**
+- [ ] Event notes truncated to ~60 chars shown in overview widget
+- [ ] Truncation uses ellipsis
+- [ ] No notes = nothing shown (no empty space)
+- [ ] Full notes still in detail view
+- [ ] Audit passes
+
+---
+
+### S4-018 · Mascot — square container, sleeping icon for zero-count tabs
+**Status:** TODO
+**Priority:** Medium
+**Category:** Design / Enhancement
+
+Two related mascot improvements:
+1. The mascot icon container should be a rounded SQUARE (like an app icon) not a circle/bubble
+2. When a tab has zero items (badge count = 0), show the tiny sleeping mascot icon instead of a dash
+
+**Implementation for (2):**
+- Replace the `-` in zero-count badges with a tiny inline SVG of the sleeping mascot face (just the eyes + roof, ~16×16px)
+- This should be the same sleeping version used in empty states, scaled very small
+- Ensure it's readable at small sizes — may need to simplify to just two closed eyes and a mini roof
+
+**Acceptance criteria:**
+- [ ] Mascot header icon in rounded square container
+- [ ] Zero-count tab badges show tiny sleeping mascot icon
+- [ ] Sleeping icon readable at badge size (~16px)
+- [ ] Audit passes
+
+---
+
+### S4-019 · Sleeping mascot — animated zzz bubbles
+**Status:** TODO
+**Priority:** Low
+**Category:** Delight / Polish
+
+The sleeping mascot in empty states has static zzz text. Animate the zzz bubbles so they float upward and fade out, then repeat. Makes the empty states feel alive and charming.
+
+**Implementation:** CSS keyframe animation on the zzz elements:
+```css
+@keyframes floatZzz {
+  0%   { opacity: 0; transform: translateY(0) scale(0.8); }
+  30%  { opacity: 0.6; }
+  100% { opacity: 0; transform: translateY(-20px) scale(1.1); }
+}
+.zzz-1 { animation: floatZzz 2s ease-in-out infinite; }
+.zzz-2 { animation: floatZzz 2s ease-in-out 0.6s infinite; }
+.zzz-3 { animation: floatZzz 2s ease-in-out 1.2s infinite; }
+```
+
+**Acceptance criteria:**
+- [ ] zzz bubbles animate upward and fade out on repeat
+- [ ] Each zzz bubble staggered (not all at once)
+- [ ] Animation respects `prefers-reduced-motion` media query (disable if user has motion sensitivity)
+- [ ] Audit passes
+
+---
+
+### S4-020 · Force PWA icon refresh on home screen bookmarks
+**Status:** TODO
+**Priority:** Low
+**Category:** Infrastructure
+
+Home screen bookmark icons on iOS/Android don't update when a new version is deployed. The S3-018 version.json mechanism handles app content refresh, but the icon itself is cached by the OS.
+
+**Fix:** Ensure `apple-touch-icon` meta tag uses a versioned URL: `apple-touch-icon.png?v=2.4` — changing the version query string forces the OS to re-fetch the icon on next add-to-homescreen. Existing bookmarks won't update (OS limitation) but new ones will use the current icon.
+
+**Acceptance criteria:**
+- [ ] apple-touch-icon URL includes version query string
+- [ ] Version query string matches APP_VERSION constant
+- [ ] New home screen additions get current icon
+- [ ] Documented: existing bookmarks won't auto-update (OS limitation, not a bug)
+- [ ] Audit passes
+
+
 ## 💡 FUTURE / COMMERCIAL
 
 ### F-001 · Multi-household Support
@@ -1657,7 +1953,7 @@ Tapping the circle/checkbox on a task or shopping item opens the detail modal ra
 ## 🐛 SPRINT 4 — Carry-over Bugs (found Jul 2026 testing)
 
 ### S4-B01 · Repeat events not generating future occurrences
-**Status:** DONE 2026-07-02
+**Status:** TODO
 **Priority:** High
 **Category:** Bug
 
@@ -1687,7 +1983,7 @@ Also verify: `generateRecurringEvents()` function exists and correctly compares 
 ---
 
 ### S4-B02 · Overview widget internal scroll not working
-**Status:** DONE 2026-07-02
+**Status:** TODO
 **Priority:** High
 **Category:** Bug
 
@@ -1714,7 +2010,7 @@ Verify no parent element has `overflow: hidden` that would block the inner scrol
 ---
 
 ### S4-B03 · House tasks not sorting by priority
-**Status:** DONE 2026-07-02
+**Status:** TODO
 **Priority:** Medium
 **Category:** Bug
 
@@ -1740,7 +2036,7 @@ const pending = tasks
 ## 🚀 SPRINT 4 — Features & Polish
 
 ### S4-007 · Mascot — implement in app with pale mint background
-**Status:** DONE 2026-07-02
+**Status:** TODO
 **Priority:** High
 **Category:** Design
 
@@ -1765,7 +2061,7 @@ Replace the 🏠 emoji in the header with the SVG house mascot. The mascot body 
 ---
 
 ### S4-008 · Calendar events — description/notes field
-**Status:** DONE 2026-07-02
+**Status:** TODO
 **Priority:** High
 **Category:** Feature
 
@@ -1781,7 +2077,7 @@ Add an optional notes/description field to calendar events so extra information 
 ---
 
 ### S4-009 · Calendar events — multi-day support
-**Status:** DONE 2026-07-02
+**Status:** TODO
 **Priority:** High
 **Category:** Feature
 
@@ -1806,7 +2102,7 @@ Events should support an end date for multi-day events (holidays, work trips, sc
 ---
 
 ### S4-010 · Meals — creator-only edit/delete protection
-**Status:** DONE 2026-07-02
+**Status:** TODO
 **Priority:** High
 **Category:** Feature / Security
 
@@ -1830,7 +2126,7 @@ Only the person who created a meal should be able to edit or delete it. Kids sho
 ---
 
 ### S4-011 · To-dos — filter by family member
-**Status:** DONE 2026-07-02
+**Status:** TODO
 **Priority:** Medium
 **Category:** Feature
 
@@ -1854,7 +2150,7 @@ Add a filter row at the top of the To-dos tab to show tasks assigned to a specif
 ---
 
 ### S4-012 · To-dos — favourites / quick picks for common chores
-**Status:** DONE 2026-07-02
+**Status:** TODO
 **Priority:** Medium
 **Category:** Feature
 
@@ -1880,7 +2176,7 @@ Same favourites pattern as shopping and meals — a list of common chores/tasks 
 ---
 
 ### S4-013 · Weather in header instead of widget
-**Status:** DONE 2026-07-02
+**Status:** TODO
 **Priority:** Low
 **Category:** Feature
 
@@ -1906,7 +2202,7 @@ Move weather from a dashboard widget to a small persistent display in the header
 ---
 
 ### S4-014 · Dog walk rota — remove as dedicated feature
-**Status:** DONE 2026-07-02
+**Status:** TODO
 **Priority:** Medium
 **Category:** Decision / Removal
 
