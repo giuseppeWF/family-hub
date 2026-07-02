@@ -1658,9 +1658,15 @@
           <label class="modal-label">Event name</label>
           <input class="modal-input" id="new-event-name" placeholder="e.g. Dentist appointment">
         </div>
-        <div class="modal-field">
-          <label class="modal-label">Date</label>
-          <input class="modal-input" id="new-event-date" type="date">
+        <div style="display:flex;gap:12px">
+          <div class="modal-field" style="flex:1">
+            <label class="modal-label">Start date</label>
+            <input class="modal-input" id="new-event-date" type="date" onchange="syncEventEndDate()">
+          </div>
+          <div class="modal-field" style="flex:1">
+            <label class="modal-label">End date</label>
+            <input class="modal-input" id="new-event-end-date" type="date">
+          </div>
         </div>
         <div style="display:flex;gap:12px">
           <div class="modal-field" style="flex:1">
@@ -2350,7 +2356,7 @@ window.addEventListener('fb-saved', () => {
 // ── SUMMARY ───────────────────────────────────────────────────────────────────
 function updateSummary() {
   const events = getEvents(), todos = getTodos(), shopping = getShopping(), meals = getMeals();
-  const todayEvents  = events.filter(e => e.date === todayStr);
+  const todayEvents  = events.filter(e => eventOnDay(e, todayStr));
   const pendingTodos = todos.filter(t => !t.done);
   const pendingShop  = shopping.filter(s => !s.done);
   const mealsCount   = meals.filter(m => !!m.day).length;
@@ -2699,7 +2705,7 @@ function renderDashboard() {
   const events = getEvents(), todos = getTodos(), shopping = getShopping(), meals = getMeals();
 
   // Events today
-  const todayEvts = events.filter(e => e.date === todayStr).sort((a,b) => (a.start||'').localeCompare(b.start||''));
+  const todayEvts = events.filter(e => eventOnDay(e, todayStr)).sort((a,b) => (a.start||'').localeCompare(b.start||''));
   const evtEl = document.getElementById('dash-events');
   evtEl.innerHTML = todayEvts.length
     ? todayEvts.map(e => `<div class="event-row" onclick="showDetail('event','${e.id}')" style="cursor:pointer">
@@ -2785,7 +2791,7 @@ function renderCalendar() {
   const strip = document.getElementById('week-strip');
   strip.innerHTML = weekDates.map((d, i) => {
     const dStr = fmt(d), isToday = dStr === todayStr;
-    const hasEvent = events.some(e => e.date === dStr);
+    const hasEvent = events.some(e => eventOnDay(e, dStr));
     return `<div class="cal-day-pill${isToday?' today':''}" onclick="filterCalDay('${dStr}')">
       <div class="day-name">${days[i]}</div>
       <div class="day-num">${d.getDate()}</div>
@@ -2794,7 +2800,7 @@ function renderCalendar() {
   }).join('');
 
   const weekStart = fmt(weekDates[0]), weekEnd = fmt(weekDates[6]);
-  const weekEvents = events.filter(e => e.date >= weekStart && e.date <= weekEnd)
+  const weekEvents = events.filter(e => (e.date||'') <= weekEnd && (e.endDate || e.date || '') >= weekStart)
     .sort((a,b) => ((a.date||'')+(a.start||'')).localeCompare((b.date||'')+(b.start||'')));
 
   document.getElementById('cal-events-full').innerHTML = weekEvents.map(e => {
@@ -2808,9 +2814,10 @@ function renderCalendar() {
       <div class="cal-event-bar" style="background:${e.color||'#2EC4B6'}"></div>
       <div class="cal-event-info">
         <div class="cal-event-name">${e.name}</div>
-        <div style="display:flex;align-items:center;gap:6px">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           <div class="cal-event-meta who-${e.who}">${e.who||''}</div>
           ${e.recur && e.recur !== 'none' ? recurBadge(e.recur) : ''}
+          ${e.endDate && e.endDate !== e.date ? `<span style="font-size:11px;background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 5px;color:var(--cream-muted)">until ${new Date(e.endDate+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>` : ''}
         </div>
         ${e.notes ? `<div style="font-size:11px;color:var(--cream-muted);opacity:0.7;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px">${e.notes.replace(/</g,'&lt;')}</div>` : ''}
       </div>
@@ -2871,7 +2878,7 @@ function renderMonthView() {
     const dStr     = fmt(dateObj);
     const isToday  = dStr === todayStr;
     const isSelected = dStr === selectedMonthDay;
-    const dayEvts  = events.filter(e => e.date === dStr);
+    const dayEvts  = events.filter(e => eventOnDay(e, dStr));
     const classes  = ['month-day', isToday?'today':'', isSelected?'selected':''].filter(Boolean).join(' ');
 
     html += `<div class="${classes}" onclick="selectMonthDay('${dStr}')">
@@ -2905,7 +2912,7 @@ function selectMonthDay(dStr) {
 
 function showMonthDayEvents(dStr) {
   const events = getEvents();
-  const dayEvts = events.filter(e => e.date === dStr).sort((a,b)=>(a.start||'').localeCompare(b.start||''));
+  const dayEvts = events.filter(e => eventOnDay(e, dStr)).sort((a,b)=>(a.start||'').localeCompare(b.start||''));
   const d = new Date(dStr + 'T12:00:00');
   const label = d.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long' });
   const el = document.getElementById('month-day-events');
@@ -2930,7 +2937,7 @@ function filterCalDay(dStr) {
   const d = new Date(dStr + 'T12:00:00');
   document.getElementById('cal-subtitle').textContent = d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
   document.getElementById('cal-events-full').innerHTML = events
-    .filter(e => e.date === dStr).sort((a,b) => (a.start||'').localeCompare(b.start||''))
+    .filter(e => eventOnDay(e, dStr)).sort((a,b) => (a.start||'').localeCompare(b.start||''))
     .map(e => `<div class="cal-event-card" onclick="showDetail('event','${e.id}')" style="cursor:pointer">
       <div class="cal-event-time-col">
         <div class="cal-event-time-start">${e.start||''}</div>
@@ -3156,6 +3163,19 @@ function renderMeals() {
 }
 
 // ── ADD MODAL ─────────────────────────────────────────────────────────────────
+function syncEventEndDate() {
+  const startEl = document.getElementById('new-event-date');
+  const endEl = document.getElementById('new-event-end-date');
+  if (!startEl || !endEl) return;
+  if (!endEl.value || endEl.value < startEl.value) endEl.value = startEl.value;
+}
+
+function eventOnDay(e, dStr) {
+  const start = e.date || '';
+  const end = e.endDate || e.date || '';
+  return dStr >= start && dStr <= end;
+}
+
 let currentModal = '';
 
 function openModal(type) {
@@ -3165,8 +3185,12 @@ function openModal(type) {
   ['event','todo','shop','meal','household'].forEach(t => {
     document.getElementById('modal-'+t+'-fields').style.display = t === type ? 'block' : 'none';
   });
-  if (type === 'event') document.getElementById('new-event-date').value = (calViewMode === 'month' && selectedMonthDay) ? selectedMonthDay : todayStr;
-  if (type === 'event')     renderWhoChips('new-event-who-chips', 'new-event-who');
+  if (type === 'event') {
+    const d = (calViewMode === 'month' && selectedMonthDay) ? selectedMonthDay : todayStr;
+    document.getElementById('new-event-date').value = d;
+    document.getElementById('new-event-end-date').value = d;
+    renderWhoChips('new-event-who-chips', 'new-event-who');
+  }
   if (type === 'todo')      renderWhoChips('new-todo-who-chips',  'new-todo-who');
   if (type === 'shop')    {
     renderWhoChips('new-shop-who-chips',  'new-shop-who', { excludeEveryone: true });
@@ -3384,15 +3408,19 @@ async function saveModal() {
       const recur = document.getElementById('new-event-recur').value;
       const colorMap = { Giuseppe:'#E8A838', Ross:'#E07070', Malachi:'#5B9BD5', Mack:'#2EC4B6', Rachel:'#B08BE8', Everyone:'#9B8BCC' };
       const notes = document.getElementById('new-event-notes').value.trim();
-      await window.fbSave('events', { id, name, date: document.getElementById('new-event-date').value || todayStr,
+      const startDate = document.getElementById('new-event-date').value || todayStr;
+      const endDateVal = document.getElementById('new-event-end-date').value || startDate;
+      await window.fbSave('events', { id, name, date: startDate,
+        endDate: endDateVal !== startDate ? endDateVal : null,
         start: document.getElementById('new-event-start').value || '09:00',
         end:   document.getElementById('new-event-end').value   || '10:00',
         who, color: colorMap[who] || '#2EC4B6',
         recur: recur !== 'none' ? recur : null,
         notes: notes || null });
-      document.getElementById('new-event-name').value  = '';
-      document.getElementById('new-event-recur').value = 'none';
-      document.getElementById('new-event-notes').value = '';
+      document.getElementById('new-event-name').value     = '';
+      document.getElementById('new-event-recur').value    = 'none';
+      document.getElementById('new-event-notes').value    = '';
+      document.getElementById('new-event-end-date').value = '';
     }
     if (currentModal === 'todo') {
       const text = document.getElementById('new-todo-text').value.trim(); if (!text) return;
@@ -3567,8 +3595,12 @@ function openEditItem(type, id) {
     fields.innerHTML = `
       <div class="modal-field"><label class="modal-label">Event name</label>
         <input class="modal-input" id="edit-event-name" value="${e.name}"></div>
-      <div class="modal-field"><label class="modal-label">Date</label>
-        <input class="modal-input" id="edit-event-date" type="date" value="${e.date||''}"></div>
+      <div style="display:flex;gap:12px">
+        <div class="modal-field" style="flex:1"><label class="modal-label">Start date</label>
+          <input class="modal-input" id="edit-event-date" type="date" value="${e.date||''}"></div>
+        <div class="modal-field" style="flex:1"><label class="modal-label">End date</label>
+          <input class="modal-input" id="edit-event-end-date" type="date" value="${e.endDate||e.date||''}"></div>
+      </div>
       <div style="display:flex;gap:12px">
         <div class="modal-field" style="flex:1"><label class="modal-label">Start</label>
           <input class="modal-input" id="edit-event-start" type="time" value="${e.start||''}"></div>
@@ -3646,9 +3678,13 @@ async function saveEditItem() {
       const who = getWhoValue('edit-event-who');
       const colorMap = { Giuseppe:'#E8A838', Ross:'#E07070', Malachi:'#5B9BD5', Mack:'#2EC4B6', Rachel:'#B08BE8', Everyone:'#9B8BCC' };
       const notesEl = document.getElementById('edit-event-notes');
+      const editStartDate = document.getElementById('edit-event-date').value;
+      const editEndDateEl = document.getElementById('edit-event-end-date');
+      const editEndDate = editEndDateEl ? editEndDateEl.value : '';
       await window.fbUpdate('events', id, {
         name:  document.getElementById('edit-event-name').value.trim(),
-        date:  document.getElementById('edit-event-date').value,
+        date:  editStartDate,
+        endDate: (editEndDate && editEndDate !== editStartDate) ? editEndDate : null,
         start: document.getElementById('edit-event-start').value,
         end:   document.getElementById('edit-event-end').value,
         recur: document.getElementById('edit-event-recur').value,
@@ -3691,6 +3727,10 @@ function showDetail(type, id) {
           <span style="font-size:12px;color:var(--cream-muted);min-width:60px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Time</span>
           <span style="font-size:15px;color:var(--cream)">${e.start||''} – ${e.end||''}</span>
         </div>
+        ${e.endDate && e.endDate !== e.date ? `<div style="display:flex;gap:12px;align-items:center">
+          <span style="font-size:12px;color:var(--cream-muted);min-width:60px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Ends</span>
+          <span style="font-size:15px;color:var(--cream)">${new Date(e.endDate+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})}</span>
+        </div>` : ''}
         <div style="display:flex;gap:12px;align-items:center">
           <span style="font-size:12px;color:var(--cream-muted);min-width:60px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Who</span>
           <span class="who-${e.who}" style="font-size:15px;font-weight:600">${e.who||''}</span>

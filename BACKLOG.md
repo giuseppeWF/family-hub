@@ -1781,7 +1781,7 @@ Add an optional notes/description field to calendar events so extra information 
 ---
 
 ### S4-009 · Calendar events — multi-day support
-**Status:** TODO
+**Status:** DONE 2026-07-02
 **Priority:** High
 **Category:** Feature
 

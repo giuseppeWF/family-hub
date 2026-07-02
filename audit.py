@@ -36,7 +36,7 @@ else:
 # ── 2. REQUIRED MODAL FIELDS ──────────────────────────────────────────────────
 required_fields = [
     # Event
-    'new-event-name', 'new-event-date', 'new-event-start', 'new-event-end',
+    'new-event-name', 'new-event-date', 'new-event-end-date', 'new-event-start', 'new-event-end',
     'new-event-who', 'new-event-who-chips', 'new-event-recur', 'new-event-notes',
     # Todo
     'new-todo-text', 'new-todo-who', 'new-todo-who-chips',
