@@ -1623,7 +1623,17 @@
   }
 
   .edit-mode .dash-card {
-    animation: wiggle 0.5s infinite alternate;
+    animation: cardWobble 0.4s ease-in-out infinite;
+    transform-origin: center center;
+  }
+  /* Stagger so cards don't all wobble in lockstep — iOS home screen style */
+  .edit-mode .dash-card:nth-child(2) { animation-delay: 0.1s; }
+  .edit-mode .dash-card:nth-child(3) { animation-delay: 0.2s; }
+  .edit-mode .dash-card:nth-child(4) { animation-delay: 0.05s; }
+  .edit-mode .dash-card:nth-child(5) { animation-delay: 0.15s; }
+  .edit-mode .dash-card:nth-child(6) { animation-delay: 0.08s; }
+  @media (prefers-reduced-motion: reduce) {
+    .edit-mode .dash-card { animation: none; }
   }
 
   @keyframes floatZzz {
@@ -1642,9 +1652,11 @@
     .zzz-1, .zzz-2, .zzz-3 { animation: none; opacity: 1; }
   }
 
-  @keyframes wiggle {
-    from { transform: rotate(-0.4deg); }
-    to   { transform: rotate(0.4deg); }
+  @keyframes cardWobble {
+    0%   { transform: rotate(0deg); }
+    25%  { transform: rotate(-1.5deg); }
+    75%  { transform: rotate(1.5deg); }
+    100% { transform: rotate(0deg); }
   }
 
   /* Hidden cards tray */
@@ -2657,7 +2669,7 @@ function getActivityLog(){ return (window.fbActivityLog || []).sort((a,b) => (b.
 function getSettingsPin() { return (window.fbSettings || []).find(s => s.id === 'pin') || null; }
 
 // ── APP VERSION & WHAT'S NEW ──────────────────────────────────────────────────
-const APP_VERSION = '4.4';
+const APP_VERSION = '4.5';
 const WHATS_NEW = {
   version: '3.2',
   features: [
