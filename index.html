@@ -493,6 +493,14 @@
     border-color: var(--sage);
     background: rgba(126,184,152,0.08);
   }
+  .cal-day-pill.selected {
+    border-color: var(--cream-muted);
+    background: rgba(255,255,255,0.08);
+  }
+  .cal-day-pill.today.selected {
+    border-color: var(--sage);
+    background: rgba(126,184,152,0.18);
+  }
 
   .cal-day-pill .day-name {
     font-size: 12px;
@@ -1073,19 +1081,19 @@
     .item-actions { display: none !important; }
   }
 
-  /* ── HIDE HUB NAME ROW ON VERY NARROW SCREENS ───── */
-  @media (max-width: 380px) {
-    #header-center { display: none; }
-    #header { height: 44px; }
-  }
-
   /* ── SYNCGO PORTRAIT (narrow Android tablet ~600px) ─── */
   @media (max-width: 620px) {
-    #header-center { display: none; }
-    #header { height: 44px; }
+    #header-center { min-width: 0; overflow: hidden; }
+    .hub-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; }
+    .hub-emoji-l, .hub-emoji-r { width: 28px !important; height: 28px !important; }
     .nav-tab { padding: 12px 0; }
     .dash-card-title { font-size: 12px; }
     .event-label, .task-text, .shop-item-name, .meal-name { font-size: 13px; }
+  }
+
+  @media (max-width: 380px) {
+    .hub-name { max-width: 110px; font-size: 11px; }
+    .hub-emoji-r { display: none; }
   }
 
   /* ── PIN LOCK ──────────────────────────────── */
@@ -1407,7 +1415,7 @@
   <!-- HEADER -->
   <div id="header">
     <div id="header-center">
-      <span class="hub-emoji-l" style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:#E8F8F6;flex-shrink:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 46" width="24" height="28"><rect x="26" y="7" width="7" height="12" rx="1.5" fill="#1B5E54"/><polygon points="20,1 39,19 1,19" fill="#1B5E54"/><rect x="3" y="17" width="34" height="28" rx="5" fill="#0D2F2A"/><circle cx="13" cy="27" r="6.5" fill="white"/><circle cx="27" cy="27" r="6.5" fill="white"/><circle cx="13" cy="27" r="4" fill="#2EC4B6"/><circle cx="27" cy="27" r="4" fill="#2EC4B6"/><circle cx="12" cy="26" r="2" fill="#0D2F2A"/><circle cx="26" cy="26" r="2" fill="#0D2F2A"/><circle cx="11" cy="24.5" r="0.9" fill="white"/><circle cx="25" cy="24.5" r="0.9" fill="white"/><ellipse cx="6" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/><ellipse cx="34" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/><path d="M11 32 Q20 39 29 32" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/><rect x="14" y="32" width="12" height="13" rx="6 6 0 0" fill="#1B5E54"/></svg></span><span class="hub-name">The Family Hub</span><span class="hub-emoji-r" style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:#E8F8F6;flex-shrink:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 46" width="24" height="28"><rect x="26" y="7" width="7" height="12" rx="1.5" fill="#1B5E54"/><polygon points="20,1 39,19 1,19" fill="#1B5E54"/><rect x="3" y="17" width="34" height="28" rx="5" fill="#0D2F2A"/><circle cx="13" cy="27" r="6.5" fill="white"/><circle cx="27" cy="27" r="6.5" fill="white"/><circle cx="13" cy="27" r="4" fill="#2EC4B6"/><circle cx="27" cy="27" r="4" fill="#2EC4B6"/><circle cx="12" cy="26" r="2" fill="#0D2F2A"/><circle cx="26" cy="26" r="2" fill="#0D2F2A"/><circle cx="11" cy="24.5" r="0.9" fill="white"/><circle cx="25" cy="24.5" r="0.9" fill="white"/><ellipse cx="6" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/><ellipse cx="34" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/><path d="M11 32 Q20 39 29 32" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/><rect x="14" y="32" width="12" height="13" rx="6 6 0 0" fill="#1B5E54"/></svg></span>
+      <span class="hub-emoji-l" style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:#E8F8F6;flex-shrink:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 46" width="24" height="28"><rect x="26" y="7" width="7" height="12" rx="1.5" fill="#1B5E54"/><polygon points="20,1 39,19 1,19" fill="#1B5E54"/><rect x="3" y="17" width="34" height="28" rx="5" fill="#0D2F2A"/><circle cx="13" cy="27" r="6.5" fill="white"/><circle cx="27" cy="27" r="6.5" fill="white"/><circle cx="13" cy="27" r="4" fill="#2EC4B6"/><circle cx="27" cy="27" r="4" fill="#2EC4B6"/><circle cx="12" cy="26" r="2" fill="#0D2F2A"/><circle cx="26" cy="26" r="2" fill="#0D2F2A"/><circle cx="11" cy="24.5" r="0.9" fill="white"/><circle cx="25" cy="24.5" r="0.9" fill="white"/><ellipse cx="6" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/><ellipse cx="34" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/><path d="M11 32 Q20 39 29 32" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/><rect x="14" y="32" width="12" height="13" rx="6 6 0 0" fill="#1B5E54"/></svg></span><span class="hub-name">The Family Hub</span><span class="hub-emoji-r" style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:#E8F8F6;flex-shrink:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 46" width="24" height="28"><rect x="26" y="7" width="7" height="12" rx="1.5" fill="#1B5E54"/><polygon points="20,1 39,19 1,19" fill="#1B5E54"/><rect x="3" y="17" width="34" height="28" rx="5" fill="#0D2F2A"/><circle cx="13" cy="27" r="6.5" fill="white"/><circle cx="27" cy="27" r="6.5" fill="white"/><circle cx="13" cy="27" r="4" fill="#2EC4B6"/><circle cx="27" cy="27" r="4" fill="#2EC4B6"/><circle cx="12" cy="26" r="2" fill="#0D2F2A"/><circle cx="26" cy="26" r="2" fill="#0D2F2A"/><circle cx="11" cy="24.5" r="0.9" fill="white"/><circle cx="25" cy="24.5" r="0.9" fill="white"/><ellipse cx="6" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/><ellipse cx="34" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/><path d="M11 32 Q20 39 29 32" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/><rect x="14" y="32" width="12" height="13" rx="6 6 0 0" fill="#1B5E54"/></svg></span>
     </div>
     <div id="header-row2">
       <div id="header-row2-left">
@@ -2055,9 +2063,9 @@ const WHATS_NEW = {
 const MASCOT_AWAKE = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 46" width="32" height="37"><rect x="26" y="7" width="7" height="12" rx="1.5" fill="#1B5E54"/><polygon points="20,1 39,19 1,19" fill="#1B5E54"/><rect x="3" y="17" width="34" height="28" rx="5" fill="#0D2F2A"/><circle cx="13" cy="27" r="6.5" fill="white"/><circle cx="27" cy="27" r="6.5" fill="white"/><circle cx="13" cy="27" r="4" fill="#2EC4B6"/><circle cx="27" cy="27" r="4" fill="#2EC4B6"/><circle cx="12" cy="26" r="2" fill="#0D2F2A"/><circle cx="26" cy="26" r="2" fill="#0D2F2A"/><circle cx="11" cy="24.5" r="0.9" fill="white"/><circle cx="25" cy="24.5" r="0.9" fill="white"/><ellipse cx="6" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/><ellipse cx="34" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/><path d="M11 32 Q20 39 29 32" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/><rect x="14" y="32" width="12" height="13" rx="6 6 0 0" fill="#1B5E54"/></svg>`;
 const MASCOT_SLEEP = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 68" width="64" height="72"><rect x="40" y="9" width="8" height="14" rx="1.5" fill="#1B5E54"/><polygon points="30,2 58,25 2,25" fill="#1B5E54"/><rect x="4" y="23" width="52" height="42" rx="6" fill="#0D2F2A"/><ellipse cx="20" cy="37" rx="9" ry="7" fill="white"/><ellipse cx="40" cy="37" rx="9" ry="7" fill="white"/><path d="M11 37 Q20 46 29 37Z" fill="#0D2F2A"/><path d="M31 37 Q40 46 49 37Z" fill="#0D2F2A"/><ellipse cx="9" cy="44" rx="5" ry="3" fill="rgba(210,90,90,0.35)"/><ellipse cx="51" cy="44" rx="5" ry="3" fill="rgba(210,90,90,0.35)"/><path d="M20 47 Q30 53 40 47" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/><rect x="19" y="47" width="22" height="18" rx="11 11 0 0" fill="#1B5E54"/><text x="47" y="28" font-size="8" fill="#2EC4B6" font-weight="800" font-family="Nunito,sans-serif">z</text><text x="51" y="20" font-size="10" fill="#2EC4B6" font-weight="800" font-family="Nunito,sans-serif">z</text><text x="56" y="12" font-size="12" fill="#2EC4B6" font-weight="800" font-family="Nunito,sans-serif">z</text></svg>`;
 const MASCOT_EMPTY = (msg, hint) =>
-  `<div style="text-align:center;padding:20px 0"><div style="display:inline-flex;align-items:center;justify-content:center;width:80px;height:80px;border-radius:50%;background:#E8F8F6;margin-bottom:10px">${MASCOT_SLEEP}</div><div style="color:var(--cream-muted);font-size:14px;font-weight:600">${msg}</div><div style="font-size:12px;color:var(--cream-muted);opacity:0.6;margin-top:4px">${hint}</div></div>`;
+  `<div style="text-align:center;padding:20px 0"><div style="display:inline-flex;align-items:center;justify-content:center;width:80px;height:80px;border-radius:18px;background:#E8F8F6;margin-bottom:10px">${MASCOT_SLEEP}</div><div style="color:var(--cream-muted);font-size:14px;font-weight:600">${msg}</div><div style="font-size:12px;color:var(--cream-muted);opacity:0.6;margin-top:4px">${hint}</div></div>`;
 const MASCOT_EMPTY_SM = (msg, hint) =>
-  `<div style="text-align:center;padding:16px 0"><div style="display:inline-flex;align-items:center;justify-content:center;width:60px;height:60px;border-radius:50%;background:#E8F8F6;margin-bottom:8px">${MASCOT_SLEEP}</div><div style="color:var(--cream-muted);font-size:13px">${msg}</div><div style="font-size:12px;color:var(--cream-muted);opacity:0.6;margin-top:3px">${hint}</div></div>`;
+  `<div style="text-align:center;padding:16px 0"><div style="display:inline-flex;align-items:center;justify-content:center;width:60px;height:60px;border-radius:14px;background:#E8F8F6;margin-bottom:8px">${MASCOT_SLEEP}</div><div style="color:var(--cream-muted);font-size:13px">${msg}</div><div style="font-size:12px;color:var(--cream-muted);opacity:0.6;margin-top:3px">${hint}</div></div>`;
 
 // ── SHOPPING CONFIG ───────────────────────────────────────────────────────────
 const SHOP_CATS = [
@@ -2397,8 +2405,8 @@ function updateSummary() {
   const el = id => document.getElementById(id);
   const setBadge = (id, count) => {
     const b = el(id); if (!b) return;
-    b.textContent = count || '';
-    b.style.display = count ? '' : 'none';
+    b.textContent = count > 0 ? count : '-';
+    b.style.display = '';
   };
   setBadge('badge-cal',   todayEvents.length);
   setBadge('badge-todo',  pendingTodos.length);
@@ -2456,8 +2464,8 @@ async function processRecurringEvents() {
     setSyncStatus('saving');
     try {
       const newId = 'id_' + Date.now();
-      const { pastRecurring: _p, ...rest } = e;
-      await window.fbSave('events', { ...rest, id: newId, date: nextDate });
+      const { pastRecurring: _p, endDate: _ed, ...rest } = e;
+      await window.fbSave('events', { ...rest, id: newId, date: nextDate, endDate: null });
       await window.fbUpdate('events', e.id, { pastRecurring: true });
     } catch(err) { setSyncStatus('error'); }
   }
@@ -2570,8 +2578,8 @@ function renderHousehold() {
   // Badge
   const badge = document.getElementById('badge-house');
   const highCount = pending.filter(t => t.priority === 'high').length;
-  if (highCount) { badge.textContent = highCount; badge.style.display = ''; }
-  else badge.style.display = 'none';
+  badge.textContent = highCount > 0 ? highCount : '-';
+  badge.style.display = '';
 }
 
 function setRoomFilter(room) {
@@ -2816,14 +2824,17 @@ function renderDashboard() {
 }
 
 // ── CALENDAR ──────────────────────────────────────────────────────────────────
+let selectedCalDay = null;
+
 function renderCalendar() {
   if (calViewMode === 'month') { renderMonthView(); return; }
   const events = getEvents();
   const strip = document.getElementById('week-strip');
   strip.innerHTML = weekDates.map((d, i) => {
     const dStr = fmt(d), isToday = dStr === todayStr;
+    const isSelected = selectedCalDay ? dStr === selectedCalDay : isToday;
     const hasEvent = events.some(e => eventOnDay(e, dStr));
-    return `<div class="cal-day-pill${isToday?' today':''}" onclick="filterCalDay('${dStr}')">
+    return `<div class="cal-day-pill${isToday?' today':''}${isSelected?' selected':''}" onclick="filterCalDay('${dStr}')">
       <div class="day-name">${days[i]}</div>
       <div class="day-num">${d.getDate()}</div>
       <div class="day-dot${hasEvent?'':' hidden'}"></div>
@@ -2964,7 +2975,22 @@ function showMonthDayEvents(dStr) {
 }
 
 function filterCalDay(dStr) {
+  selectedCalDay = dStr;
+  // Re-render strip so the selected class updates
   const events = getEvents();
+  const strip = document.getElementById('week-strip');
+  if (strip) {
+    strip.innerHTML = weekDates.map((d2, i) => {
+      const d2Str = fmt(d2), isToday2 = d2Str === todayStr;
+      const isSelected2 = d2Str === dStr;
+      const hasEvent2 = events.some(e => eventOnDay(e, d2Str));
+      return `<div class="cal-day-pill${isToday2?' today':''}${isSelected2?' selected':''}" onclick="filterCalDay('${d2Str}')">
+        <div class="day-name">${days[weekDates.indexOf(d2)]}</div>
+        <div class="day-num">${d2.getDate()}</div>
+        <div class="day-dot${hasEvent2?'':' hidden'}"></div>
+      </div>`;
+    }).join('');
+  }
   const d = new Date(dStr + 'T12:00:00');
   document.getElementById('cal-subtitle').textContent = d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
   document.getElementById('cal-events-full').innerHTML = events
@@ -3484,14 +3510,18 @@ async function saveModal() {
       const who   = getWhoValue('new-event-who');
       const recur = document.getElementById('new-event-recur').value;
       const colorMap = { Giuseppe:'#E8A838', Ross:'#E07070', Malachi:'#5B9BD5', Mack:'#2EC4B6', Rachel:'#B08BE8', Everyone:'#9B8BCC' };
+      const firstWho = (who||'Everyone').split(',')[0].trim();
       const notes = document.getElementById('new-event-notes').value.trim();
       const startDate = document.getElementById('new-event-date').value || todayStr;
       const endDateVal = document.getElementById('new-event-end-date').value || startDate;
+      if (recur !== 'none' && (!endDateVal || endDateVal <= startDate)) {
+        if (!confirm('⚠️ This event repeats but has no end date — it will generate indefinitely. Save anyway?')) return;
+      }
       await window.fbSave('events', { id, name, date: startDate,
         endDate: endDateVal !== startDate ? endDateVal : null,
         start: document.getElementById('new-event-start').value || '09:00',
         end:   document.getElementById('new-event-end').value   || '10:00',
-        who, color: colorMap[who] || '#2EC4B6',
+        who, color: colorMap[firstWho] || '#2EC4B6',
         recur: recur !== 'none' ? recur : null,
         notes: notes || null });
       document.getElementById('new-event-name').value     = '';
@@ -3765,6 +3795,7 @@ async function saveEditItem() {
     if (type === 'event') {
       const who = getWhoValue('edit-event-who');
       const colorMap = { Giuseppe:'#E8A838', Ross:'#E07070', Malachi:'#5B9BD5', Mack:'#2EC4B6', Rachel:'#B08BE8', Everyone:'#9B8BCC' };
+      const firstWhoEdit = (who||'Everyone').split(',')[0].trim();
       const notesEl = document.getElementById('edit-event-notes');
       const editStartDate = document.getElementById('edit-event-date').value;
       const editEndDateEl = document.getElementById('edit-event-end-date');
@@ -3776,7 +3807,7 @@ async function saveEditItem() {
         start: document.getElementById('edit-event-start').value,
         end:   document.getElementById('edit-event-end').value,
         recur: document.getElementById('edit-event-recur').value,
-        who,   color: colorMap[who] || '#2EC4B6',
+        who,   color: colorMap[firstWhoEdit] || '#2EC4B6',
         notes: notesEl ? notesEl.value.trim() || null : null,
       });
     }
@@ -4514,7 +4545,7 @@ function saveHubName() {
   closeSettings();
 }
 
-function closeSettings() { document.getElementById('settings-overlay').style.display = 'none'; }
+function closeSettings() { document.getElementById('settings-overlay').style.display = 'none'; _pinUnlocked = false; }
 function closeSettingsIfBg(e) { if (e.target === document.getElementById('settings-overlay')) closeSettings(); }
 
 function openPrivacyPolicy() { document.getElementById('privacy-overlay').style.display = 'flex'; }

@@ -1401,7 +1401,7 @@ Add this as a documented step in `AGENTS.md` deployment workflow.
 ## 🐛 SPRINT 4 — Bugs Found in Testing (Jul 2026)
 
 ### S4-B04 · Recurring event frequency not being saved correctly — weekly saves as daily
-**Status:** TODO
+**Status:** DONE 2026-07-02
 **Priority:** Critical
 **Category:** Bug
 
@@ -1418,7 +1418,7 @@ When adding a weekly recurring event, the generated occurrences appear daily ins
 ---
 
 ### S4-B05 · Meals creator protection not working — anyone can edit/delete
-**Status:** TODO
+**Status:** DONE 2026-07-02
 **Priority:** High
 **Category:** Bug
 
@@ -1436,7 +1436,7 @@ Kids can still edit and delete meals that parents planned. No message is shown. 
 ---
 
 ### S4-B06 · Calendar week strip — selected day highlight doesn't move
-**Status:** TODO
+**Status:** DONE 2026-07-02
 **Priority:** High
 **Category:** Bug
 
@@ -1462,7 +1462,7 @@ function filterCalDay(dStr) {
 ---
 
 ### S4-B07 · Mascot design changed from agreed version
-**Status:** TODO
+**Status:** DONE 2026-07-02
 **Priority:** Medium
 **Category:** Bug / Design
 
@@ -1480,7 +1480,7 @@ The agent rebuilt the mascot SVG rather than using the existing one from the app
 ---
 
 ### S4-B08 · Hub name disappears in portrait on mobile
-**Status:** TODO
+**Status:** DONE 2026-07-02
 **Priority:** Medium
 **Category:** Bug / Layout
 
@@ -1498,7 +1498,7 @@ The hub name ("THE LUCARELLI HUB") shows correctly in landscape and on desktop b
 ---
 
 ### S4-B09 · Tab badges disappear when count is 0 (regression)
-**Status:** TODO
+**Status:** DONE 2026-07-02
 **Priority:** Medium
 **Category:** Bug / Regression
 
@@ -1522,7 +1522,7 @@ Also: the suggestion to show the sleeping mascot icon instead of a dash is good 
 ---
 
 ### S4-B10 · Multi-day event colour defaults to teal, ignores assignee colour
-**Status:** TODO
+**Status:** DONE 2026-07-02
 **Priority:** Medium
 **Category:** Bug
 
@@ -1545,7 +1545,7 @@ const color = colorMap[firstWho] || '#2EC4B6';
 ---
 
 ### S4-B11 · No warning when saving recurring event without end date
-**Status:** TODO
+**Status:** DONE 2026-07-02
 **Priority:** Low
 **Category:** Bug / UX
 
