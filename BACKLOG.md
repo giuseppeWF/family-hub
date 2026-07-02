@@ -369,6 +369,134 @@ When events are added directly on the Family Hub, show a prompt: "3 events were 
 **Priority:** Critical
 **Category:** Infrastructure / Security
 
+**⚠️ This is the biggest sprint in the project. Read the full spec before starting.**
+
+**Overview:**
+Add Google Sign-In so family members authenticate before accessing the hub.
+Implement multi-tenant Firestore so each family's data is completely isolated.
+Migrate existing Lucarelli Hub data to the new structure without data loss.
+
+---
+
+**BEFORE THE AGENT STARTS — Giuseppe must do these manually first:**
+
+1. Firebase Console → Authentication → Sign-in method → Enable Google
+2. Firebase Console → Authentication → Settings → Authorised domains →
+   Add: `giuseppewf.github.io`
+3. Confirm both are done before starting the agent session
+
+---
+
+**Phase A — Firebase Auth (agent builds this)**
+
+- Add Firebase Auth SDK to index.html (import from firebase-auth CDN)
+- Add `onAuthStateChanged` listener — gate ALL app rendering behind auth
+- If not signed in: show full-screen sign-in page with Google button
+- Use `signInWithRedirect` NOT `signInWithPopup` — popups fail on iOS Safari
+  and Firefox (SyncGo). Redirect is more reliable across all devices.
+- After successful sign-in: check if user has a family (Phase B)
+- Sign out button in Settings
+- Show signed-in user's Google display name and email in Settings
+- Handle auth errors gracefully — show friendly message, retry button
+
+**Phase B — Family identity (agent builds this)**
+
+- On first sign-in: query Firestore `families` collection for a doc where
+  `members` array contains the signed-in user's Google UID
+- If found: load that family's data (set `window.currentFamilyId`)
+- If not found: show two options:
+  - "Create a new Family Hub" → name it, becomes admin
+  - "Join an existing hub" → enter 6-digit invite code
+- Invite code flow:
+  - Admin generates code in Settings → stored in Firestore `invites` collection
+  - Code: `{ code: '847291', familyId: 'xxx', createdAt: timestamp, used: false }`
+  - Expires after 24 hours (check `createdAt` on redemption)
+  - Single-use: set `used: true` immediately on redemption
+  - Show countdown to admin: "Code expires in 23h 45m"
+  - On join: add user's UID to `families/{familyId}/members` array
+- Admin = first person to create the family
+  - Store `adminUid: user.uid` on the families doc
+  - Admin can generate invite codes, others cannot
+- `window.currentFamilyId` set after auth + family resolution
+- All subsequent Firestore reads/writes include `familyId` field
+
+**Phase C — Data migration (agent builds this — CRITICAL)**
+
+- On first authenticated load for the Lucarelli family:
+  - Check `settings/migrated` in Firestore — if exists, skip migration
+  - If not migrated: read ALL documents from all collections
+    (events, todos, shopping, meals, household, shopfavs, mealfavs,
+     todofavs, activityLog, settings, dogwalks, scores)
+  - Add `familyId: currentFamilyId` to every document
+  - Write back using batch writes (max 500 per batch)
+  - Set `settings/migrated: { done: true, migratedAt: timestamp, familyId }`
+  - Show progress indicator during migration: "Setting up your hub... x/y items"
+- Migration must be idempotent — safe to run twice without duplicating data
+- DO NOT delete any data during migration — only ADD the familyId field
+- After migration: all new reads filter by `where('familyId', '==', currentFamilyId)`
+
+**Phase D — Updated Firestore listeners (agent builds this)**
+
+- All `listenCol(name, setter)` calls must add `.where('familyId', '==', currentFamilyId)`
+- All `fbSave(col, item)` calls must include `familyId: currentFamilyId`
+- All `fbUpdate(col, id, fields)` calls must verify doc belongs to current family
+- Update `fbSeedIfEmpty` to add familyId to seed data
+
+**Phase E — Security rules (Giuseppe deploys AFTER testing Phase A-D)**
+
+The Phase 2 rules are already written in `firestore.rules` (commented out).
+ONLY deploy these after:
+1. All family members have successfully signed in
+2. Data migration has completed
+3. Invite codes have been tested
+4. App works correctly for all family members
+
+Giuseppe deploys via Firebase Console → Firestore → Rules.
+
+---
+
+**Sequencing within the agent session:**
+1. Phase A (auth) first — get sign-in working
+2. Phase B (family) second — get family resolution working  
+3. Phase C (migration) third — migrate existing data
+4. Phase D (listeners) fourth — update all reads/writes
+5. Commit and deploy — Giuseppe tests on all devices
+6. Only then: Phase E (rules) — Giuseppe deploys manually
+
+---
+
+**iOS Safari + SyncGo Firefox notes:**
+- Use `signInWithRedirect` + `getRedirectResult` pattern — not popup
+- Firebase handles the redirect back to the app automatically
+- Test on iPhone FIRST before SyncGo — if it works on Safari it'll work on Firefox
+
+---
+
+**Acceptance criteria:**
+- [ ] Firebase Auth enabled for Google in Firebase Console (Giuseppe — manual)
+- [ ] giuseppewf.github.io added to authorised domains (Giuseppe — manual)
+- [ ] Auth SDK added to index.html
+- [ ] Not signed in → sign-in page shown, Google button works
+- [ ] Sign in with Google works on iPhone Safari (redirect flow)
+- [ ] Sign in with Google works on desktop Chrome
+- [ ] Sign in with Google works on SyncGo Firefox
+- [ ] First sign-in → "Create hub" or "Join hub" screen
+- [ ] Create hub → admin role, hub name, invite code generation
+- [ ] Join hub → enter 6-digit code, code validated, family joined
+- [ ] Invite codes single-use and expire after 24 hours
+- [ ] Existing Lucarelli data migrated with familyId — no data loss
+- [ ] All Firestore reads filtered by familyId
+- [ ] All Firestore writes include familyId
+- [ ] Sign out works in Settings
+- [ ] Sign out → returns to sign-in screen
+- [ ] Phase 2 Firestore rules deployed by Giuseppe after testing
+- [ ] All family members (Giuseppe, Ross, Malachi, Mack, Rachel) can sign in
+- [ ] Each sees the same family data
+- [ ] Audit passes with zero issues
+- [ ] TESTING.md Section A passes
+- [ ] [DECISION NEEDED] What Google accounts do Malachi and Mack use?
+    School accounts or personal Gmail? This affects which accounts can sign in.
+
 **Description:**
 Add Google Sign-In so family members authenticate before accessing the hub. Implement multi-tenant Firestore architecture so each family's data is completely isolated from other families. This is the foundational change required before the app can be shared with anyone outside the immediate family.
 
@@ -430,7 +558,7 @@ Deploy the Phase 1 Firestore security rules to replace the current test mode (wh
 ---
 
 ### S5-005 · Privacy Policy & Data Deletion
-**Status:** DONE 2026-07-02
+**Status:** DONE 2026-07-02 (privacy.html created at /family-hub/privacy, data deletion button in Settings behind PIN, Help & Guide link wired)
 **Priority:** High
 **Category:** Compliance / GDPR
 
@@ -1013,7 +1141,7 @@ Until proper Google Sign-In authentication (S5-003) is built, protect Settings w
 ---
 
 ### S4-004 · Data Protection — Soft Delete, Undo, and Activity Log
-**Status:** DONE 2026-07-02
+**Status:** DONE 2026-07-02 (soft delete implemented, undo toast on all devices, activity log in Settings behind PIN)
 **Priority:** Medium
 **Category:** Security / UX / Trust
 
