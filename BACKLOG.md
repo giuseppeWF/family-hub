@@ -1868,7 +1868,7 @@ Also: the "Join" option should be the default focused state so users can immedia
 ---
 
 ### S5-B03 · Dashboard card wobble too subtle in Arrange mode
-**Status:** TODO
+**Status:** DONE 2026-07-02 — replaced the old 2-stop `wiggle` keyframe (±0.4deg, no rest point) with a 4-stop `cardWobble` keyframe (0deg → -1.5deg → 1.5deg → 0deg) matching iOS home-screen intensity, applied to `.edit-mode .dash-card`. Added per-card animation-delay stagger (nth-child 2-6) so cards don't wobble in sync, plus a `prefers-reduced-motion` override. (This status line was accidentally reverted to TODO by a later commit that saved a stale local copy of BACKLOG.md — the code was never reverted, verified still present in index.html before restoring this line on 2026-07-03.)
 **Priority:** Low
 **Category:** UX / Polish
 
