@@ -365,7 +365,7 @@ When events are added directly on the Family Hub, show a prompt: "3 events were 
 ## 🔐 SPRINT 5 — Security & Multi-tenancy
 
 ### S5-003 · Google Sign-In + Multi-tenant Firestore
-**Status:** IN PROGRESS 2026-07-02 — Phases A-D implemented (auth screen, family create/join + invite codes, legacy data migration, familyId-scoped listeners/writes). Email sign-in, account creation, and legacy data migration verified working on localhost — existing data intact after migration. NOT DONE: still needs testing on the live GitHub Pages URL, and Google Sign-In specifically has not been tested end-to-end (requires the redirect flow + authorised domain, can't be verified from localhost alone). Also needs every family member to actually join the migrated hub before this is considered complete. Phase E (deploying the Phase 2 Firestore rules) remains Giuseppe's manual step — do not deploy until all of the above is verified.
+**Status:** IN PROGRESS — Google + Email auth working, Ross joined successfully. Firestore rules deployment pending (Phase E). Minor fixes needed (see S5-003-FIX items below).
 **Priority:** Critical
 **Category:** Infrastructure / Security
 
@@ -1818,6 +1818,121 @@ Home screen bookmark icons on iOS/Android don't update when a new version is dep
 - [ ] New home screen additions get current icon
 - [ ] Documented: existing bookmarks won't auto-update (OS limitation, not a bug)
 - [ ] Audit passes
+
+
+---
+
+## 🐛 SPRINT 5 — Bugs & Fixes from Testing (Jul 2026)
+
+### S5-B01 · Admin indicator not showing in Settings
+**Status:** TODO
+**Priority:** High
+**Category:** Bug
+
+Giuseppe is the hub admin (first to sign in, created the family) but Settings shows no visual indicator of this. Should show a clear "Hub Admin 👑" label next to the account name, and admin-only features (generate invite code, manage members) should be visually distinct from regular member view.
+
+**Fix:**
+- Read `families/{familyId}.adminUid` from Firestore
+- Compare with `auth.currentUser.uid`
+- If match: show "Hub Admin 👑" badge in Settings under account name
+- Admin-only sections (Generate invite code, Remove members) already exist — just need the badge
+- Non-admins should see Settings but without admin-only controls
+
+**Acceptance criteria:**
+- [ ] Admin sees "Hub Admin 👑" badge in Settings
+- [ ] Non-admin family members do not see "Hub Admin" badge
+- [ ] Invite code generation only visible to admin
+- [ ] Audit passes
+
+---
+
+### S5-B02 · Join hub should appear before Create hub on first sign-in
+**Status:** TODO
+**Priority:** High
+**Category:** UX Bug
+
+When a new user signs in for the first time, they see "Create a Family Hub" before "Join an existing hub". But the vast majority of new sign-ins will be family members joining an existing hub — not creating a new one. The order should be reversed.
+
+**Fix:** Swap the order on the family resolution screen:
+1. Primary (top, more prominent): "Join an existing hub" — enter invite code
+2. Secondary (below, smaller): "Create a new Family Hub"
+
+Also: the "Join" option should be the default focused state so users can immediately type their invite code without extra taps.
+
+**Acceptance criteria:**
+- [ ] "Join an existing hub" appears first and is visually primary
+- [ ] "Create a new Family Hub" appears below as secondary option
+- [ ] Invite code input is focused/ready immediately on this screen
+- [ ] Audit passes
+
+---
+
+### S5-B03 · Dashboard card wobble too subtle in Arrange mode
+**Status:** TODO
+**Priority:** Low
+**Category:** UX / Polish
+
+When tapping "Arrange" to rearrange dashboard cards, the cards have a subtle wobble animation. Ross (and likely others) found it almost imperceptible — you can't tell the cards are in drag mode. Should be more pronounced like iOS home screen widget wobble.
+
+**Fix:** Update the CSS keyframe animation for edit mode cards:
+
+```css
+@keyframes cardWobble {
+  0%   { transform: rotate(0deg); }
+  25%  { transform: rotate(-1.5deg); }
+  75%  { transform: rotate(1.5deg); }
+  100% { transform: rotate(0deg); }
+}
+
+.edit-mode [data-card] {
+  animation: cardWobble 0.4s ease-in-out infinite;
+  transform-origin: center center;
+}
+
+/* Stagger the animation so cards don't all wobble in sync */
+.edit-mode [data-card]:nth-child(2) { animation-delay: 0.1s; }
+.edit-mode [data-card]:nth-child(3) { animation-delay: 0.2s; }
+.edit-mode [data-card]:nth-child(4) { animation-delay: 0.05s; }
+```
+
+1.5 degrees is closer to iOS home screen wobble intensity. Current is likely 0.5 degrees or less.
+
+**Acceptance criteria:**
+- [ ] Cards visibly wobble in Arrange mode
+- [ ] Wobble is clearly noticeable but not distracting
+- [ ] Cards stop wobbling when Arrange mode is exited
+- [ ] Animation respects `prefers-reduced-motion` (disable if user has motion sensitivity)
+- [ ] Audit passes
+
+---
+
+### S5-004-READY · Deploy Firestore Phase 2 Security Rules
+**Status:** READY — pending Giuseppe confirming all family members signed in
+**Priority:** Critical
+**Category:** Security
+
+Giuseppe, Malachi, Mack and Rachel still need to sign in before rules are deployed.
+Once all five family members are in:
+
+1. Go to https://console.firebase.google.com
+2. Select family-central-app → Firestore Database → Rules
+3. Replace current open rules with Phase 2 rules from firestore.rules in repo
+4. Click Publish
+5. Test app still works on all devices
+
+**DO NOT deploy until all five family members have successfully signed in.**
+If rules are deployed before someone joins, they will be locked out and need
+Giuseppe to help them — which requires temporarily reopening the rules again.
+
+**Checklist:**
+- [x] Giuseppe signed in ✅
+- [x] Ross signed in ✅  
+- [ ] Malachi signed in
+- [ ] Mack signed in
+- [ ] Rachel signed in
+- [ ] All five confirmed — rules safe to deploy
+- [ ] Rules deployed by Giuseppe via Firebase Console
+- [ ] App tested on all five devices after deployment
 
 
 ## 💡 FUTURE / COMMERCIAL
