@@ -1344,6 +1344,22 @@
     animation: wiggle 0.5s infinite alternate;
   }
 
+  @keyframes floatZzz {
+    0%   { opacity: 0; transform: translateY(0); }
+    20%  { opacity: 1; }
+    80%  { opacity: 0.8; }
+    100% { opacity: 0; transform: translateY(-10px); }
+  }
+  .zzz-1, .zzz-2, .zzz-3 {
+    animation: floatZzz 2.4s ease-in-out infinite;
+  }
+  .zzz-1 { animation-delay: 0s; }
+  .zzz-2 { animation-delay: 0.8s; }
+  .zzz-3 { animation-delay: 1.6s; }
+  @media (prefers-reduced-motion: reduce) {
+    .zzz-1, .zzz-2, .zzz-3 { animation: none; opacity: 1; }
+  }
+
   @keyframes wiggle {
     from { transform: rotate(-0.4deg); }
     to   { transform: rotate(0.4deg); }
@@ -1474,7 +1490,7 @@
     </div>
     <div class="nav-tab" data-view="household" onclick="switchView('household')">
       <span class="tab-icon">🔧</span><span class="tab-label"> House</span>
-      <span class="badge" id="badge-house" style="display:none"></span>
+      <span class="badge" id="badge-house"></span>
     </div>
   </div>
 
@@ -1695,13 +1711,22 @@
         </div>
         <div class="modal-field">
           <label class="modal-label">Repeat</label>
-          <select class="modal-select" id="new-event-recur">
+          <select class="modal-select" id="new-event-recur" onchange="toggleRecurChips()">
             <option value="none">No repeat</option>
             <option value="daily">Daily</option>
             <option value="weekly">Weekly</option>
             <option value="fortnightly">Every 2 weeks</option>
             <option value="monthly">Monthly</option>
           </select>
+        </div>
+        <div id="recur-end-chips" style="display:none;margin:-4px 0 8px 0">
+          <div style="font-size:12px;color:var(--cream-muted);margin-bottom:6px">Repeat until</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button type="button" onclick="setRecurEnd(1,'month')" style="padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--cream);font-size:12px;cursor:pointer">1 month</button>
+            <button type="button" onclick="setRecurEnd(3,'month')" style="padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--cream);font-size:12px;cursor:pointer">3 months</button>
+            <button type="button" onclick="setRecurEnd(6,'month')" style="padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--cream);font-size:12px;cursor:pointer">6 months</button>
+            <button type="button" onclick="setRecurEnd(1,'year')" style="padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--cream);font-size:12px;cursor:pointer">1 year</button>
+          </div>
         </div>
         <div class="modal-field">
           <label class="modal-label">Notes <span style="font-weight:400;opacity:0.6">(optional)</span></label>
@@ -2061,7 +2086,7 @@ const WHATS_NEW = {
 
 // ── MASCOT SVG CONSTANTS ─────────────────────────────────────────────────────
 const MASCOT_AWAKE = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 46" width="32" height="37"><rect x="26" y="7" width="7" height="12" rx="1.5" fill="#1B5E54"/><polygon points="20,1 39,19 1,19" fill="#1B5E54"/><rect x="3" y="17" width="34" height="28" rx="5" fill="#0D2F2A"/><circle cx="13" cy="27" r="6.5" fill="white"/><circle cx="27" cy="27" r="6.5" fill="white"/><circle cx="13" cy="27" r="4" fill="#2EC4B6"/><circle cx="27" cy="27" r="4" fill="#2EC4B6"/><circle cx="12" cy="26" r="2" fill="#0D2F2A"/><circle cx="26" cy="26" r="2" fill="#0D2F2A"/><circle cx="11" cy="24.5" r="0.9" fill="white"/><circle cx="25" cy="24.5" r="0.9" fill="white"/><ellipse cx="6" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/><ellipse cx="34" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/><path d="M11 32 Q20 39 29 32" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/><rect x="14" y="32" width="12" height="13" rx="6 6 0 0" fill="#1B5E54"/></svg>`;
-const MASCOT_SLEEP = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 68" width="64" height="72"><rect x="40" y="9" width="8" height="14" rx="1.5" fill="#1B5E54"/><polygon points="30,2 58,25 2,25" fill="#1B5E54"/><rect x="4" y="23" width="52" height="42" rx="6" fill="#0D2F2A"/><ellipse cx="20" cy="37" rx="9" ry="7" fill="white"/><ellipse cx="40" cy="37" rx="9" ry="7" fill="white"/><path d="M11 37 Q20 46 29 37Z" fill="#0D2F2A"/><path d="M31 37 Q40 46 49 37Z" fill="#0D2F2A"/><ellipse cx="9" cy="44" rx="5" ry="3" fill="rgba(210,90,90,0.35)"/><ellipse cx="51" cy="44" rx="5" ry="3" fill="rgba(210,90,90,0.35)"/><path d="M20 47 Q30 53 40 47" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/><rect x="19" y="47" width="22" height="18" rx="11 11 0 0" fill="#1B5E54"/><text x="47" y="28" font-size="8" fill="#2EC4B6" font-weight="800" font-family="Nunito,sans-serif">z</text><text x="51" y="20" font-size="10" fill="#2EC4B6" font-weight="800" font-family="Nunito,sans-serif">z</text><text x="56" y="12" font-size="12" fill="#2EC4B6" font-weight="800" font-family="Nunito,sans-serif">z</text></svg>`;
+const MASCOT_SLEEP = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 68" width="64" height="72"><rect x="40" y="9" width="8" height="14" rx="1.5" fill="#1B5E54"/><polygon points="30,2 58,25 2,25" fill="#1B5E54"/><rect x="4" y="23" width="52" height="42" rx="6" fill="#0D2F2A"/><ellipse cx="20" cy="37" rx="9" ry="7" fill="white"/><ellipse cx="40" cy="37" rx="9" ry="7" fill="white"/><path d="M11 37 Q20 46 29 37Z" fill="#0D2F2A"/><path d="M31 37 Q40 46 49 37Z" fill="#0D2F2A"/><ellipse cx="9" cy="44" rx="5" ry="3" fill="rgba(210,90,90,0.35)"/><ellipse cx="51" cy="44" rx="5" ry="3" fill="rgba(210,90,90,0.35)"/><path d="M20 47 Q30 53 40 47" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/><rect x="19" y="47" width="22" height="18" rx="11 11 0 0" fill="#1B5E54"/><text class="zzz-1" x="47" y="28" font-size="8" fill="#2EC4B6" font-weight="800" font-family="Nunito,sans-serif">z</text><text class="zzz-2" x="51" y="20" font-size="10" fill="#2EC4B6" font-weight="800" font-family="Nunito,sans-serif">z</text><text class="zzz-3" x="56" y="12" font-size="12" fill="#2EC4B6" font-weight="800" font-family="Nunito,sans-serif">z</text></svg>`;
 const MASCOT_EMPTY = (msg, hint) =>
   `<div style="text-align:center;padding:20px 0"><div style="display:inline-flex;align-items:center;justify-content:center;width:80px;height:80px;border-radius:18px;background:#E8F8F6;margin-bottom:10px">${MASCOT_SLEEP}</div><div style="color:var(--cream-muted);font-size:14px;font-weight:600">${msg}</div><div style="font-size:12px;color:var(--cream-muted);opacity:0.6;margin-top:4px">${hint}</div></div>`;
 const MASCOT_EMPTY_SM = (msg, hint) =>
@@ -2403,9 +2428,10 @@ function updateSummary() {
   const highPrio     = household.filter(h => !h.done && h.priority === 'high');
 
   const el = id => document.getElementById(id);
+  const BADGE_SLEEP_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="15" viewBox="0 0 14 15" style="vertical-align:middle"><polygon points="7,1 13,7 1,7" fill="#1B5E54"/><rect x="1" y="6" width="12" height="8" rx="2" fill="#0D2F2A"/><line x1="4" y1="10" x2="6" y2="10" stroke="white" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="10" x2="10" y2="10" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>`;
   const setBadge = (id, count) => {
     const b = el(id); if (!b) return;
-    b.textContent = count > 0 ? count : '-';
+    b.innerHTML = count > 0 ? count : BADGE_SLEEP_SVG;
     b.style.display = '';
   };
   setBadge('badge-cal',   todayEvents.length);
@@ -2427,18 +2453,16 @@ function switchView(name) {
   renderAll();
 }
 
-// ── RECURRING EVENTS — AUTO-GENERATE NEXT OCCURRENCE ─────────────────────────
+// ── RECURRING EVENTS — AUTO-GENERATE NEXT OCCURRENCES (up to 90 days / 3 months) ──────
 async function processRecurringEvents() {
   const events = getEvents();
-  // Bail early if nothing needs processing — makes it safe to call on every fb-data
   if (!events.some(e => e.recur && e.recur !== 'none' && !e.pastRecurring && e.date < todayStr)) return;
 
   const cap = new Date(todayStr + 'T00:00:00');
-  cap.setDate(cap.getDate() + 28);
+  cap.setDate(cap.getDate() + 90);
   const capStr = fmt(cap);
 
   for (const e of events) {
-    // Skip: no recur, already processed, or date is today/future
     if (!e.recur || e.recur === 'none' || e.pastRecurring) continue;
     if (e.date >= todayStr) continue;
 
@@ -2446,26 +2470,29 @@ async function processRecurringEvents() {
     let nextDate = nextOccurrence(e.date, e.recur);
     while (nextDate < todayStr) nextDate = nextOccurrence(nextDate, e.recur);
 
-    // Don't generate more than 4 weeks ahead
     if (nextDate > capStr) {
-      try { await window.fbUpdate('events', e.id, { pastRecurring: true }); } catch(_) {}
-      continue;
-    }
-
-    // Avoid duplicate if a matching future event already exists
-    const exists = events.some(x =>
-      x.name === e.name && x.date === nextDate && String(x.id) !== String(e.id) && !x.pastRecurring
-    );
-    if (exists) {
       try { await window.fbUpdate('events', e.id, { pastRecurring: true }); } catch(_) {}
       continue;
     }
 
     setSyncStatus('saving');
     try {
-      const newId = 'id_' + Date.now();
       const { pastRecurring: _p, endDate: _ed, ...rest } = e;
-      await window.fbSave('events', { ...rest, id: newId, date: nextDate, endDate: null });
+      let count = 0;
+      // Generate all occurrences up to capStr (max 24 to avoid runaway)
+      while (nextDate <= capStr && count < 24) {
+        const seriesEnd = e.endDate || null;
+        if (seriesEnd && nextDate > seriesEnd) break;
+        const exists = events.some(x =>
+          x.name === e.name && x.date === nextDate && String(x.id) !== String(e.id) && !x.pastRecurring
+        );
+        if (!exists) {
+          const newId = 'id_r' + Date.now() + '_' + count;
+          await window.fbSave('events', { ...rest, id: newId, date: nextDate, endDate: null });
+        }
+        nextDate = nextOccurrence(nextDate, e.recur);
+        count++;
+      }
       await window.fbUpdate('events', e.id, { pastRecurring: true });
     } catch(err) { setSyncStatus('error'); }
   }
@@ -2578,7 +2605,8 @@ function renderHousehold() {
   // Badge
   const badge = document.getElementById('badge-house');
   const highCount = pending.filter(t => t.priority === 'high').length;
-  badge.textContent = highCount > 0 ? highCount : '-';
+  const SLEEP_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="15" viewBox="0 0 14 15" style="vertical-align:middle"><polygon points="7,1 13,7 1,7" fill="#1B5E54"/><rect x="1" y="6" width="12" height="8" rx="2" fill="#0D2F2A"/><line x1="4" y1="10" x2="6" y2="10" stroke="white" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="10" x2="10" y2="10" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>`;
+  badge.innerHTML = highCount > 0 ? highCount : SLEEP_SVG;
   badge.style.display = '';
 }
 
@@ -2750,7 +2778,7 @@ function renderDashboard() {
     ? todayEvts.map(e => `<div class="event-row" onclick="showDetail('event','${e.id}')" style="cursor:pointer">
         <div class="event-time">${e.start||''}</div>
         <div class="event-dot" style="background:${e.color||'#2EC4B6'}"></div>
-        <div><div class="event-label">${e.name}</div><div class="event-who">${e.who||''}</div></div>
+        <div style="min-width:0"><div class="event-label">${e.name}</div><div class="event-who">${e.who||''}</div>${e.notes?`<div style="font-size:11px;color:var(--cream-muted);opacity:0.7;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px">${e.notes.slice(0,60)}${e.notes.length>60?'…':''}</div>`:''}</div>
       </div>`).join('')
     : MASCOT_EMPTY_SM('Nothing scheduled today', 'Tap + to add an event');
 
@@ -3248,6 +3276,21 @@ function renderMeals() {
 }
 
 // ── ADD MODAL ─────────────────────────────────────────────────────────────────
+function toggleRecurChips() {
+  const recur = document.getElementById('new-event-recur').value;
+  const chips = document.getElementById('recur-end-chips');
+  if (chips) chips.style.display = recur !== 'none' ? '' : 'none';
+}
+function setRecurEnd(n, unit) {
+  const startEl = document.getElementById('new-event-date');
+  const endEl = document.getElementById('new-event-end-date');
+  if (!startEl || !endEl) return;
+  const base = new Date((startEl.value || todayStr) + 'T00:00:00');
+  if (unit === 'month') base.setMonth(base.getMonth() + n);
+  else if (unit === 'year') base.setFullYear(base.getFullYear() + n);
+  endEl.value = fmt(base);
+}
+
 function syncEventEndDate() {
   const startEl = document.getElementById('new-event-date');
   const endEl = document.getElementById('new-event-end-date');
@@ -3526,6 +3569,7 @@ async function saveModal() {
         notes: notes || null });
       document.getElementById('new-event-name').value     = '';
       document.getElementById('new-event-recur').value    = 'none';
+      toggleRecurChips();
       document.getElementById('new-event-notes').value    = '';
       document.getElementById('new-event-end-date').value = '';
     }
@@ -5059,7 +5103,7 @@ function setupPwa() {
   // Apple touch icon (iOS / Android save-to-home)
   let touchIcon = document.querySelector('link[rel="apple-touch-icon"]');
   if (!touchIcon) { touchIcon = document.createElement('link'); touchIcon.rel = 'apple-touch-icon'; document.head.appendChild(touchIcon); }
-  touchIcon.href = iconUrl;
+  touchIcon.href = iconUrl + '?v=' + APP_VERSION;
 
   // Web App Manifest
   const manifest = {

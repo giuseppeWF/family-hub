@@ -1564,7 +1564,7 @@ A recurring event can be saved with no end date (end date defaults to same as st
 ## ✨ SPRINT 4 — Enhancements from Testing
 
 ### S4-015 · Recurring events — end date UX with quick-pick chips
-**Status:** TODO
+**Status:** DONE 2026-07-02
 **Priority:** High
 **Category:** Feature / UX
 
@@ -1588,7 +1588,7 @@ When setting a recurring event, prompt the user to set an end date. Make it easy
 ---
 
 ### S4-016 · Recurring events visible in month view
-**Status:** TODO
+**Status:** DONE 2026-07-02
 **Priority:** High
 **Category:** Feature
 
@@ -1604,7 +1604,7 @@ Generated recurring event occurrences should appear in the month view calendar. 
 ---
 
 ### S4-017 · Calendar notes — show first sentence in overview widget
-**Status:** TODO
+**Status:** DONE 2026-07-02
 **Priority:** Medium
 **Category:** Enhancement
 
@@ -1627,7 +1627,7 @@ const notePreview = e.notes
 ---
 
 ### S4-018 · Mascot — square container, sleeping icon for zero-count tabs
-**Status:** TODO
+**Status:** DONE 2026-07-02
 **Priority:** Medium
 **Category:** Design / Enhancement
 
@@ -1649,7 +1649,7 @@ Two related mascot improvements:
 ---
 
 ### S4-019 · Sleeping mascot — animated zzz bubbles
-**Status:** TODO
+**Status:** DONE 2026-07-02
 **Priority:** Low
 **Category:** Delight / Polish
 
@@ -1676,7 +1676,7 @@ The sleeping mascot in empty states has static zzz text. Animate the zzz bubbles
 ---
 
 ### S4-020 · Force PWA icon refresh on home screen bookmarks
-**Status:** TODO
+**Status:** DONE 2026-07-02
 **Priority:** Low
 **Category:** Infrastructure
 
