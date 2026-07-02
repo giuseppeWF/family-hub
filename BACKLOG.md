@@ -1847,7 +1847,7 @@ Giuseppe is the hub admin (first to sign in, created the family) but Settings sh
 ---
 
 ### S5-B02 · Join hub should appear before Create hub on first sign-in
-**Status:** TODO
+**Status:** DONE 2026-07-02 — swapped order (Join card now first, solid/primary button; Create card second, outline/secondary button) and the invite-code input is explicitly focused when the family-screen is shown (showScreen() calls .focus() since the input starts display:none, so the plain autofocus attribute alone wouldn't fire reliably). (This status line was accidentally reverted to TODO by a later commit that saved a stale local copy of BACKLOG.md — the code was never reverted, verified still present in index.html before restoring this line on 2026-07-03.)
 **Priority:** High
 **Category:** UX Bug
 
