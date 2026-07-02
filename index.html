@@ -52,7 +52,6 @@
     listenCol('shopfavs',  d => { window.fbShopFavs   = d; window.dispatchEvent(new CustomEvent('fb-data')); });
     listenCol('mealfavs',  d => { window.fbMealFavs   = d; window.dispatchEvent(new CustomEvent('fb-data')); });
     listenCol('settings',  d => { window.fbSettings = d; window._settingsConnected = true; window.dispatchEvent(new CustomEvent('fb-data')); });
-    listenCol('dogwalks',  d => { window.fbDogwalks = d; window.dispatchEvent(new CustomEvent('fb-data')); });
   });
 
   // ── Write helpers (exposed globally) ──────────────────────────────────────
@@ -1475,15 +1474,6 @@
     <!-- DASHBOARD -->
     <div id="view-dashboard" class="view active">
 
-      <!-- Dog walk rota banner (S3-005) -->
-      <div id="dogwalk-banner" style="display:none;background:var(--navy-card);border:1px solid var(--border);border-radius:14px;padding:12px 16px;margin-bottom:4px">
-        <div style="font-size:11px;font-weight:700;color:var(--cream-muted);text-transform:uppercase;letter-spacing:0.7px;margin-bottom:8px">🐾 Paloma &amp; Otis — Today's Walks</div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <button id="dogwalk-morning-btn" onclick="markDogwalkDone('morning')" style="flex:1;min-width:120px;padding:8px 12px;border-radius:10px;border:1px solid var(--border-strong);background:transparent;font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-align:left;color:var(--cream)"></button>
-          <button id="dogwalk-evening-btn" onclick="markDogwalkDone('evening')" style="flex:1;min-width:120px;padding:8px 12px;border-radius:10px;border:1px solid var(--border-strong);background:transparent;font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-align:left;color:var(--cream)"></button>
-        </div>
-      </div>
-
       <!-- Calendar card -->
       <div class="dash-card" data-card="events" draggable="true">
         <div class="dash-card-header" onclick="switchView('calendar')" style="cursor:pointer">
@@ -2017,7 +2007,6 @@ window.fbHousehold   = [];
 window.fbShopFavs    = [];
 window.fbMealFavs    = [];
 window.fbSettings    = [];
-window.fbDogwalks    = [];
 window._settingsConnected = false;
 let _membersSeedDone = false;
 
@@ -2028,7 +2017,6 @@ function getShopping() { return window.fbShopping || []; }
 function getMeals()     { return window.fbMeals     || []; }
 function getHousehold()  { return window.fbHousehold  || []; }
 function getShopFavs()   { return window.fbShopFavs   || []; }
-function getDogwalks()   { return window.fbDogwalks   || []; }
 function getMealFavs()   { return window.fbMealFavs   || []; }
 function getSettingsPin() { return (window.fbSettings || []).find(s => s.id === 'pin') || null; }
 
@@ -2353,7 +2341,6 @@ window.addEventListener('fb-data', () => {
     processRecurringEvents();
   }
   if (typeof checkDeviceUserPrompt === 'function') checkDeviceUserPrompt();
-  if (typeof generateTodayDogwalk === 'function') generateTodayDogwalk();
 });
 window.addEventListener('fb-saved', () => {
   setSyncStatus('live');
@@ -2671,46 +2658,6 @@ async function deleteItem(colName, id) {
 }
 
 // ── DOG WALK ROTA (S3-005) ───────────────────────────────────────────────────
-let _dogwalkSeedDone = false;
-async function generateTodayDogwalk() {
-  if (_dogwalkSeedDone) return;
-  _dogwalkSeedDone = true;
-  const existing = getDogwalks().find(d => d.id === todayStr);
-  if (existing) return;
-  const members = getFamilyMembers();
-  if (!members.length) return;
-  const dayOffset = Math.floor(Date.now() / 86400000);
-  const morning = members[dayOffset % members.length].name;
-  const evening = members[(dayOffset + 1) % members.length].name;
-  try {
-    await window.fbSave('dogwalks', { id: todayStr, date: todayStr, morning, evening, morningDone: false, eveningDone: false });
-  } catch(_) {}
-}
-async function markDogwalkDone(period) {
-  const doc = getDogwalks().find(d => d.id === todayStr);
-  if (!doc) return;
-  const field = period === 'morning' ? 'morningDone' : 'eveningDone';
-  try { await window.fbUpdate('dogwalks', todayStr, { [field]: !doc[field] }); } catch(_) {}
-}
-function renderDogwalkBanner() {
-  const banner = document.getElementById('dogwalk-banner');
-  const morBtn = document.getElementById('dogwalk-morning-btn');
-  const eveBtn = document.getElementById('dogwalk-evening-btn');
-  if (!banner || !morBtn || !eveBtn) return;
-  const doc = getDogwalks().find(d => d.id === todayStr);
-  if (!doc) { banner.style.display = 'none'; return; }
-  banner.style.display = 'block';
-  const members = getFamilyMembers();
-  const mColor = (members.find(m => m.name === doc.morning) || {}).color || 'var(--cream-muted)';
-  const eColor = (members.find(m => m.name === doc.evening) || {}).color || 'var(--cream-muted)';
-  morBtn.innerHTML = `🌅 Morning<br><span style="color:${mColor}">${doc.morning}</span>${doc.morningDone ? ' <span style="color:var(--sage)">✓ Done</span>' : ''}`;
-  morBtn.style.background = doc.morningDone ? 'rgba(46,196,182,0.08)' : 'transparent';
-  morBtn.style.borderColor = doc.morningDone ? 'var(--sage)' : 'var(--border-strong)';
-  eveBtn.innerHTML = `🌙 Evening<br><span style="color:${eColor}">${doc.evening}</span>${doc.eveningDone ? ' <span style="color:var(--sage)">✓ Done</span>' : ''}`;
-  eveBtn.style.background = doc.eveningDone ? 'rgba(46,196,182,0.08)' : 'transparent';
-  eveBtn.style.borderColor = doc.eveningDone ? 'var(--sage)' : 'var(--border-strong)';
-}
-
 // ── WEATHER WIDGET (S3-001) ───────────────────────────────────────────────────
 const WEATHER_CODES = {
   0:'☀️', 1:'🌤', 2:'⛅', 3:'☁️',
@@ -2844,7 +2791,6 @@ function renderDashboard() {
         </div>
       </div>`).join('')
     : '<div style="text-align:center;padding:16px 0"><div style="font-size:28px;margin-bottom:6px">🍽</div><div style="color:var(--cream-muted);font-size:13px">No meals planned yet</div><div style="font-size:12px;color:var(--cream-muted);opacity:0.6;margin-top:3px">Tap + to plan the week</div></div>';
-  renderDogwalkBanner();
 }
 
 // ── CALENDAR ──────────────────────────────────────────────────────────────────

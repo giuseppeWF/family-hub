@@ -1657,7 +1657,7 @@ Tapping the circle/checkbox on a task or shopping item opens the detail modal ra
 ## 🐛 SPRINT 4 — Carry-over Bugs (found Jul 2026 testing)
 
 ### S4-B01 · Repeat events not generating future occurrences
-**Status:** TODO
+**Status:** DONE 2026-07-02
 **Priority:** High
 **Category:** Bug
 
@@ -1687,7 +1687,7 @@ Also verify: `generateRecurringEvents()` function exists and correctly compares 
 ---
 
 ### S4-B02 · Overview widget internal scroll not working
-**Status:** TODO
+**Status:** DONE 2026-07-02
 **Priority:** High
 **Category:** Bug
 
@@ -1714,7 +1714,7 @@ Verify no parent element has `overflow: hidden` that would block the inner scrol
 ---
 
 ### S4-B03 · House tasks not sorting by priority
-**Status:** TODO
+**Status:** DONE 2026-07-02
 **Priority:** Medium
 **Category:** Bug
 
