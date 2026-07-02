@@ -2113,7 +2113,7 @@ function getActivityLog(){ return (window.fbActivityLog || []).sort((a,b) => (b.
 function getSettingsPin() { return (window.fbSettings || []).find(s => s.id === 'pin') || null; }
 
 // ── APP VERSION & WHAT'S NEW ──────────────────────────────────────────────────
-const APP_VERSION = '4.0';
+const APP_VERSION = '4.2';
 const WHATS_NEW = {
   version: '3.2',
   features: [
@@ -5128,35 +5128,40 @@ if (!navigator.onLine) setOfflineBanner(true);
 // ── VERSION CHECK & FORCE REFRESH (S3-018) ────────────────────────────────────
 // Fetch version.json on load and on returning to foreground.
 // If server version differs from baked-in APP_VERSION, show update banner.
-let _updateSnoozedUntil = 0;
+// "Later" persists across reloads via localStorage — banner only re-shows
+// when a GENUINELY newer version than the dismissed one is deployed.
+let _latestServerVersion = null;
 
 async function checkVersion() {
-  if (Date.now() < _updateSnoozedUntil) return;
   if (!navigator.onLine) return;
   try {
     const res = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     if (!res.ok) return;
     const data = await res.json();
-    if (data.version && data.version !== APP_VERSION) {
-      const banner = document.getElementById('update-banner');
-      if (banner) banner.style.display = 'flex';
-    }
+    if (!data.version || data.version === APP_VERSION) return; // already up to date
+    // User already dismissed this exact version — don't nag them again
+    if (localStorage.getItem('fh_update_dismissed') === data.version) return;
+    _latestServerVersion = data.version;
+    const banner = document.getElementById('update-banner');
+    if (banner) banner.style.display = 'flex';
   } catch(_) {}
 }
 
 function doUpdate() {
+  // Clear any dismissal flag so the next version check starts fresh
+  localStorage.removeItem('fh_update_dismissed');
+  const reload = () => { location.href = location.pathname + '?nocache=' + Date.now(); };
   if ('caches' in window) {
-    caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).then(() => {
-      location.href = location.pathname + '?v=' + Date.now();
-    });
+    caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).then(reload);
   } else {
-    location.href = location.pathname + '?v=' + Date.now();
+    reload();
   }
 }
 
 function snoozeUpdate(e) {
   e.stopPropagation();
-  _updateSnoozedUntil = Date.now() + 10 * 60 * 1000;
+  // Persist the dismissed version so the banner stays gone after reload
+  if (_latestServerVersion) localStorage.setItem('fh_update_dismissed', _latestServerVersion);
   const banner = document.getElementById('update-banner');
   if (banner) banner.style.display = 'none';
 }
