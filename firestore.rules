@@ -1,8 +1,206 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
+
+    // ── HELPER FUNCTIONS ────────────────────────────────────────────────────
+
+    // Is the user signed in?
+    function isSignedIn() {
+      return request.auth != null;
     }
+
+    // Does the user belong to this family?
+    function isFamilyMember(familyId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/families/$(familyId)/members/$(request.auth.uid));
+    }
+
+    // Is the user the family admin (creator)?
+    function isFamilyAdmin(familyId) {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/families/$(familyId)).data.adminUid == request.auth.uid;
+    }
+
+    // Is the incoming data owned by this family?
+    function isOwnedByFamily(familyId) {
+      return request.resource.data.familyId == familyId;
+    }
+
+    // Does the document belong to this family?
+    function documentBelongsToFamily(familyId) {
+      return resource.data.familyId == familyId;
+    }
+
+    // ── PHASE 1 RULES (current — single family, no auth yet) ────────────────
+    // These are TEMPORARY rules that lock down test mode while we build auth.
+    // They restrict writes to valid data structures but don't yet enforce
+    // per-family isolation (that comes in Phase 2 with auth).
+    // Replace with Phase 2 rules once Google Sign-In is implemented.
+
+    // Events collection
+    match /events/{eventId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasAll(['name', 'date', 'who'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() < 200;
+      allow update: if isSignedIn()
+        && request.resource.data.keys().hasAll(['name', 'date', 'who']);
+      allow delete: if isSignedIn();
+    }
+
+    // Todos collection
+    match /todos/{todoId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasAll(['text', 'who', 'done'])
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() < 500
+        && request.resource.data.done is bool;
+      allow update: if isSignedIn()
+        && request.resource.data.keys().hasAll(['text', 'who', 'done']);
+      allow delete: if isSignedIn();
+    }
+
+    // Shopping collection
+    match /shopping/{itemId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasAll(['name', 'done'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.done is bool;
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    // Shopping favourites
+    match /shopfavs/{favId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasAll(['name'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0;
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    // Meals collection
+    match /meals/{mealId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasAll(['name', 'day'])
+        && request.resource.data.name is string
+        && request.resource.data.day is string;
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    // Meal favourites
+    match /mealfavs/{favId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasAll(['name'])
+        && request.resource.data.name is string;
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    // Household tasks collection
+    match /household/{taskId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasAll(['text', 'done'])
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.done is bool;
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    // Dog walks collection
+    match /dogwalks/{walkId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    // Scores / gamification
+    match /scores/{scoreId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    // Activity log (S4-004) — read-only for all signed-in users, append-only writes
+    // Admins restore deleted items by updating the original collection, not the log
+    match /activityLog/{entryId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasAll(['action', 'col', 'itemName', 'who', 'at'])
+        && request.resource.data.action is string
+        && request.resource.data.who is string;
+      allow update: if false;  // log entries are immutable
+      allow delete: if isSignedIn();  // cleanup function needs to purge old entries
+    }
+
+    // Todo favourites
+    match /todofavs/{favId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasAll(['text'])
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0;
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    // Settings collection (hub name, members, PIN hash)
+    match /settings/{settingId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    // ── PHASE 2 RULES (add once Google Auth is implemented) ─────────────────
+    // Uncomment and replace Phase 1 rules above with these once S5-003 is done.
+    // These enforce strict per-family data isolation.
+
+    // Family registry — anyone signed in can create a family, only admin can update
+    // match /families/{familyId} {
+    //   allow read: if isFamilyMember(familyId) || isFamilyAdmin(familyId);
+    //   allow create: if isSignedIn()
+    //     && request.resource.data.adminUid == request.auth.uid;
+    //   allow update: if isFamilyAdmin(familyId);
+    //   allow delete: if isFamilyAdmin(familyId);
+    //
+    //   // Family members sub-collection
+    //   match /members/{memberId} {
+    //     allow read: if isFamilyMember(familyId);
+    //     allow write: if isFamilyAdmin(familyId);
+    //   }
+    // }
+
+    // Family invite codes — readable by anyone signed in (to accept an invite)
+    // match /invites/{inviteCode} {
+    //   allow read: if isSignedIn();
+    //   allow create: if isFamilyAdmin(request.resource.data.familyId);
+    //   allow delete: if isFamilyAdmin(resource.data.familyId);
+    // }
+
+    // Per-family data — all collections scoped to familyId
+    // match /familyData/{familyId}/{collection}/{docId} {
+    //   allow read: if isFamilyMember(familyId);
+    //   allow create: if isFamilyMember(familyId)
+    //     && isOwnedByFamily(familyId);
+    //   allow update: if isFamilyMember(familyId)
+    //     && documentBelongsToFamily(familyId);
+    //   allow delete: if isFamilyMember(familyId)
+    //     && documentBelongsToFamily(familyId);
+    // }
+
+    // ── DENY EVERYTHING ELSE ─────────────────────────────────────────────────
+    // Any collection not explicitly listed above is denied by default.
+    // This is Firestore's default behaviour but stating it explicitly
+    // makes the intent clear for audit purposes.
   }
 }
