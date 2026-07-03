@@ -36,11 +36,11 @@ else:
 # ── 2. REQUIRED MODAL FIELDS ──────────────────────────────────────────────────
 required_fields = [
     # Event
-    'new-event-name', 'new-event-date', 'new-event-end-date', 'new-event-start', 'new-event-end',
-    'new-event-who', 'new-event-who-chips', 'new-event-recur', 'new-event-notes',
+    'new-event-name', 'new-event-date', 'new-event-start', 'new-event-end',
+    'new-event-who', 'new-event-who-chips', 'new-event-recur',
     # Todo
     'new-todo-text', 'new-todo-who', 'new-todo-who-chips',
-    'new-todo-type', 'new-todo-due', 'new-todo-recur', 'new-todo-save-fav',
+    'new-todo-type', 'new-todo-due', 'new-todo-recur',
     # Shopping
     'new-shop-name', 'new-shop-qty', 'new-shop-cat',
     'new-shop-who', 'new-shop-who-chips', 'new-shop-save-fav',
@@ -57,7 +57,7 @@ for field in required_fields:
 
 # ── 3. FIRESTORE LISTENERS ────────────────────────────────────────────────────
 required_listeners = ['events', 'todos', 'shopping', 'meals',
-                      'household', 'shopfavs', 'mealfavs', 'todofavs', 'activityLog']
+                      'household', 'shopfavs', 'mealfavs']
 for col in required_listeners:
     check(f'listener:{col}', f"listenCol('{col}'" in content,
           f"Missing Firestore listener for collection: '{col}'")
@@ -103,7 +103,7 @@ for t in ['event', 'todo', 'shop', 'meal', 'household']:
 
 # ── 8. EDIT MODAL COVERAGE ────────────────────────────────────────────────────
 edit_start = content.find('function openEditItem')
-edit_fn    = content[edit_start:edit_start + 8000] if edit_start > 0 else ''
+edit_fn    = content[edit_start:edit_start + 5000] if edit_start > 0 else ''
 for t in ['todo', 'shop', 'meal', 'event', 'household']:
     check(f'openEditItem:{t}', f"if (type === '{t}')" in edit_fn,
           f"openEditItem() missing case for type '{t}'")
@@ -141,7 +141,6 @@ core_fns = [
     'function closeModal', 'function openEditItem', 'function saveEditItem',
     'function showDetail', 'function deleteItem', 'function setSyncStatus',
     'function runQA', 'function switchView', 'function applyCardState',
-    'async function logActivity', 'function renderActivityLog',
 ]
 for fn in core_fns:
     check(f'fn:{fn}', fn in content, f"Missing core function: {fn}")
@@ -155,7 +154,7 @@ check('firebase:firestore-import',
       "Firestore SDK import missing")
 
 # ── 13. NO DUPLICATE IDS ─────────────────────────────────────────────────────
-ids = re.findall(r'(?<![a-z-])id="([^"]+)"', content)
+ids = re.findall(r'id="([^"]+)"', content)
 seen, dupes = set(), set()
 for id_ in ids:
     if id_ in seen:

@@ -70,6 +70,24 @@ For EACH of: Calendar, To-dos, Shopping, Meals, Household —
 - [ ] Triple-tap the header title → QA report opens
 - [ ] QA report shows all green / "safe to deploy"
 
+### A7. What's New system — check before EVERY deployment
+The What's New popup is a common source of regressions. Verify all four of these before committing:
+
+- [ ] **APP_VERSION constant exists** in index.html (e.g. `const APP_VERSION = '3.1'`)
+- [ ] **version.json exists** in repo root and contains `{"version":"3.1",...}` 
+- [ ] **Versions match exactly** — APP_VERSION in index.html === version in version.json. If they differ, the update prompt will loop forever showing on every load
+- [ ] **fh_seen_version** is written to localStorage when popup is dismissed — verify the dismiss handler includes `localStorage.setItem('fh_seen_version', APP_VERSION)`
+- [ ] **WHATS_NEW features list is current** — contains only real, shipped, end-user-facing features. No placeholders, no developer notes, no features that haven't shipped yet
+- [ ] **After any deployment that bumps APP_VERSION** — open the app in an incognito window, verify the popup appears once, dismiss it, refresh, verify it does NOT appear again
+
+**Rule for updating WHATS_NEW:**
+Every sprint that ships user-visible features must update:
+1. `APP_VERSION` — bump the version number
+2. `version.json` — update to match
+3. `WHATS_NEW.features` — add new features, remove nothing (users may not have seen older ones)
+4. Only include end-user facing features — no infrastructure, security, or bug fix items
+5. Write for a non-technical family member — plain English, emoji, benefit-focused
+
 ---
 
 ## Section B — Adversarial / Abuse Test Cases
