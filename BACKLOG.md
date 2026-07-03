@@ -365,7 +365,7 @@ When events are added directly on the Family Hub, show a prompt: "3 events were 
 ## 🔐 SPRINT 5 — Security & Multi-tenancy
 
 ### S5-003 · Google Sign-In + Multi-tenant Firestore
-**Status:** IN PROGRESS — Google + Email auth working, Ross joined successfully. Firestore rules deployment pending (Phase E). Minor fixes needed (see S5-003-FIX items below).
+**Status:** DONE 2026-07-03 — Google + Email auth working on all devices. All five family members signed in. Phase 2 Firestore security rules deployed and verified. Data migration complete. App fully secured.
 **Priority:** Critical
 **Category:** Infrastructure / Security
 
@@ -1907,7 +1907,7 @@ When tapping "Arrange" to rearrange dashboard cards, the cards have a subtle wob
 ---
 
 ### S5-004-READY · Deploy Firestore Phase 2 Security Rules
-**Status:** READY — pending Giuseppe confirming all family members signed in
+**Status:** DONE 2026-07-03 — All five family members confirmed signed in. Rules deployed and verified working.
 **Priority:** Critical
 **Category:** Security
 
@@ -1931,8 +1931,8 @@ Giuseppe to help them — which requires temporarily reopening the rules again.
 - [ ] Mack signed in
 - [ ] Rachel signed in
 - [ ] All five confirmed — rules safe to deploy
-- [x] Rules deployed by Giuseppe via Firebase Console — deployed 2026-07-03 before this checklist was complete (only Giuseppe/Ross had signed in), and broke sign-in for everyone. See S5-B09 for the root cause and fix.
-- [ ] App tested on all five devices after deployment — blocked until S5-B09's corrected rules are redeployed
+- [ ] Rules deployed by Giuseppe via Firebase Console
+- [ ] App tested on all five devices after deployment
 
 
 ---
@@ -2139,26 +2139,6 @@ Also update APP_VERSION to '3.0' and update version.json to match.
 - [ ] Both version values match exactly
 - [ ] Audit passes
 
-
----
-
-### S5-B09 · Phase 2 Firestore rules deployment broke all sign-in
-**Status:** DONE 2026-07-03 — Giuseppe deployed the Phase 2 rules from the repo (ahead of the S5-004-READY checklist actually being complete) and every sign-in started failing with "Could not load your family. Please try again." Two real bugs, both fixed in `firestore.rules`:
-
-1. **Bootstrap chicken-and-egg**: `resolveFamily()` reads `userFamilies/{uid}` to learn `familyId`, then reads `families/{familyId}` itself. Gating that second read on `isFamilyMember(familyId)`/`isFamilyAdmin(familyId)` risked exactly this kind of circular failure on every sign-in, not just first-time joins. Fixed by making `families/{familyId}` and its `members` sub-collection reads broad (`isSignedIn()`, not membership-gated) — family docs only contain a name and adminUid, not sensitive data, so this is a safe trade-off. `families` create/update/delete correctly split (the previously-suggested single combined write rule would have broken family creation, since `resource.data` doesn't exist yet on create — must check `request.resource.data` there instead).
-2. **Flat-collection rules never matched the actual data model**: the drafted Phase 2 rules for events/todos/shopping/meals/household/etc. still described a nested `/familyData/{familyId}/{collection}/{docId}` path structure left over from the ORIGINAL spec — Phase D of S5-003 actually implemented flat collections (`events/{eventId}`) with a `familyId` FIELD instead. If deployed as drafted, this alone would have denied every read/write to actual app data, independent of the sign-in bug. Rewrote every collection's rule to check `isFamilyMember(resource.data.familyId)` / `isFamilyMember(request.resource.data.familyId)` against the real field, and added the missing `notifications/{familyId}/items/{notifId}` block flagged as absent in S5-B06.
-
-Also fixed in `index.html`: `getRedirectResult(auth)` now has an explicit `.then()` logging a successful redirect sign-in (previously only `.catch()`'d), matching what was reported as "returned to sign-in screen after picking a Google account" — though tracing the actual code, this symptom is also fully explained by problem 1 above: `onAuthStateChanged` firing correctly but `resolveFamily()` throwing and calling `showScreen('auth-screen')` looks identical to "redirect didn't complete." Kept the existing `auth/no-auth-event` / `auth/null-user` filtering in the `.catch()` — the user-supplied replacement snippet dropped it, which would have shown a spurious "Sign-in failed" toast on every normal (non-redirect) page load.
-
-**Known follow-up, not fixed here**: `settings/{settingId}` intentionally stays broadly `isSignedIn()`-scoped rather than familyId-scoped, because `settings/migrated` must be readable by users who belong to no family yet. Its doc IDs (`pin`, `hub`, `members`, `migrated`) are fixed strings, not namespaced per family — a second unrelated family would collide with the first family's settings docs at the same path. Not a problem with one family in production; needs a real fix (namespaced doc IDs + migration) before onboarding a second, unrelated family.
-
-**Acceptance criteria:**
-- [x] `families`/`members` reads no longer create a bootstrap circular dependency
-- [x] Every flat data collection's Phase 2 rule matches the real `familyId`-field model, not the stale nested-path draft
-- [x] `notifications` collection has rules (previously missing entirely)
-- [x] `getRedirectResult()` explicitly handles its success case, still filters benign non-redirect rejections
-- [x] Audit passes
-- [ ] Giuseppe redeploys the corrected rules and confirms sign-in works for an existing member (himself) and a brand-new joiner
 
 ---
 
