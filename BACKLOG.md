@@ -2057,6 +2057,89 @@ Settings panel:
 - [ ] Audit passes
 
 
+---
+
+### S5-B07 · Family member edit button not appearing in Settings
+**Status:** TODO
+**Priority:** High
+**Category:** Bug
+
+S5-B05 was marked done but the ✏️ edit button is not visible next to family member names in Settings. The screenshot shows only "Remove" buttons. Either the edit button HTML is not being rendered, is hidden by CSS, or the Settings panel is rendering from a cached version.
+
+**Diagnosis steps:**
+1. Check `renderSettingsMembers()` function — does it include an edit button in the HTML it generates?
+2. Check if there is a CSS rule hiding the button (display:none, visibility:hidden, opacity:0)
+3. Check if the Settings panel is being rebuilt correctly on open — is `renderSettingsMembers()` called inside `openSettings()`?
+4. Hard refresh the browser (Cmd+Shift+R) and check again
+
+**Fix:** Ensure the edit button renders correctly alongside the Remove button for each family member row. The button should be clearly visible, same style as Remove but in blue/teal rather than red.
+
+**Acceptance criteria:**
+- [ ] ✏️ Edit button visible next to each family member in Settings
+- [ ] Tapping Edit shows inline edit form with name + colour picker
+- [ ] Saving updates member correctly
+- [ ] Audit passes
+
+---
+
+### S5-B08 · What's New popup keeps reappearing + features list never updated
+**Status:** TODO
+**Priority:** High
+**Category:** Bug
+
+Two related issues:
+1. The What's New popup appears every time the app loads — it should only appear once per version, then not again until a new version is deployed
+2. The features list still shows the original placeholder features from the first deployment — it has never been updated with actual Sprint 3/4/5 features
+
+**Fix for issue 1 — persistent dismiss:**
+The dismiss logic must set `localStorage.setItem('fh_seen_version', APP_VERSION)` AND the check on load must compare against this. Likely bug: either the version constant name doesn't match, or the check fires before the value is set, or the APP_VERSION value keeps changing on every build.
+
+Verify:
+```javascript
+// On load check:
+const seenVersion = localStorage.getItem('fh_seen_version');
+if (seenVersion !== APP_VERSION) showWhatsNew();
+
+// On dismiss:
+localStorage.setItem('fh_seen_version', APP_VERSION);
+```
+
+Both must use the EXACT same key name and the EXACT same APP_VERSION value.
+
+**Fix for issue 2 — update features list:**
+Update the WHATS_NEW constant with actual Sprint 3-5 features. Use this list:
+
+```javascript
+const WHATS_NEW = {
+  version: '3.0',
+  title: "What's new in Family Hub",
+  features: [
+    { icon: '🔐', name: 'Sign in with Google', desc: 'Each family member now has their own secure account' },
+    { icon: '📨', name: 'Invite links', desc: 'Share one link to invite family members — no separate code needed' },
+    { icon: '🏠', name: 'New mascot', desc: 'Meet your Family Hub helper — sleeping when things are quiet!' },
+    { icon: '🔁', name: 'Recurring events', desc: 'Set weekly dog walks, gym sessions and more to repeat automatically' },
+    { icon: '📅', name: 'Multi-day events', desc: 'Holidays and trips now span across the calendar correctly' },
+    { icon: '📝', name: 'Event notes', desc: 'Add extra details to calendar events — addresses, reminders, links' },
+    { icon: '🛒', name: 'Smarter shopping', desc: 'Category guessing, store labels, and who added each item' },
+    { icon: '⭐', name: 'Favourites everywhere', desc: 'Quick-pick your regular meals, shopping items and chores' },
+    { icon: '↩️', name: 'Undo delete', desc: 'Deleted something by mistake? Tap Undo before it disappears' },
+    { icon: '🌤', name: 'Weather in header', desc: 'Current conditions for Bury always visible at the top' },
+  ]
+};
+```
+
+Also update APP_VERSION to '3.0' and update version.json to match.
+
+**Acceptance criteria:**
+- [ ] What's New popup shows once per version, never again until new version deployed
+- [ ] Dismissing popup sets fh_seen_version in localStorage
+- [ ] Features list shows actual Sprint 3/4/5 features (not placeholder text)
+- [ ] APP_VERSION = '3.0' in index.html
+- [ ] version.json contains {"version":"3.0",...}
+- [ ] Both version values match exactly
+- [ ] Audit passes
+
+
 ## 💡 FUTURE / COMMERCIAL
 
 ### F-001 · Multi-household Support
