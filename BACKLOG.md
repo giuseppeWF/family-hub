@@ -2083,7 +2083,7 @@ S5-B05 was marked done but the ✏️ edit button is not visible next to family 
 ---
 
 ### S5-B08 · What's New popup keeps reappearing + features list never updated
-**Status:** TODO
+**Status:** DONE 2026-07-03 — the check/dismiss logic itself was already correct (`localStorage.getItem('fh_seen_version') === APP_VERSION` on check, `localStorage.setItem('fh_seen_version', APP_VERSION)` on dismiss both consistently reference the same key/constant, verified by reading the code). The actual cause of "keeps reappearing": `APP_VERSION` had been bumped on nearly every single commit this sprint (4.2 → 4.3 → 4.4 → 4.5 → 4.6 → 4.7 → 4.8), so each new deploy legitimately counted as "a new version" and correctly re-showed the popup once — it just felt like a loop because of how often it was bumped, compounded by the features list still showing Sprint 3 placeholder content (dog walk rota, weather widget, etc.) that had nothing to do with what was actually new. Fixed: `WHATS_NEW` replaced with the specified Sprint 3-5 feature list (Google sign-in, invite links, mascot, recurring events, multi-day events, event notes, smarter shopping, favourites, undo delete, weather in header) plus a `title` field now wired into the popup heading (previously hardcoded, ignoring the constant). `APP_VERSION` reset to `'3.0'` in index.html and `version.json` updated to match exactly. Going forward, `APP_VERSION` should only bump for genuinely user-visible releases, not every commit. Verified in a headless browser: shows once with the new content, dismissal persists to localStorage, stays hidden across a reload at the same version.
 **Priority:** High
 **Category:** Bug
 
