@@ -2060,7 +2060,7 @@ Settings panel:
 ---
 
 ### S5-B07 · Family member edit button not appearing in Settings
-**Status:** TODO
+**Status:** DONE 2026-07-03 — root cause was NOT the code. Ran all four diagnosis steps: (1) `renderSettingsMembers()` does generate the ✏️ Edit button HTML for every member row; (2) no CSS rule anywhere hides it (`display:none`/`visibility:hidden`/`opacity:0` — none found near the button or its class); (3) it's correctly called inside `_openSettingsPanel()`, which `openSettings()` reaches after PIN unlock; (4) confirmed the actual bug — the live GitHub Pages site was still serving the pre-S5-B05 build (`version.json` → `4.6`) when this was filed, several minutes after S5-B05/B06 (`4.7`/`4.8`) were pushed to `main`. GitHub Pages' publish lag, not a code defect. Re-verified against the real live URL just now (`version.json` → `4.8`, button present in rendered DOM, screenshotted) — it renders correctly. No code change made.
 **Priority:** High
 **Category:** Bug
 
