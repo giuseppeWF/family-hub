@@ -2145,7 +2145,7 @@ Also update APP_VERSION to '3.0' and update version.json to match.
 ## 📦 SPRINT 6 — Widget Polish
 
 ### S6-001 · Overview widget — show due date on tasks
-**Status:** TODO
+**Status:** DONE 2026-07-03 — added the existing `dueBadge(due)` helper next to the who-tag in the dashboard todos widget row, only rendered when `t.due` is set. Task text truncates with ellipsis (`overflow:hidden;text-overflow:ellipsis;white-space:nowrap`) so long todo names never push the badges off-row or wrap. Verified in a headless browser with overdue/today/soon/no-due-date cases — all render correctly on one line.
 **Priority:** High
 **Category:** UX / Enhancement
 

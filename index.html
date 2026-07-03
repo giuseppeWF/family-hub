@@ -2883,7 +2883,7 @@ function getSettingsPin() { return (window.fbSettings || []).find(s => s.id === 
 // this sprint (4.2 through 4.8), re-triggering What's New on each reload even
 // though the dismiss logic itself was correct. Bump deliberately from here on,
 // not automatically on every change.
-const APP_VERSION = '3.0';
+const APP_VERSION = '3.1';
 const WHATS_NEW = {
   version: '3.0',
   title: "What's new in Family Hub",
@@ -3710,9 +3710,12 @@ function renderDashboard() {
         <div onclick="toggleTodo('${t.id}');event.stopPropagation()" style="display:flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;flex-shrink:0;cursor:pointer">
           <div class="task-check">✓</div>
         </div>
-        <div onclick="showDetail('todo','${t.id}')" style="flex:1;display:flex;align-items:center;gap:6px;cursor:pointer">
-          <div class="task-text">${t.text}</div>
-          <span class="task-tag who-tag-${t.who}" style="font-size:12px;padding:2px 7px;border-radius:6px;font-weight:600">${t.who}</span>
+        <div onclick="showDetail('todo','${t.id}')" style="flex:1;display:flex;align-items:center;gap:6px;cursor:pointer;min-width:0">
+          <div class="task-text" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">${t.text}</div>
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+            ${t.due ? dueBadge(t.due) : ''}
+            <span class="task-tag who-tag-${t.who}" style="font-size:12px;padding:2px 7px;border-radius:6px;font-weight:600">${t.who}</span>
+          </div>
         </div>
       </div>`).join('')
     : MASCOT_EMPTY_SM('All tasks done!', 'Great work everyone');
