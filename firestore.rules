@@ -21,174 +21,36 @@ service cloud.firestore {
         get(/databases/$(database)/documents/families/$(familyId)).data.adminUid == request.auth.uid;
     }
 
-    // Is the incoming data owned by this family?
-    function isOwnedByFamily(familyId) {
-      return request.resource.data.familyId == familyId;
-    }
-
-    // Does the document belong to this family?
-    function documentBelongsToFamily(familyId) {
-      return resource.data.familyId == familyId;
-    }
-
-    // ── PHASE 1 RULES (current — single family, no auth yet) ────────────────
-    // These are TEMPORARY rules that lock down test mode while we build auth.
-    // They restrict writes to valid data structures but don't yet enforce
-    // per-family isolation (that comes in Phase 2 with auth).
-    // Replace with Phase 2 rules once Google Sign-In is implemented.
-
-    // Events collection
-    match /events/{eventId} {
+    // ── FAMILY REGISTRY ───────────────────────────────────────────────────────
+    // [S5-003-FIX2] families/{familyId} read is deliberately broad (any signed-in
+    // user, not just members) to break a bootstrap chicken-and-egg problem:
+    // resolveFamily() reads userFamilies/{uid} to learn familyId, then reads
+    // families/{familyId} itself — gating that second read on isFamilyMember()
+    // reintroduces a circular dependency risk on every sign-in. Family docs
+    // contain a name and an adminUid, not sensitive data, so this is a safe
+    // trade-off for a personal family app.
+    match /families/{familyId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn()
-        && request.resource.data.keys().hasAll(['name', 'date', 'who'])
-        && request.resource.data.name is string
-        && request.resource.data.name.size() > 0
-        && request.resource.data.name.size() < 200;
-      allow update: if isSignedIn()
-        && request.resource.data.keys().hasAll(['name', 'date', 'who']);
-      allow delete: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.adminUid == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.adminUid == request.auth.uid;
+
+      // Family members sub-collection. Read is broad for the same bootstrap
+      // reason as the parent doc. A user may only ever create/delete their
+      // OWN member doc (self-service join/leave via an invite code checked
+      // client-side); the admin can additionally manage any member.
+      match /members/{memberId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() && memberId == request.auth.uid;
+        allow update, delete: if isFamilyAdmin(familyId)
+          || (isSignedIn() && memberId == request.auth.uid);
+      }
     }
-
-    // Todos collection
-    match /todos/{todoId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn()
-        && request.resource.data.keys().hasAll(['text', 'who', 'done'])
-        && request.resource.data.text is string
-        && request.resource.data.text.size() > 0
-        && request.resource.data.text.size() < 500
-        && request.resource.data.done is bool;
-      allow update: if isSignedIn()
-        && request.resource.data.keys().hasAll(['text', 'who', 'done']);
-      allow delete: if isSignedIn();
-    }
-
-    // Shopping collection
-    match /shopping/{itemId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn()
-        && request.resource.data.keys().hasAll(['name', 'done'])
-        && request.resource.data.name is string
-        && request.resource.data.name.size() > 0
-        && request.resource.data.done is bool;
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
-    }
-
-    // Shopping favourites
-    match /shopfavs/{favId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn()
-        && request.resource.data.keys().hasAll(['name'])
-        && request.resource.data.name is string
-        && request.resource.data.name.size() > 0;
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
-    }
-
-    // Meals collection
-    match /meals/{mealId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn()
-        && request.resource.data.keys().hasAll(['name', 'day'])
-        && request.resource.data.name is string
-        && request.resource.data.day is string;
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
-    }
-
-    // Meal favourites
-    match /mealfavs/{favId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn()
-        && request.resource.data.keys().hasAll(['name'])
-        && request.resource.data.name is string;
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
-    }
-
-    // Household tasks collection
-    match /household/{taskId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn()
-        && request.resource.data.keys().hasAll(['text', 'done'])
-        && request.resource.data.text is string
-        && request.resource.data.text.size() > 0
-        && request.resource.data.done is bool;
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
-    }
-
-    // Dog walks collection
-    match /dogwalks/{walkId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
-    }
-
-    // Scores / gamification
-    match /scores/{scoreId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
-    }
-
-    // Activity log (S4-004) — read-only for all signed-in users, append-only writes
-    // Admins restore deleted items by updating the original collection, not the log
-    match /activityLog/{entryId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn()
-        && request.resource.data.keys().hasAll(['action', 'col', 'itemName', 'who', 'at'])
-        && request.resource.data.action is string
-        && request.resource.data.who is string;
-      allow update: if false;  // log entries are immutable
-      allow delete: if isSignedIn();  // cleanup function needs to purge old entries
-    }
-
-    // Todo favourites
-    match /todofavs/{favId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn()
-        && request.resource.data.keys().hasAll(['text'])
-        && request.resource.data.text is string
-        && request.resource.data.text.size() > 0;
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
-    }
-
-    // Settings collection (hub name, members, PIN hash)
-    match /settings/{settingId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
-    }
-
-    // ── PHASE 2 RULES (add once Google Auth is implemented) ─────────────────
-    // Uncomment and replace Phase 1 rules above with these once S5-003 is done.
-    // These enforce strict per-family data isolation.
-
-    // Family registry — anyone signed in can create a family, only admin can update
-    // match /families/{familyId} {
-    //   allow read: if isFamilyMember(familyId) || isFamilyAdmin(familyId);
-    //   allow create: if isSignedIn()
-    //     && request.resource.data.adminUid == request.auth.uid;
-    //   allow update: if isFamilyAdmin(familyId);
-    //   allow delete: if isFamilyAdmin(familyId);
-    //
-    //   // Family members sub-collection. A user may only ever create/delete
-    //   // their OWN member doc (self-service join/leave via an invite code
-    //   // checked client-side); the admin can additionally manage any member.
-    //   match /members/{memberId} {
-    //     allow read: if isFamilyMember(familyId);
-    //     allow create: if isSignedIn() && memberId == request.auth.uid;
-    //     allow update, delete: if isFamilyAdmin(familyId)
-    //       || (isSignedIn() && memberId == request.auth.uid);
-    //   }
-    // }
 
     // Reverse lookup: which family is this user in? Written once on
     // create-family / join-family, read on every sign-in to resolve family.
-    // match /userFamilies/{uid} {
-    //   allow read, write: if isSignedIn() && request.auth.uid == uid;
-    // }
+    match /userFamilies/{uid} {
+      allow read, write: if isSignedIn() && request.auth.uid == uid;
+    }
 
     // Family invite codes. Read is intentionally public (not gated on
     // isSignedIn()): S5-B04's invite LINK is previewed on the sign-in screen
@@ -196,27 +58,157 @@ service cloud.firestore {
     // invited to join [Hub Name]" pre-auth. Only readable if you already
     // know the exact random 6-digit code (900k combinations, single-use,
     // 24h expiry) — an acceptable trade-off for a personal family app.
-    // update is restricted to flipping the "used" tracking fields only, so a
+    // Creation stays admin-only — only the hub's admin generates invite codes.
+    // Update is restricted to flipping the "used" tracking fields only, so a
     // joining (non-admin) user can redeem a code without being able to
     // repurpose it for a different family.
-    // match /invites/{inviteCode} {
-    //   allow read: if true;
-    //   allow create: if isFamilyAdmin(request.resource.data.familyId);
-    //   allow update: if isSignedIn()
-    //     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used', 'usedBy', 'usedAt']);
-    //   allow delete: if isFamilyAdmin(resource.data.familyId);
-    // }
+    match /invites/{inviteCode} {
+      allow read: if true;
+      allow create: if isFamilyAdmin(request.resource.data.familyId);
+      allow update: if isSignedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used', 'usedBy', 'usedAt']);
+      allow delete: if isFamilyAdmin(resource.data.familyId);
+    }
 
-    // Per-family data — all collections scoped to familyId
-    // match /familyData/{familyId}/{collection}/{docId} {
-    //   allow read: if isFamilyMember(familyId);
-    //   allow create: if isFamilyMember(familyId)
-    //     && isOwnedByFamily(familyId);
-    //   allow update: if isFamilyMember(familyId)
-    //     && documentBelongsToFamily(familyId);
-    //   allow delete: if isFamilyMember(familyId)
-    //     && documentBelongsToFamily(familyId);
-    // }
+    // ── PER-FAMILY APP DATA ──────────────────────────────────────────────────
+    // [S5-003-FIX2] These collections are FLAT (events/{eventId}, not nested
+    // under a per-family path) with a familyId FIELD on every document —
+    // that's what Phase D of S5-003 actually implemented. The isolation rule
+    // is the same shape for every collection: you must be a member of the
+    // family named in the document's familyId field.
+
+    match /events/{eventId} {
+      allow read: if isFamilyMember(resource.data.familyId);
+      allow create: if isFamilyMember(request.resource.data.familyId)
+        && request.resource.data.keys().hasAll(['name', 'date', 'who'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() < 200;
+      allow update: if isFamilyMember(resource.data.familyId)
+        && isFamilyMember(request.resource.data.familyId)
+        && request.resource.data.keys().hasAll(['name', 'date', 'who']);
+      allow delete: if isFamilyMember(resource.data.familyId);
+    }
+
+    match /todos/{todoId} {
+      allow read: if isFamilyMember(resource.data.familyId);
+      allow create: if isFamilyMember(request.resource.data.familyId)
+        && request.resource.data.keys().hasAll(['text', 'who', 'done'])
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() < 500
+        && request.resource.data.done is bool;
+      allow update: if isFamilyMember(resource.data.familyId)
+        && isFamilyMember(request.resource.data.familyId)
+        && request.resource.data.keys().hasAll(['text', 'who', 'done']);
+      allow delete: if isFamilyMember(resource.data.familyId);
+    }
+
+    match /shopping/{itemId} {
+      allow read: if isFamilyMember(resource.data.familyId);
+      allow create: if isFamilyMember(request.resource.data.familyId)
+        && request.resource.data.keys().hasAll(['name', 'done'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.done is bool;
+      allow update: if isFamilyMember(resource.data.familyId) && isFamilyMember(request.resource.data.familyId);
+      allow delete: if isFamilyMember(resource.data.familyId);
+    }
+
+    match /shopfavs/{favId} {
+      allow read: if isFamilyMember(resource.data.familyId);
+      allow create: if isFamilyMember(request.resource.data.familyId)
+        && request.resource.data.keys().hasAll(['name'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0;
+      allow update: if isFamilyMember(resource.data.familyId) && isFamilyMember(request.resource.data.familyId);
+      allow delete: if isFamilyMember(resource.data.familyId);
+    }
+
+    match /meals/{mealId} {
+      allow read: if isFamilyMember(resource.data.familyId);
+      allow create: if isFamilyMember(request.resource.data.familyId)
+        && request.resource.data.keys().hasAll(['name', 'day'])
+        && request.resource.data.name is string
+        && request.resource.data.day is string;
+      allow update: if isFamilyMember(resource.data.familyId) && isFamilyMember(request.resource.data.familyId);
+      allow delete: if isFamilyMember(resource.data.familyId);
+    }
+
+    match /mealfavs/{favId} {
+      allow read: if isFamilyMember(resource.data.familyId);
+      allow create: if isFamilyMember(request.resource.data.familyId)
+        && request.resource.data.keys().hasAll(['name'])
+        && request.resource.data.name is string;
+      allow update: if isFamilyMember(resource.data.familyId) && isFamilyMember(request.resource.data.familyId);
+      allow delete: if isFamilyMember(resource.data.familyId);
+    }
+
+    match /household/{taskId} {
+      allow read: if isFamilyMember(resource.data.familyId);
+      allow create: if isFamilyMember(request.resource.data.familyId)
+        && request.resource.data.keys().hasAll(['text', 'done'])
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.done is bool;
+      allow update: if isFamilyMember(resource.data.familyId) && isFamilyMember(request.resource.data.familyId);
+      allow delete: if isFamilyMember(resource.data.familyId);
+    }
+
+    match /todofavs/{favId} {
+      allow read: if isFamilyMember(resource.data.familyId);
+      allow create: if isFamilyMember(request.resource.data.familyId)
+        && request.resource.data.keys().hasAll(['text'])
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0;
+      allow update: if isFamilyMember(resource.data.familyId) && isFamilyMember(request.resource.data.familyId);
+      allow delete: if isFamilyMember(resource.data.familyId);
+    }
+
+    match /dogwalks/{walkId} {
+      allow read: if isFamilyMember(resource.data.familyId);
+      allow write: if isFamilyMember(request.resource.data.familyId);
+    }
+
+    match /scores/{scoreId} {
+      allow read: if isFamilyMember(resource.data.familyId);
+      allow write: if isFamilyMember(request.resource.data.familyId);
+    }
+
+    // Activity log (S4-004) — append-only, immutable once written.
+    match /activityLog/{entryId} {
+      allow read: if isFamilyMember(resource.data.familyId);
+      allow create: if isFamilyMember(request.resource.data.familyId)
+        && request.resource.data.keys().hasAll(['action', 'col', 'itemName', 'who', 'at'])
+        && request.resource.data.action is string
+        && request.resource.data.who is string;
+      allow update: if false;  // log entries are immutable
+      allow delete: if isFamilyMember(resource.data.familyId);  // cleanup function needs to purge old entries
+    }
+
+    // Settings (hub name, PIN hash, device-roster members, migrated flag).
+    // Deliberately NOT familyId-scoped like the collections above: settings/
+    // migrated must be readable by users who belong to NO family yet (that's
+    // the whole point of the check — "has anyone claimed the legacy data" —
+    // isFamilyMember() would deny exactly the users who need to read it).
+    // KNOWN LIMITATION (tracked as a follow-up, not fixed here): doc IDs in
+    // this collection ('pin', 'hub', 'members', 'migrated') are fixed and NOT
+    // namespaced per family, so two different families' settings docs would
+    // collide at the same path. Low risk today (one family in production);
+    // needs fixing before onboarding a second unrelated family.
+    match /settings/{settingId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    // Admin join notifications (S5-B06).
+    match /notifications/{familyId}/items/{notifId} {
+      allow read: if isFamilyAdmin(familyId);
+      allow create: if isFamilyMember(familyId);
+      allow update: if isFamilyAdmin(familyId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seen']);
+      allow delete: if isFamilyAdmin(familyId);
+    }
 
     // ── DENY EVERYTHING ELSE ─────────────────────────────────────────────────
     // Any collection not explicitly listed above is denied by default.

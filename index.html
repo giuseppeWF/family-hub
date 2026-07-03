@@ -504,10 +504,22 @@
     // Safety net: if loadPendingInvite() resolved before the DOM existed,
     // its own updateInviteBanner() call would have been a no-op — sync once more.
     updateInviteBanner();
-    // Handle Google redirect return (no-op if not a redirect)
-    getRedirectResult(auth).catch(e => {
+    // [S5-003-FIX2] Handle Google redirect return. This must run BEFORE
+    // onAuthStateChanged is registered below, and its result explicitly
+    // logged — onAuthStateChanged still does the actual work of loading the
+    // family once Firebase settles on a user, this is just visibility into
+    // whether the redirect itself resolved to a user.
+    // auth/no-auth-event and auth/null-user are NOT errors — they just mean
+    // "this page load wasn't a return from a redirect," which is true on
+    // every normal load and must not surface as a sign-in failure toast.
+    getRedirectResult(auth).then(result => {
+      if (result && result.user) {
+        console.log('Redirect sign-in successful:', result.user.email);
+      }
+    }).catch(e => {
       if (e.code !== 'auth/no-auth-event' && e.code !== 'auth/null-user') {
-        if (typeof window.showAuthError === 'function') window.showAuthError(e.message || 'Sign-in error');
+        console.error('Redirect error:', e);
+        if (typeof window.showAuthError === 'function') window.showAuthError(e.code || e.message || 'Sign-in error');
       }
     });
 
