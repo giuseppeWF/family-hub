@@ -2140,6 +2140,87 @@ Also update APP_VERSION to '3.0' and update version.json to match.
 - [ ] Audit passes
 
 
+---
+
+## 📦 SPRINT 6 — Widget Polish
+
+### S6-001 · Overview widget — show due date on tasks
+**Status:** TODO
+**Priority:** High
+**Category:** UX / Enhancement
+
+Tasks and chores on the overview To-dos widget should show their due date inline so the family can see urgency at a glance without navigating to the full tab.
+
+**Implementation:**
+- In `renderDashboard()` todos section, add due date display after the who tag
+- Use the existing `dueBadge(due)` helper — it already handles overdue (red), today (amber), soon (teal), future (muted)
+- Only show if due date is set — no empty space if no due date
+- Keep it compact — the widget has limited space
+
+```javascript
+// In dashboard todo row:
+`<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+  ${t.due ? dueBadge(t.due) : ''}
+  <span class="who-tag-${t.who}">${t.who}</span>
+</div>`
+```
+
+**Acceptance criteria:**
+- [ ] Due date badge visible on todo items in overview widget
+- [ ] Uses existing dueBadge() styling (red overdue, amber today, teal soon)
+- [ ] No empty space shown when task has no due date
+- [ ] Still fits on one line without wrapping on mobile
+- [ ] Audit passes
+
+---
+
+### S6-002 · Meals widget — full 7 days, actual date, who's cooking, scrollable
+**Status:** TODO
+**Priority:** High
+**Category:** UX / Enhancement
+
+The meals overview widget currently shows only 3 upcoming meals, without the actual date (just day name), without who's cooking, and doesn't scroll internally. Four improvements in one pass:
+
+**1. Show all 7 days (not just 3)**
+Change `.slice(0,3)` to show all 7 days of the week. Days with no meal planned should show a placeholder "Nothing planned — tap to add" so the week feels complete.
+
+**2. Show actual date alongside day name**
+Instead of just "Fri", show "Fri 4 Jul" — much more useful context.
+
+```javascript
+const d = weekDates[dayOrder.indexOf(m.day)];
+const dateLabel = d ? d.toLocaleDateString('en-GB', {day:'numeric', month:'short'}) : '';
+// Display: "Fri 4 Jul"
+```
+
+**3. Show who's cooking**
+Add the `who` field (set when meal was added — "Who's cooking?") below the meal name, in their colour. If not set, show nothing.
+
+**4. Make widget scrollable internally**
+Same as the todos widget — the card body scrolls internally so all 7 days are accessible from the overview without navigating to the Meals tab. Apply same `overflow-y: auto; max-height: 220px` pattern as other widgets.
+
+**Meal row format:**
+```
+Fri 4 Jul   Takeaway 🥡          Ross picks this week
+             • Ross
+```
+
+**Empty day row format:**
+```
+Sat 5 Jul   Nothing planned yet  [+ Add]
+```
+Tapping the empty row opens the add meal modal pre-filled with that day.
+
+**Acceptance criteria:**
+- [ ] All 7 days shown in meals widget
+- [ ] Days with no meal show friendly placeholder with tap-to-add
+- [ ] Actual date shown alongside day name (e.g. "Fri 4 Jul")
+- [ ] Who's cooking shown in their colour (if set)
+- [ ] Widget scrolls internally to show all 7 days
+- [ ] Tapping empty day opens add meal modal for that day
+- [ ] Audit passes
+
+
 ## 💡 FUTURE / COMMERCIAL
 
 ### F-001 · Multi-household Support
