@@ -2175,7 +2175,7 @@ Tasks and chores on the overview To-dos widget should show their due date inline
 ---
 
 ### S6-002 · Meals widget — full 7 days, actual date, who's cooking, scrollable
-**Status:** TODO
+**Status:** DONE 2026-07-03 — dashboard meals widget now iterates all 7 days Monday-first (previously "next 3 upcoming, wrapping from today" — changed to match the full Meals tab's own Monday-first ordering, which is what the spec's `weekDates[dayOrder.indexOf(m.day)]` snippet implied). Each day shows its real date next to the abbreviated name (e.g. "Fri 4 Jul"). Days with a meal show who's cooking in their member colour below the meal name. Empty days show "Nothing planned yet" + "+ Add", tapping opens the add-meal modal pre-filled with that specific day via a new `openMealModalForDay(day)` helper (overrides `openModal('meal')`'s own "next free day" default). Internal scrolling needed no new code — `.dash-card-body`'s existing `overflow-y:auto;max-height:220px` already applies to every dashboard card. Verified in a headless browser: 7 rows render, correct dates/colours/placeholder text, tapping an empty day opens the modal with that day selected.
 **Priority:** High
 **Category:** UX / Enhancement
 

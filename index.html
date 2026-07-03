@@ -2883,7 +2883,7 @@ function getSettingsPin() { return (window.fbSettings || []).find(s => s.id === 
 // this sprint (4.2 through 4.8), re-triggering What's New on each reload even
 // though the dismiss logic itself was correct. Bump deliberately from here on,
 // not automatically on every change.
-const APP_VERSION = '3.1';
+const APP_VERSION = '3.2';
 const WHATS_NEW = {
   version: '3.0',
   title: "What's new in Family Hub",
@@ -3749,29 +3749,37 @@ function renderDashboard() {
       }).join('')
     : MASCOT_EMPTY_SM('Shopping list is empty', 'Tap + to add items');
 
-  // Meals
+  // Meals — S6-002: full 7 days, Monday-first (matches the Meals tab's own
+  // ordering), actual date, who's cooking, empty days tap-to-add.
   const dayOrder = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-  const todayDay = today.toLocaleDateString('en-GB',{weekday:'long'});
-  const todayIdx = dayOrder.indexOf(todayDay);
-  // Sort all meals by day order, starting from today, wrapping around
-  const upcoming = [...meals]
-    .sort((a,b) => {
-      const ai = (dayOrder.indexOf(a.day) - todayIdx + 7) % 7;
-      const bi = (dayOrder.indexOf(b.day) - todayIdx + 7) % 7;
-      return ai - bi;
-    })
-    .filter(m => (dayOrder.indexOf(m.day) - todayIdx + 7) % 7 < 7)
-    .slice(0,3);
+  const members = getFamilyMembers();
   const meEl = document.getElementById('dash-meals');
-  meEl.innerHTML = upcoming.length
-    ? upcoming.map(m => `<div class="meal-row" onclick="showDetail('meal','${m.id}')" style="cursor:pointer">
-        <div class="meal-day">${(m.day||'').substring(0,3)}</div>
+  meEl.innerHTML = dayOrder.map((dayName, idx) => {
+    const m = meals.find(x => x.day === dayName);
+    const d = weekDates[idx];
+    const dayLabel = dayName.substring(0,3) + (d ? ' ' + d.toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : '');
+    if (!m) {
+      return `<div class="meal-row" onclick="openMealModalForDay('${dayName}')" style="cursor:pointer">
+        <div class="meal-day" style="min-width:56px">${dayLabel}</div>
+        <div style="flex:1;display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <span style="color:var(--cream-muted);font-size:13px">Nothing planned yet</span>
+          <span style="font-size:12px;color:var(--sage);font-weight:700;flex-shrink:0">+ Add</span>
+        </div>
+      </div>`;
+    }
+    const mc = members.find(x => x.name === m.who);
+    const whoLine = m.who
+      ? `<div style="font-size:12px;margin-top:2px;color:${mc ? mc.color : 'var(--cream-muted)'}">• ${m.who}</div>`
+      : '';
+    return `<div class="meal-row" onclick="showDetail('meal','${m.id}')" style="cursor:pointer">
+        <div class="meal-day" style="min-width:56px">${dayLabel}</div>
         <div style="flex:1">
           <div class="meal-name">${m.name}</div>
           ${m.notes ? '<div style="font-size:12px;color:var(--cream-muted);margin-top:2px">' + m.notes + '</div>' : ''}
+          ${whoLine}
         </div>
-      </div>`).join('')
-    : MASCOT_EMPTY_SM('No meals planned yet', 'Tap + to plan the week');
+      </div>`;
+  }).join('');
 }
 
 // ── CALENDAR ──────────────────────────────────────────────────────────────────
@@ -4301,6 +4309,15 @@ function openModal(type) {
   }
   if (type === 'household') renderWhoChips('new-house-who-chips', 'new-house-who');
   document.getElementById('modal-overlay').classList.add('open');
+}
+
+// S6-002: tapping an empty day in the dashboard meals widget opens the add
+// meal modal pre-filled with that specific day, overriding openModal('meal')'s
+// own "next free day" default.
+function openMealModalForDay(day) {
+  openModal('meal');
+  const daySel = document.getElementById('new-meal-day');
+  if (daySel) daySel.value = day;
 }
 
 function renderWhoChips(containerId, hiddenId, opts) {
