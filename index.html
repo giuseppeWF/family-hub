@@ -3039,9 +3039,9 @@ function getSettingsPin() { return (window.fbSettings || []).find(s => s.id === 
 // ── APP VERSION & WHAT'S NEW ──────────────────────────────────────────────────
 // S5-B08-FIX2: bump deliberately for genuinely user-visible releases only —
 // not automatically on every commit (that was the original loop complaint).
-const APP_VERSION = '3.4';
+const APP_VERSION = '3.5';
 const WHATS_NEW = {
-  version: '3.4',
+  version: '3.5',
   title: "What's new in Family Hub",
   features: [
     { icon: '🔐', name: 'Sign in with Google', desc: 'Each family member now has their own secure account' },
@@ -3571,7 +3571,9 @@ function renderHousehold() {
         '</div>' +
         (t.notes ? '<div style="font-size:12px;color:var(--cream-muted);padding-left:34px">' + t.notes + '</div>' : '') +
       '</div>')
-  ).join('') || MASCOT_EMPTY('No tasks yet', 'Tap + to add your first house project');
+  ).join('') || (activeRoom !== 'All'
+    ? MASCOT_EMPTY(`Nothing in ${activeRoom}`, 'Try a different room or add a task')
+    : MASCOT_EMPTY('No tasks yet', 'Tap + to add your first house project'));
 
   const houseDoneLabel = document.getElementById('household-done-label');
   houseDoneLabel.style.display = done.length ? 'block' : 'none';
@@ -4095,7 +4097,7 @@ function showMonthDayEvents(dStr) {
             <div class="cal-event-meta who-${e.who}">${e.who||''}</div>
           </div>
         </div>`).join('')
-      : '<div style="color:var(--cream-muted);font-size:14px;padding:8px 0">Nothing on this day — tap + to add an event</div>');
+      : MASCOT_EMPTY_SM('Nothing on this day', 'Tap + to add an event'));
 }
 
 function filterCalDay(dStr) {
@@ -4129,7 +4131,7 @@ function filterCalDay(dStr) {
         <div class="cal-event-name">${e.name}</div>
         <div class="cal-event-meta who-${e.who}">${e.who||''}</div>
       </div>
-    </div>`).join('') || '<div style="color:var(--cream-muted);font-size:14px;padding:12px 0">Nothing on this day</div>';
+    </div>`).join('') || MASCOT_EMPTY_SM('Nothing on this day', 'Tap + to add an event');
 }
 
 // ── TODOS ─────────────────────────────────────────────────────────────────────

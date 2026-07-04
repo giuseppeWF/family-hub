@@ -215,20 +215,24 @@ When the app has been idle for 5 minutes, switch to a full-screen photo slidesho
 ---
 
 ### S4-003 · Better Empty States (Polish Pass)
-**Status:** TODO
-**Priority:** Low
-**Category:** UX Polish
+**Status:** DONE 2026-07-04 — audited every listed section against the sleeping-mascot (`MASCOT_EMPTY`/`MASCOT_EMPTY_SM`) pattern:
+- **Calendar week view** (`#cal-events-full`, the full week list): already correct — "Nothing this week yet" + hint.
+- **Calendar month view (empty day)**: was plain text with no mascot — fixed, now `MASCOT_EMPTY_SM('Nothing on this day', 'Tap + to add an event')`.
+- **Calendar week view (tapping a specific empty day)**: separate code path (`filterCalDay`) from the above, also plain text with no hint at all — fixed the same way.
+- **Todos pending**: already correct (filter-aware: "Nothing for X" vs "All tasks done!").
+- **Todos done**: no mascot, by design — the whole "Done" section (label + list) hides entirely when empty rather than showing an empty state for an irrelevant section. Confirmed intentional, left as-is.
+- **Shopping (each category)**: not actually possible to have an empty category — categories are derived from items actually present (`activeCats`), so a zero-item category never renders a section at all. Whole-list empty state already fixed in S6-003.
+- **Meals**: whole-list empty state already fixed in S6-003.
+- **Household**: whole-list empty state already fixed in S6-003; "done" section hides entirely when empty, same reasoning as Todos done.
+- **Household filtered by room**: real gap found — always said "No tasks yet" regardless of which room was selected, misleading when other rooms have tasks and only the selected room is empty. Fixed to match the Todos filter pattern: "Nothing in {room}" / "Try a different room or add a task" when a specific room is selected, generic message only when "All" is selected.
 
-**Description:**
-Review all empty states across all tabs. Make sure they're friendly, have an emoji, explain what the section is for, and have a clear call to action.
-
-**Tabs to review:** calendar week view, calendar month view, todos pending, todos done, shopping (each category), meals, household, household filtered by room.
+Verified all four fixes in a headless browser: month-view and week-view empty-day states both render the mascot, room-filtered household shows the room-specific message.
 
 **Acceptance criteria:**
-- [ ] All empty states have emoji + title + subtitle + action hint
-- [ ] Consistent visual style across all tabs
-- [ ] Month view empty day has "Tap + to add an event" hint
-- [ ] Audit passes
+- [x] All empty states have emoji (mascot) + title + subtitle + action hint
+- [x] Consistent visual style across all tabs (`MASCOT_EMPTY`/`MASCOT_EMPTY_SM` used everywhere applicable)
+- [x] Month view empty day has "Tap + to add an event" hint
+- [x] Audit passes
 
 ---
 
