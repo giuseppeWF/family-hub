@@ -5,6 +5,7 @@ Run this before every git commit. Zero issues = safe to deploy.
 Usage: python3 audit.py
 """
 
+import json
 import subprocess
 import re
 import sys
@@ -36,11 +37,11 @@ else:
 # ── 2. REQUIRED MODAL FIELDS ──────────────────────────────────────────────────
 required_fields = [
     # Event
-    'new-event-name', 'new-event-date', 'new-event-start', 'new-event-end',
-    'new-event-who', 'new-event-who-chips', 'new-event-recur',
+    'new-event-name', 'new-event-date', 'new-event-end-date', 'new-event-start', 'new-event-end',
+    'new-event-who', 'new-event-who-chips', 'new-event-recur', 'new-event-notes',
     # Todo
     'new-todo-text', 'new-todo-who', 'new-todo-who-chips',
-    'new-todo-type', 'new-todo-due', 'new-todo-recur',
+    'new-todo-type', 'new-todo-due', 'new-todo-recur', 'new-todo-save-fav',
     # Shopping
     'new-shop-name', 'new-shop-qty', 'new-shop-cat',
     'new-shop-who', 'new-shop-who-chips', 'new-shop-save-fav',
@@ -57,7 +58,7 @@ for field in required_fields:
 
 # ── 3. FIRESTORE LISTENERS ────────────────────────────────────────────────────
 required_listeners = ['events', 'todos', 'shopping', 'meals',
-                      'household', 'shopfavs', 'mealfavs']
+                      'household', 'shopfavs', 'mealfavs', 'todofavs', 'activityLog']
 for col in required_listeners:
     check(f'listener:{col}', f"listenCol('{col}'" in content,
           f"Missing Firestore listener for collection: '{col}'")
@@ -103,7 +104,7 @@ for t in ['event', 'todo', 'shop', 'meal', 'household']:
 
 # ── 8. EDIT MODAL COVERAGE ────────────────────────────────────────────────────
 edit_start = content.find('function openEditItem')
-edit_fn    = content[edit_start:edit_start + 5000] if edit_start > 0 else ''
+edit_fn    = content[edit_start:edit_start + 8000] if edit_start > 0 else ''
 for t in ['todo', 'shop', 'meal', 'event', 'household']:
     check(f'openEditItem:{t}', f"if (type === '{t}')" in edit_fn,
           f"openEditItem() missing case for type '{t}'")
@@ -141,6 +142,7 @@ core_fns = [
     'function closeModal', 'function openEditItem', 'function saveEditItem',
     'function showDetail', 'function deleteItem', 'function setSyncStatus',
     'function runQA', 'function switchView', 'function applyCardState',
+    'async function logActivity', 'function renderActivityLog',
 ]
 for fn in core_fns:
     check(f'fn:{fn}', fn in content, f"Missing core function: {fn}")
@@ -154,7 +156,7 @@ check('firebase:firestore-import',
       "Firestore SDK import missing")
 
 # ── 13. NO DUPLICATE IDS ─────────────────────────────────────────────────────
-ids = re.findall(r'id="([^"]+)"', content)
+ids = re.findall(r'(?<![a-z-])id="([^"]+)"', content)
 seen, dupes = set(), set()
 for id_ in ids:
     if id_ in seen:
@@ -170,6 +172,69 @@ check('meta:viewport',
 check('meta:pwa-capable',
       'mobile-web-app-capable' in content,
       "Missing PWA meta tag")
+
+# ── 15. WHAT'S NEW SYSTEM (TESTING.md Section A7) ─────────────────────────────
+# The What's New popup has regressed twice (S5-B08, S5-B08-FIX2) — these
+# checks exist so a future change can't silently reintroduce either bug.
+app_version_match = re.search(r"const APP_VERSION\s*=\s*'([^']+)'", content)
+app_version = app_version_match.group(1) if app_version_match else None
+check("whatsnew:app-version-exists", app_version is not None,
+      "APP_VERSION constant not found in index.html")
+
+version_json = None
+try:
+    with open('version.json') as f:
+        version_json = json.load(f)
+except (FileNotFoundError, json.JSONDecodeError) as e:
+    issues.append(f"version.json missing or invalid: {e}")
+
+if version_json is not None:
+    check("whatsnew:version-json-has-version", 'version' in version_json,
+          "version.json has no \"version\" key")
+    if app_version is not None:
+        check("whatsnew:versions-match",
+              version_json.get('version') == app_version,
+              f"APP_VERSION ('{app_version}') != version.json ('{version_json.get('version')}') "
+              "— mismatch makes the update banner loop forever")
+
+# checkWhatsNew() must fetch version.json itself rather than relying solely
+# on the APP_VERSION baked into whatever HTML happens to be cached — that
+# was the root cause of the popup reappearing across reloads (S5-B08-FIX2).
+cwn_start = content.find('function checkWhatsNew')
+cwn_end   = content.find('\nfunction closeWhatsNew', cwn_start)
+cwn_fn    = content[cwn_start:cwn_end] if cwn_start > 0 else ''
+check("whatsnew:fetches-version-json",
+      "fetch('version.json" in cwn_fn,
+      "checkWhatsNew() must fetch version.json — comparing only against the "
+      "baked-in APP_VERSION reintroduces the reappearing-popup bug")
+
+# closeWhatsNew() must persist the SAME value checkWhatsNew() compared
+# against (a fetched variable), not re-read the baked-in constant, or the
+# two can disagree after a stale-cache reload.
+ccwn_start = content.find('function closeWhatsNew')
+ccwn_fn    = content[ccwn_start:ccwn_start + 300] if ccwn_start > 0 else ''
+check("whatsnew:persists-seen-version",
+      "localStorage.setItem('fh_seen_version'" in ccwn_fn,
+      "closeWhatsNew() must set localStorage 'fh_seen_version' on dismiss")
+check("whatsnew:persists-fetched-value-not-constant",
+      "localStorage.setItem('fh_seen_version', APP_VERSION)" not in ccwn_fn,
+      "closeWhatsNew() persists the baked-in APP_VERSION instead of the "
+      "fetched version.json value checkWhatsNew() actually compared against"
+)
+
+# WHATS_NEW.features must exist, be non-trivial, and not still contain the
+# original placeholder content from before S5-B08 (a regression signal if
+# a future stale-file overwrite reintroduces it).
+wn_start = content.find('const WHATS_NEW')
+wn_end   = content.find('\n};', wn_start) if wn_start > 0 else -1
+wn_block = content[wn_start:wn_end] if wn_start > 0 else ''
+feature_count = len(re.findall(r"\{\s*icon:", wn_block))
+check("whatsnew:features-non-trivial", feature_count >= 5,
+      f"WHATS_NEW.features has only {feature_count} entries — looks incomplete")
+stale_markers = ['Dog walk rota', 'Weather widget', 'Auto update prompts', 'TODO', 'TBD', 'placeholder']
+found_stale = [m for m in stale_markers if m in wn_block]
+check("whatsnew:no-stale-placeholder-content", not found_stale,
+      f"WHATS_NEW.features still contains stale/placeholder text: {found_stale}")
 
 # ── REPORT ────────────────────────────────────────────────────────────────────
 print(f"\n{'='*60}")

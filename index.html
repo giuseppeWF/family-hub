@@ -2879,25 +2879,26 @@ function getActivityLog(){ return (window.fbActivityLog || []).sort((a,b) => (b.
 function getSettingsPin() { return (window.fbSettings || []).find(s => s.id === 'pin') || null; }
 
 // ── APP VERSION & WHAT'S NEW ──────────────────────────────────────────────────
-// S5-B08: reset to 3.0 — APP_VERSION had been bumped on nearly every commit
-// this sprint (4.2 through 4.8), re-triggering What's New on each reload even
-// though the dismiss logic itself was correct. Bump deliberately from here on,
-// not automatically on every change.
-const APP_VERSION = '3.2';
+// S5-B08-FIX2: bump deliberately for genuinely user-visible releases only —
+// not automatically on every commit (that was the original loop complaint).
+const APP_VERSION = '3.1';
 const WHATS_NEW = {
-  version: '3.0',
+  version: '3.1',
   title: "What's new in Family Hub",
   features: [
     { icon: '🔐', name: 'Sign in with Google', desc: 'Each family member now has their own secure account' },
-    { icon: '📨', name: 'Invite links', desc: 'Share one link to invite family members — no separate code needed' },
-    { icon: '🏠', name: 'New mascot', desc: 'Meet your Family Hub helper — sleeping when things are quiet!' },
+    { icon: '📨', name: 'Invite link to join', desc: 'Share one link to invite family members — no separate code needed' },
     { icon: '🔁', name: 'Recurring events', desc: 'Set weekly dog walks, gym sessions and more to repeat automatically' },
     { icon: '📅', name: 'Multi-day events', desc: 'Holidays and trips now span across the calendar correctly' },
     { icon: '📝', name: 'Event notes', desc: 'Add extra details to calendar events — addresses, reminders, links' },
+    { icon: '🍽', name: 'Full week of meals', desc: "See all 7 days at a glance, with the date and who's cooking" },
+    { icon: '📌', name: 'Due dates on tasks', desc: 'See at a glance which tasks and chores are overdue or due soon' },
     { icon: '🛒', name: 'Smarter shopping', desc: 'Category guessing, store labels, and who added each item' },
     { icon: '⭐', name: 'Favourites everywhere', desc: 'Quick-pick your regular meals, shopping items and chores' },
     { icon: '↩️', name: 'Undo delete', desc: 'Deleted something by mistake? Tap Undo before it disappears' },
     { icon: '🌤', name: 'Weather in header', desc: 'Current conditions for Bury always visible at the top' },
+    { icon: '👤', name: 'Filter tasks by person', desc: "Tap a family member's name to see just their to-dos" },
+    { icon: '🔒', name: 'Admin PIN for Settings', desc: 'A PIN now protects Settings from curious kids' },
   ]
 };
 
@@ -5664,14 +5665,33 @@ function openPrivacyPolicy() {
 }
 function closePrivacy() { document.getElementById('privacy-overlay').style.display = 'none'; }
 
-function checkWhatsNew() {
+// [S5-B08-FIX2] Compares against the FETCHED version.json value, not the
+// APP_VERSION constant baked into whatever HTML happened to be cached.
+// If the browser/CDN serves a stale cached index.html on some loads and a
+// fresh one on others, the baked-in APP_VERSION flips between values
+// unpredictably across reloads even though nothing changed server-side —
+// that inconsistency was the actual cause of the popup reappearing.
+// version.json is always fetched fresh (cache-busted), so it's a stable
+// source of truth regardless of which HTML byte-for-byte happens to be
+// cached this particular load.
+let _whatsNewVersion = APP_VERSION; // fallback if the fetch fails (e.g. offline)
+
+async function checkWhatsNew() {
+  try {
+    const res = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.version) _whatsNewVersion = data.version;
+    }
+  } catch (_) { /* offline or fetch failed — fall back to baked-in APP_VERSION */ }
+
   const seen = localStorage.getItem('fh_seen_version');
-  if (seen === APP_VERSION) return;
+  if (seen === _whatsNewVersion) return;
   const ov = document.getElementById('whats-new-overlay');
   if (!ov) return;
   const titleEl = document.getElementById('whats-new-title');
   if (titleEl) titleEl.textContent = '🎉 ' + (WHATS_NEW.title || "What's New");
-  document.getElementById('whats-new-version').textContent = 'Version ' + WHATS_NEW.version;
+  document.getElementById('whats-new-version').textContent = 'Version ' + _whatsNewVersion;
   document.getElementById('whats-new-features').innerHTML = WHATS_NEW.features.map(f =>
     `<div style="display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--border)">
       <div style="font-size:22px;flex-shrink:0">${f.icon}</div>
@@ -5684,7 +5704,7 @@ function checkWhatsNew() {
   ov.style.display = 'flex';
 }
 function closeWhatsNew() {
-  localStorage.setItem('fh_seen_version', APP_VERSION);
+  localStorage.setItem('fh_seen_version', _whatsNewVersion);
   document.getElementById('whats-new-overlay').style.display = 'none';
 }
 
