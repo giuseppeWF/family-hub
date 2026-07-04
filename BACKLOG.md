@@ -533,7 +533,7 @@ Add Google Sign-In so family members authenticate before accessing the hub. Impl
 ---
 
 ### S5-004 · Firestore Security Rules — Phase 1 Deployment
-**Status:** TODO
+**Status:** DONE — superseded 2026-07-03 by deploying Phase 2 rules directly (per-family isolation via S5-003), rather than Phase 1 as an intermediate step. See S5-004-READY for the deployment record and S5-003-FIX2 for the bootstrap/flat-collection rule fixes that were needed after the first Phase 2 deploy broke sign-in.
 **Priority:** Critical
 **Category:** Security
 
@@ -2859,7 +2859,7 @@ Let family members choose their own colour rather than using the assigned defaul
 ---
 
 ### S5-004-DEPLOY · Deploy Firestore Security Rules to Firebase Console
-**Status:** BLOCKED — wait for S5-003 (Google Sign-In) to be live first
+**Status:** DONE 2026-07-03 — deployed via S5-004-READY once all five family members had signed in. See S5-004-READY for the record.
 **Priority:** Critical
 **Category:** Security / Infrastructure
 
