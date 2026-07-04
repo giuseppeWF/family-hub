@@ -422,6 +422,7 @@
     listenCol('todofavs',    d => { window.fbTodoFavs    = d; window.dispatchEvent(new CustomEvent('fb-data')); });
     listenCol('settings',    d => { window.fbSettings    = d; window._settingsConnected = true; window.dispatchEvent(new CustomEvent('fb-data')); });
     listenCol('activityLog', d => { window.fbActivityLog = d; });
+    listenCol('scores',      d => { window.fbScores      = d; window.dispatchEvent(new CustomEvent('fb-data')); });
     startNotificationsListener();
   };
 
@@ -2305,6 +2306,18 @@
         <div class="dash-card-body" id="dash-household"></div>
       </div>
 
+      <!-- Chore leaderboard card (S4-001, hidden by default) -->
+      <div class="dash-card hidden-card" data-card="leaderboard" draggable="true">
+        <div class="dash-card-header">
+          <div class="dash-card-title">Chore Leaderboard</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="dash-card-icon" style="opacity:0.4;font-size:15px">🏆</div>
+          </div>
+        </div>
+        <button class="card-remove-btn" onclick="removeCard('dash-leaderboard', event)">✕</button>
+        <div class="dash-card-body" id="dash-leaderboard"></div>
+      </div>
+
     </div>
 
     <!-- CALENDAR FULL -->
@@ -2491,10 +2504,14 @@
         </div>
         <div class="modal-field">
           <label class="modal-label">Type</label>
-          <select class="modal-select" id="new-todo-type">
+          <select class="modal-select" id="new-todo-type" onchange="toggleTodoPointsField('new-todo-type','new-todo-points-field','new-todo-points')">
             <option value="todo">To-do</option>
             <option value="chore">Chore</option>
           </select>
+        </div>
+        <div class="modal-field" id="new-todo-points-field" style="display:none">
+          <label class="modal-label">Points for completing this chore</label>
+          <input class="modal-input" id="new-todo-points" type="number" min="0" max="100" value="10">
         </div>
         <div class="modal-field">
           <label class="modal-label">Due date (optional)</label>
@@ -2824,6 +2841,7 @@ window.fbMealFavs    = [];
 window.fbTodoFavs    = [];
 window.fbSettings    = [];
 window.fbActivityLog = [];
+window.fbScores = [];
 window._settingsConnected = false;
 let _membersSeedDone = false;
 
@@ -3039,9 +3057,9 @@ function getSettingsPin() { return (window.fbSettings || []).find(s => s.id === 
 // ── APP VERSION & WHAT'S NEW ──────────────────────────────────────────────────
 // S5-B08-FIX2: bump deliberately for genuinely user-visible releases only —
 // not automatically on every commit (that was the original loop complaint).
-const APP_VERSION = '3.5';
+const APP_VERSION = '3.6';
 const WHATS_NEW = {
-  version: '3.5',
+  version: '3.6',
   title: "What's new in Family Hub",
   features: [
     { icon: '🔐', name: 'Sign in with Google', desc: 'Each family member now has their own secure account' },
@@ -3057,6 +3075,7 @@ const WHATS_NEW = {
     { icon: '🌤', name: 'Weather in header', desc: 'Current conditions for Bury always visible at the top' },
     { icon: '👤', name: 'Filter tasks by person', desc: "Tap a family member's name to see just their to-dos" },
     { icon: '🔒', name: 'Admin PIN for Settings', desc: 'A PIN now protects Settings from curious kids' },
+    { icon: '🏆', name: 'Chore leaderboard', desc: 'Earn points for chores — weekly leaderboard with medals for the top 3 (enable via Arrange)' },
     { icon: '🏠', name: 'Meet your Family Hub helper', desc: 'A friendly new face on sign-in, loading, and every empty screen' },
   ]
 };
@@ -3223,6 +3242,24 @@ function getWeekDates() {
   return dates;
 }
 function fmt(d) { return d.toISOString().split('T')[0]; }
+
+// Adds days/months/years to a 'YYYY-MM-DD' string and returns a new one,
+// entirely in local time. Deliberately does NOT go via `new Date(str +
+// 'T00:00:00')` + fmt()/toISOString() — that combination silently rolls
+// back one day in any positive UTC-offset timezone (e.g. BST), since
+// toISOString() converts local midnight to UTC before formatting. Several
+// existing call sites had this exact bug (recurring event end-date
+// shortcuts, the recurring-event generation cap, next-occurrence dates,
+// copy-task quick dates) — found while building S4-001's week-key logic,
+// fixed here as the shared, correct primitive going forward.
+function shiftDateStr(dateStr, { days = 0, months = 0, years = 0 } = {}) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  if (days)   date.setDate(date.getDate() + days);
+  if (months) date.setMonth(date.getMonth() + months);
+  if (years)  date.setFullYear(date.getFullYear() + years);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
 const weekDates = getWeekDates();
 const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
@@ -3441,9 +3478,7 @@ async function processRecurringEvents() {
   const events = getEvents();
   if (!events.some(e => e.recur && e.recur !== 'none' && !e.pastRecurring && e.date < todayStr)) return;
 
-  const cap = new Date(todayStr + 'T00:00:00');
-  cap.setDate(cap.getDate() + 90);
-  const capStr = fmt(cap);
+  const capStr = shiftDateStr(todayStr, { days: 90 });
 
   for (const e of events) {
     if (!e.recur || e.recur === 'none' || e.pastRecurring) continue;
@@ -3483,12 +3518,11 @@ async function processRecurringEvents() {
 
 // ── RECURRING HELPER ─────────────────────────────────────────────────────────
 function nextOccurrence(doneDate, freq) {
-  const d = new Date(doneDate + 'T00:00:00');
-  if (freq === 'daily')     d.setDate(d.getDate() + 1);
-  if (freq === 'weekly')    d.setDate(d.getDate() + 7);
-  if (freq === 'fortnightly') d.setDate(d.getDate() + 14);
-  if (freq === 'monthly')   d.setMonth(d.getMonth() + 1);
-  return d.toISOString().split('T')[0];
+  if (freq === 'daily')       return shiftDateStr(doneDate, { days: 1 });
+  if (freq === 'weekly')      return shiftDateStr(doneDate, { days: 7 });
+  if (freq === 'fortnightly') return shiftDateStr(doneDate, { days: 14 });
+  if (freq === 'monthly')     return shiftDateStr(doneDate, { months: 1 });
+  return doneDate;
 }
 
 async function cleanupOldData() {
@@ -3947,6 +3981,32 @@ function renderDashboard() {
         </div>
       </div>`;
   }).join('');
+
+  renderLeaderboard();
+}
+
+// S4-001: weekly chore leaderboard — top 3 get medal emoji, rest just ranked.
+function renderLeaderboard() {
+  const el = document.getElementById('dash-leaderboard');
+  if (!el) return;
+  const scores = getCurrentWeekScores()
+    .filter(s => s.points > 0)
+    .sort((a, b) => b.points - a.points);
+  if (!scores.length) {
+    el.innerHTML = MASCOT_EMPTY_SM('No points yet this week', 'Complete a chore to start earning');
+    return;
+  }
+  const medals = ['🥇', '🥈', '🥉'];
+  const members = getFamilyMembers();
+  el.innerHTML = scores.map((s, i) => {
+    const mc = members.find(m => m.name === s.who);
+    const color = mc ? mc.color : 'var(--cream-muted)';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)">
+      <div style="width:22px;text-align:center;font-size:16px">${medals[i] || (i + 1)}</div>
+      <div style="flex:1;font-size:14px;color:${color};font-weight:700">${s.who}</div>
+      <div style="font-size:14px;font-weight:800;color:var(--cream)">${s.points} pts</div>
+    </div>`;
+  }).join('');
 }
 
 // ── CALENDAR ──────────────────────────────────────────────────────────────────
@@ -4216,6 +4276,46 @@ function renderTodos() {
   document.querySelectorAll('#todos-pending .swipeable, #todos-done .swipeable').forEach(initSwipe);
 }
 
+// ── S4-001: chore points / weekly leaderboard ─────────────────────────────────
+// Weekly "reset" is implicit: the score doc ID is keyed by the Monday of that
+// week, so a new week naturally starts every member back at 0 with no reset
+// job needed — old weeks' docs just stop being queried, not deleted.
+function getWeekKey(dateStr) {
+  const key = dateStr || todayStr;
+  const [y, m, d] = key.split('-').map(Number);
+  const dow = (new Date(y, m - 1, d).getDay() + 6) % 7; // Mon=0..Sun=6
+  return shiftDateStr(key, { days: -dow });
+}
+function getScores() { return window.fbScores || []; }
+function getCurrentWeekScores() {
+  const weekKey = getWeekKey(todayStr);
+  return getScores().filter(s => s.weekKey === weekKey);
+}
+
+// delta is positive when a chore is completed, negative when un-completed
+// (undoing a tick removes the points it awarded, so rapid toggle spam can't
+// farm points). "Everyone" (or no assignee) awards every non-excluded member,
+// matching how "Everyone" already behaves for every other who-field.
+async function awardChorePoints(t, delta) {
+  if (!t.points || t.points <= 0 || !delta) return;
+  const weekKey = getWeekKey(todayStr);
+  const members = getFamilyMembers();
+  const assignees = (t.who || '').split(',').map(w => w.trim()).filter(Boolean);
+  const targets = (!assignees.length || assignees.includes('Everyone'))
+    ? members.map(m => m.name)
+    : assignees;
+  for (const name of targets) {
+    const member = members.find(m => m.name === name);
+    if (member && member.pointsExcluded) continue;
+    const scoreId = `${weekKey}__${name}`;
+    const existing = getScores().find(s => s.id === scoreId);
+    const newPoints = Math.max(0, (existing ? existing.points : 0) + delta);
+    try {
+      await window.fbSave('scores', { id: scoreId, weekKey, who: name, points: newPoints });
+    } catch (e) { /* non-critical — leaderboard is a fun extra, not core data */ }
+  }
+}
+
 async function toggleTodo(id) {
   const t = getTodos().find(x => String(x.id) === String(id));
   if (!t) return;
@@ -4225,6 +4325,10 @@ async function toggleTodo(id) {
     const nowDone = !t.done;
     await window.fbUpdate('todos', id, { done: nowDone });
     await logActivity(nowDone ? 'done' : 'undone', 'todos', t.text || '', id);
+    // S4-001: award (or claw back, if un-ticked) chore points
+    if (t.type === 'chore' && t.points > 0) {
+      await awardChorePoints(t, nowDone ? t.points : -t.points);
+    }
     // If marking done and task is recurring, spawn next occurrence
     if (nowDone && t.recur && t.recur !== 'none') {
       const newId  = 'id_' + Date.now();
@@ -4381,6 +4485,18 @@ function renderMeals() {
 }
 
 // ── ADD MODAL ─────────────────────────────────────────────────────────────────
+// S4-001: points only make sense for chores — show/hide the field and reset
+// its default to 10 whenever the type flips to "chore".
+function toggleTodoPointsField(typeSelId, fieldId, pointsInputId) {
+  const typeEl = document.getElementById(typeSelId);
+  const field = document.getElementById(fieldId);
+  const pointsEl = document.getElementById(pointsInputId);
+  if (!typeEl || !field) return;
+  const isChore = typeEl.value === 'chore';
+  field.style.display = isChore ? '' : 'none';
+  if (isChore && pointsEl && !pointsEl.value) pointsEl.value = '10';
+}
+
 function toggleRecurChips() {
   const recur = document.getElementById('new-event-recur').value;
   const chips = document.getElementById('recur-end-chips');
@@ -4390,10 +4506,8 @@ function setRecurEnd(n, unit) {
   const startEl = document.getElementById('new-event-date');
   const endEl = document.getElementById('new-event-end-date');
   if (!startEl || !endEl) return;
-  const base = new Date((startEl.value || todayStr) + 'T00:00:00');
-  if (unit === 'month') base.setMonth(base.getMonth() + n);
-  else if (unit === 'year') base.setFullYear(base.getFullYear() + n);
-  endEl.value = fmt(base);
+  endEl.value = shiftDateStr(startEl.value || todayStr,
+    unit === 'month' ? { months: n } : unit === 'year' ? { years: n } : {});
 }
 
 function syncEventEndDate() {
@@ -4424,7 +4538,12 @@ function openModal(type) {
     document.getElementById('new-event-end-date').value = d;
     renderWhoChips('new-event-who-chips', 'new-event-who');
   }
-  if (type === 'todo') { renderWhoChips('new-todo-who-chips', 'new-todo-who'); populateTodoFavsPicker(); }
+  if (type === 'todo') {
+    renderWhoChips('new-todo-who-chips', 'new-todo-who');
+    populateTodoFavsPicker();
+    document.getElementById('new-todo-type').value = 'todo';
+    toggleTodoPointsField('new-todo-type', 'new-todo-points-field', 'new-todo-points');
+  }
   if (type === 'shop')    {
     renderWhoChips('new-shop-who-chips',  'new-shop-who', { excludeEveryone: true });
     populateShopFavsPicker();
@@ -4643,6 +4762,7 @@ function pickTodoFav(id) {
   document.getElementById('new-todo-text').value = f.text;
   const typeEl = document.getElementById('new-todo-type');
   if (typeEl && f.type) typeEl.value = f.type;
+  toggleTodoPointsField('new-todo-type', 'new-todo-points-field', 'new-todo-points');
   if (f.who) renderWhoChipsWithValue('new-todo-who-chips', 'new-todo-who', f.who);
 }
 
@@ -4694,9 +4814,15 @@ async function saveModal() {
       const recur = document.getElementById('new-todo-recur').value;
       const todoWho = getWhoValue('new-todo-who');
       const todoType = document.getElementById('new-todo-type').value;
+      // S4-001: points only ever apply to chores — force 0 for plain todos
+      // regardless of whatever's left in the (hidden) points input.
+      const todoPoints = todoType === 'chore'
+        ? (parseInt(document.getElementById('new-todo-points').value, 10) || 0)
+        : 0;
       await window.fbSave('todos', { id, text,
         who:   todoWho,
         type:  todoType,
+        points: todoPoints,
         due:   document.getElementById('new-todo-due').value || null,
         recur: recur !== 'none' ? recur : null,
         done:  false });
@@ -4713,6 +4839,9 @@ async function saveModal() {
       document.getElementById('new-todo-text').value  = '';
       document.getElementById('new-todo-due').value   = '';
       document.getElementById('new-todo-recur').value = 'none';
+      document.getElementById('new-todo-type').value  = 'todo';
+      document.getElementById('new-todo-points').value = '10';
+      toggleTodoPointsField('new-todo-type', 'new-todo-points-field', 'new-todo-points');
     }
     if (currentModal === 'shop') {
       const name = document.getElementById('new-shop-name').value.trim(); if (!name) return;
@@ -4803,10 +4932,13 @@ function openEditItem(type, id) {
         <div id="edit-todo-who-chips" style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0"></div>
         <input type="hidden" id="edit-todo-who" value="Everyone"></div>
       <div class="modal-field"><label class="modal-label">Type</label>
-        <select class="modal-select" id="edit-todo-type">
+        <select class="modal-select" id="edit-todo-type" onchange="toggleTodoPointsField('edit-todo-type','edit-todo-points-field','edit-todo-points')">
           <option value="todo"${t.type==='todo'?' selected':''}>To-do</option>
           <option value="chore"${t.type==='chore'?' selected':''}>Chore</option>
         </select></div>
+      <div class="modal-field" id="edit-todo-points-field" style="display:${t.type==='chore'?'':'none'}">
+        <label class="modal-label">Points for completing this chore</label>
+        <input class="modal-input" id="edit-todo-points" type="number" min="0" max="100" value="${t.points != null ? t.points : 10}"></div>
       <div class="modal-field"><label class="modal-label">Due date (optional)</label>
         <input class="modal-input" id="edit-todo-due" type="date" value="${t.due||''}"></div>`;
     renderWhoChipsWithValue('edit-todo-who-chips', 'edit-todo-who', t.who || 'Everyone');
@@ -4918,10 +5050,15 @@ async function saveEditItem() {
   try {
     const { type, id } = editContext;
     if (type === 'todo') {
+      const editType = document.getElementById('edit-todo-type').value;
+      const editPoints = editType === 'chore'
+        ? (parseInt(document.getElementById('edit-todo-points').value, 10) || 0)
+        : 0;
       await window.fbUpdate('todos', id, {
         text: document.getElementById('edit-todo-text').value.trim(),
         who:  getWhoValue('edit-todo-who'),
-        type: document.getElementById('edit-todo-type').value,
+        type: editType,
+        points: editPoints,
         due:  document.getElementById('edit-todo-due').value || null,
       });
     }
@@ -5190,11 +5327,21 @@ const cardMeta = {
   shopping:  { title:"Shopping List",     icon:"🛒"  },
   meals:     { title:"This Week's Meals", icon:"🍽"  },
   household: { title:"Household Tasks",   icon:"🔧"  },
+  leaderboard: { title:"Chore Leaderboard", icon:"🏆" },
 };
 
 function applyCardState() {
-  let order  = JSON.parse(localStorage.getItem('cardOrder')  || '["events","todos","shopping","meals","household"]');
-  let hidden = JSON.parse(localStorage.getItem('cardHidden') || '["household"]');
+  let order  = JSON.parse(localStorage.getItem('cardOrder')  || '["events","todos","shopping","meals","household","leaderboard"]');
+  let hidden = JSON.parse(localStorage.getItem('cardHidden') || '["household","leaderboard"]');
+  // S4-001: existing devices already have cardOrder/cardHidden saved from
+  // before this card existed — introduce it now, defaulting to hidden until
+  // the user explicitly adds it via Arrange. Only force-hide on this first
+  // introduction (order not yet containing it) — once saveCardState() has
+  // run since, respect whatever the user chose from then on.
+  if (!order.includes('leaderboard')) {
+    order.push('leaderboard');
+    hidden.push('leaderboard');
+  }
   // Remove stale 'weather' entries from previously stored state
   order  = order.filter(id => id !== 'weather');
   hidden = hidden.filter(id => id !== 'weather');
@@ -5226,7 +5373,7 @@ function toggleEditMode() {
 
 function removeCard(bodyId, e) {
   e.stopPropagation();
-  const cardMap = { 'dash-events':'events','dash-todos':'todos','dash-shop':'shopping','dash-meals':'meals','dash-household':'household' };
+  const cardMap = { 'dash-events':'events','dash-todos':'todos','dash-shop':'shopping','dash-meals':'meals','dash-household':'household','dash-leaderboard':'leaderboard' };
   const card = document.querySelector('[data-card="' + cardMap[bodyId] + '"]');
   if (card) { card.classList.add('hidden-card'); saveCardState(); refreshTray(); }
 }
@@ -5751,6 +5898,10 @@ function renderMemberEditRow(m, i) {
       <input type="color" id="edit-member-colour" value="${m.color}" style="width:28px;height:28px;padding:2px;border-radius:6px;cursor:pointer;margin-left:4px">
     </div>
     <div style="font-size:11px;color:var(--cream-muted);margin-bottom:10px;line-height:1.4">⚠️ Changing a name won't update items already assigned to "${escapedName}"</div>
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;cursor:pointer">
+      <input type="checkbox" id="edit-member-points-excluded" ${m.pointsExcluded ? 'checked' : ''} style="width:16px;height:16px;cursor:pointer;accent-color:var(--sage)">
+      <span style="font-size:12px;color:var(--cream-muted)">Exclude from chore points leaderboard</span>
+    </label>
     <div style="display:flex;gap:8px">
       <button onclick="cancelFamilyMemberEdit()" style="flex:1;padding:8px;background:transparent;border:1px solid var(--border-strong);border-radius:8px;color:var(--cream-muted);font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer">Cancel</button>
       <button onclick="saveFamilyMemberEdit(${i})" style="flex:1;padding:8px;background:var(--sage);border:none;border-radius:8px;color:var(--navy);font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer">Save</button>
@@ -5779,13 +5930,14 @@ function cancelFamilyMemberEdit() {
 function saveFamilyMemberEdit(idx) {
   const name  = document.getElementById('edit-member-name').value.trim();
   const color = document.getElementById('edit-member-colour').value;
+  const pointsExcluded = document.getElementById('edit-member-points-excluded').checked;
   if (!name) { alert('Name cannot be empty.'); return; }
   const members = getFamilyMembers();
   if (members.some((m, i) => i !== idx && m.name.toLowerCase() === name.toLowerCase())) {
     alert('That name is already in the family list.');
     return;
   }
-  members[idx] = { ...members[idx], name, color };
+  members[idx] = { ...members[idx], name, color, pointsExcluded };
   saveFamilyMembers(members);
   _editingMemberIdx = null;
   renderSettingsMembers(members);
@@ -5944,11 +6096,9 @@ async function confirmCopyTask(id) {
   const when = document.getElementById('copy-task-when').value;
   let newDue;
   if (when === 'tomorrow') {
-    const d = new Date(todayStr + 'T00:00:00'); d.setDate(d.getDate() + 1);
-    newDue = fmt(d);
+    newDue = shiftDateStr(todayStr, { days: 1 });
   } else if (when === 'nextweek') {
-    const d = new Date(todayStr + 'T00:00:00'); d.setDate(d.getDate() + 7);
-    newDue = fmt(d);
+    newDue = shiftDateStr(todayStr, { days: 7 });
   } else {
     newDue = document.getElementById('copy-custom-date').value || todayStr;
   }

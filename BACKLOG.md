@@ -165,27 +165,26 @@ When the app loads for the first time (no data in Firestore), show a friendly se
 ## 🎮 SPRINT 4 — Delight Layer
 
 ### S4-001 · Chore Rewards / Gamification
-**Status:** TODO
-**Priority:** Low
-**Category:** Feature — Engagement
+**Status:** DONE 2026-07-04 — [DECISION NEEDED] resolved per instruction: everyone earns points by default, admin can exclude specific members (implemented as a per-member "Exclude from chore points" checkbox in the Settings member-edit form, reusing S6-B05's existing edit UI).
 
-**Description:**
-Points system for Malachi and Mack. Completing chores earns points. Weekly leaderboard shown on dashboard. Parents can assign point values to tasks.
+Implementation:
+- Add-todo and edit-todo modals: a "Points for completing this chore" field appears only when Type is set to "Chore" (defaults to 10, hidden and forced to 0 for plain to-dos). Also wired into the favourites quick-pick path (`pickTodoFav`), which can set type to "chore" too.
+- `scores` Firestore collection, doc ID `{weekKey}__{memberName}` where weekKey is the Monday of that week. **Weekly reset is implicit, not a scheduled job**: a new week naturally starts every member at 0 since it's simply a different doc ID — nothing to prune or cron.
+- `toggleTodo()`: marking a chore done awards its points to every assignee's current-week score (or every non-excluded member if assigned to "Everyone" — consistent with how "Everyone" already behaves for every other who-field in the app); un-ticking claws the same points back, so rapid toggle spam can't farm points.
+- Dashboard leaderboard card (`data-card="leaderboard"`), hidden by default, addable via the existing Arrange/hidden-tray system exactly like the Household card. Shows current week's scorers sorted descending with 🥇🥈🥉 for the top 3, member-colour-coded names.
+- Not built (genuinely out of scope, not requested in this pass): the ORIGINAL backlog's separate [DECISION NEEDED] — "should parents be able to manually award bonus points?" — remains unanswered and unbuilt. Flagging it as a real follow-up, not silently deciding it.
 
-**Implementation notes:**
-- Add `points` field to todo items (default 10 for chores, 0 for todos)
-- Store scores in Firestore: `scores` collection, doc per family member per week
-- When toggleTodo marks a chore done, add points to that person's weekly score
-- Dashboard widget: small leaderboard card (hidden by default, add via Arrange)
-- Weekly reset: scores auto-reset on Monday
-- [DECISION NEEDED] Should parents be able to manually award bonus points?
+**Incidental discovery + fix while building this**: `getWeekKey()`'s first draft used `new Date(dateStr + 'T00:00:00')` then `fmt()` (which uses `toISOString()`) — this combination rolls the date back by one day in any positive-UTC-offset timezone (BST included), since local midnight converts to the previous UTC day, *every single time*, not as a rare edge case. Traced the same exact pattern to four **pre-existing, already-shipping** bugs elsewhere: `setRecurEnd()` (the "+1 month"/"+1 year" quick buttons for a recurring event's end date), the recurring-events 90-day generation cap, `nextOccurrence()` (next due date for a completed recurring chore/todo), and the "copy task" tomorrow/next-week quick dates — all silently off by one day for anyone in BST. Fixed the root cause once with a new `shiftDateStr(dateStr, {days, months, years})` helper (builds and formats using local Date parts throughout, never round-tripping through `toISOString()`) and refactored all five call sites (including `getWeekKey` itself) onto it.
+
+Verified in a headless browser: points field show/hide correctly by type, score awarded on completion and clawed back on undo, "Everyone" awards all non-excluded members, exclusion respected, leaderboard renders medals correctly, week-key/date-shift bug fix confirmed against known dates, and the leaderboard card correctly starts hidden and can be added back via Arrange.
 
 **Acceptance criteria:**
-- [ ] Points assigned to chores
-- [ ] Score updates when chore marked done
-- [ ] Weekly leaderboard on dashboard (optional widget)
-- [ ] Weekly auto-reset
-- [ ] Audit passes
+- [x] Points assigned to chores (add + edit modals)
+- [x] Score updates when chore marked done (and reverts on undo)
+- [x] Weekly leaderboard on dashboard (hidden by default, addable via Arrange)
+- [x] Weekly auto-reset (implicit via week-keyed doc IDs)
+- [x] Audit passes
+- [ ] Follow-up, not built: manual bonus-point awarding by admin (separate unresolved [DECISION NEEDED] from the original spec)
 
 ---
 
