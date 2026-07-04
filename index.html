@@ -1545,7 +1545,7 @@
   @media (max-width: 620px) {
     #header-center { min-width: 0; overflow: hidden; }
     .hub-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; }
-    .hub-emoji-l, .hub-emoji-r { width: 28px !important; height: 28px !important; }
+    .hub-emoji-l svg, .hub-emoji-r svg { width: 20px !important; height: 29px !important; }
     .nav-tab { padding: 12px 0; }
     .dash-card-title { font-size: 12px; }
     .event-label, .task-text, .shop-item-name, .meal-name { font-size: 13px; }
@@ -1814,22 +1814,6 @@
     .edit-mode .dash-card { animation: none; }
   }
 
-  @keyframes floatZzz {
-    0%   { opacity: 0; transform: translateY(0); }
-    20%  { opacity: 1; }
-    80%  { opacity: 0.8; }
-    100% { opacity: 0; transform: translateY(-10px); }
-  }
-  .zzz-1, .zzz-2, .zzz-3 {
-    animation: floatZzz 2.4s ease-in-out infinite;
-  }
-  .zzz-1 { animation-delay: 0s; }
-  .zzz-2 { animation-delay: 0.8s; }
-  .zzz-3 { animation-delay: 1.6s; }
-  @media (prefers-reduced-motion: reduce) {
-    .zzz-1, .zzz-2, .zzz-3 { animation: none; opacity: 1; }
-  }
-
   @keyframes cardWobble {
     0%   { transform: rotate(0deg); }
     25%  { transform: rotate(-1.5deg); }
@@ -1851,15 +1835,19 @@
   #loading-mascot-box.assembling .loading-mascot-part {
     animation: mascotPartIn 0.35s ease-out backwards;
   }
-  #loading-mascot-box.assembling .m-body      { animation-delay: 0s;    }
-  #loading-mascot-box.assembling .m-roof      { animation-delay: 0.2s;  }
-  #loading-mascot-box.assembling .m-chimney   { animation-delay: 0.4s;  }
-  #loading-mascot-box.assembling .m-eye-white { animation-delay: 0.6s;  }
-  #loading-mascot-box.assembling .m-eye-iris  { animation-delay: 0.8s;  }
-  #loading-mascot-box.assembling .m-eye-pupil { animation-delay: 1.0s;  }
-  #loading-mascot-box.assembling .m-cheek     { animation-delay: 1.3s;  }
-  #loading-mascot-box.assembling .m-mouth     { animation-delay: 1.6s;  }
-  #loading-mascot-box.assembling .m-chin      { animation-delay: 1.9s;  }
+  #loading-mascot-box.assembling .m-shadow    { animation-delay: 0s;     }
+  #loading-mascot-box.assembling .m-legs      { animation-delay: 0.16s;  }
+  #loading-mascot-box.assembling .m-body      { animation-delay: 0.32s;  }
+  #loading-mascot-box.assembling .m-chimney   { animation-delay: 0.48s;  }
+  #loading-mascot-box.assembling .m-roof      { animation-delay: 0.63s;  }
+  #loading-mascot-box.assembling .m-collar    { animation-delay: 0.79s;  }
+  #loading-mascot-box.assembling .m-arm-left  { animation-delay: 0.95s;  }
+  #loading-mascot-box.assembling .m-arm-right { animation-delay: 1.11s;  }
+  #loading-mascot-box.assembling .m-eyes      { animation-delay: 1.27s;  }
+  #loading-mascot-box.assembling .m-brows     { animation-delay: 1.43s;  }
+  #loading-mascot-box.assembling .m-cheeks    { animation-delay: 1.58s;  }
+  #loading-mascot-box.assembling .m-mouth     { animation-delay: 1.74s;  }
+  #loading-mascot-box.assembling .m-sparkles  { animation-delay: 1.90s;  }
   @media (prefers-reduced-motion: reduce) {
     #loading-mascot-box.assembling .loading-mascot-part {
       animation: none !important; opacity: 1 !important; transform: none !important;
@@ -1909,25 +1897,146 @@
 </head>
 <body>
 
+<!-- FAMILY HUB MASCOT — DEFINITIVE VERSION (S6-003, corrected). Defined once,
+     referenced everywhere via <use href="#mascot-full"> for pixel-perfect
+     consistency. The one exception is the app icon (generatePwaIcon() in
+     the script below), which must inline the shapes directly — it's
+     rendered as a standalone data: URI image, a separate document context
+     that can't resolve a <use> reference into this page's DOM. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <g id="mascot-full">
+      <ellipse cx="80" cy="358" rx="48" ry="7" fill="#041C18" opacity="0.25"/>
+      <rect x="110" y="48" width="13" height="22" rx="4" fill="#041C18"/>
+      <circle cx="116" cy="36" r="7" fill="#0A3830" opacity="0.5"/>
+      <circle cx="120" cy="26" r="5" fill="#0A3830" opacity="0.32"/>
+      <path d="M8 88 Q8 88 80 34 Q152 88 152 88 Q134 92 80 92 Q26 92 8 88Z" fill="#007A6E"/>
+      <path d="M14 88 Q80 38 146 88 Q130 91 80 91 Q30 91 14 88Z" fill="#009B8E"/>
+      <path d="M20 88 Q80 42 140 88Z" fill="#00C4B4"/>
+      <path d="M42 68 Q61 52 80 46" stroke="#5EEEE4" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.4"/>
+      <rect x="22" y="86" width="116" height="102" rx="14" fill="#0A2E2A"/>
+      <circle cx="56" cy="120" r="18" fill="#0A3830"/>
+      <circle cx="56" cy="120" r="14" fill="#E8F8F6"/>
+      <circle cx="56" cy="120" r="9" fill="#00C4B4"/>
+      <circle cx="56" cy="120" r="5.5" fill="#041C18"/>
+      <circle cx="59" cy="117" r="2.5" fill="#fff"/>
+      <circle cx="52" cy="124" r="1.2" fill="#fff" opacity="0.5"/>
+      <circle cx="104" cy="120" r="18" fill="#0A3830"/>
+      <circle cx="104" cy="120" r="14" fill="#E8F8F6"/>
+      <circle cx="104" cy="120" r="9" fill="#00C4B4"/>
+      <circle cx="104" cy="120" r="5.5" fill="#041C18"/>
+      <circle cx="107" cy="117" r="2.5" fill="#fff"/>
+      <circle cx="100" cy="124" r="1.2" fill="#fff" opacity="0.5"/>
+      <path d="M40 104 Q56 96 70 104" stroke="#00C4B4" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      <path d="M90 104 Q104 96 118 104" stroke="#00C4B4" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      <ellipse cx="34" cy="132" rx="10" ry="7" fill="#FF8FAB" opacity="0.3"/>
+      <ellipse cx="126" cy="132" rx="10" ry="7" fill="#FF8FAB" opacity="0.3"/>
+      <circle cx="80" cy="136" r="3" fill="#00A896"/>
+      <path d="M52 148 Q80 168 108 148" stroke="#00D4BC" stroke-width="4" fill="none" stroke-linecap="round"/>
+      <rect x="64" y="158" width="32" height="30" rx="10" fill="#062420" stroke="#00A896" stroke-width="1.5"/>
+      <rect x="64" y="158" width="32" height="16" rx="10" fill="#062420"/>
+      <circle cx="90" cy="175" r="3" fill="#00C4B4"/>
+      <rect x="58" y="186" width="44" height="5" rx="2.5" fill="#0A3830"/>
+      <rect x="4" y="106" width="16" height="38" rx="8" fill="#083028" stroke="#00A896" stroke-width="1.5"/>
+      <circle cx="12" cy="148" r="10" fill="#0A3830" stroke="#00C4B4" stroke-width="1.5"/>
+      <circle cx="12" cy="148" r="6" fill="none" stroke="#00D4BC" stroke-width="1.2"/>
+      <line x1="12" y1="142" x2="12" y2="154" stroke="#00D4BC" stroke-width="1.2"/>
+      <line x1="12" y1="150" x2="7" y2="153" stroke="#00D4BC" stroke-width="1.2"/>
+      <line x1="12" y1="150" x2="17" y2="153" stroke="#00D4BC" stroke-width="1.2"/>
+      <rect x="140" y="106" width="16" height="38" rx="8" fill="#083028" stroke="#00A896" stroke-width="1.5"/>
+      <circle cx="148" cy="148" r="10" fill="#0A3830" stroke="#00C4B4" stroke-width="1.5"/>
+      <polygon points="148,140 150,146 156,146 151,150 153,156 148,152 143,156 145,150 140,146 146,146" fill="#FDCB6E"/>
+      <rect x="54" y="192" width="20" height="18" rx="8" fill="#0A3830" stroke="#00A896" stroke-width="1.5"/>
+      <rect x="86" y="192" width="20" height="18" rx="8" fill="#0A3830" stroke="#00A896" stroke-width="1.5"/>
+      <ellipse cx="64" cy="210" rx="14" ry="7" fill="#00A896"/>
+      <ellipse cx="96" cy="210" rx="14" ry="7" fill="#00A896"/>
+      <polygon points="144,66 145.5,71 151,71 146.5,74.5 148,80 144,76.5 140,80 141.5,74.5 137,71 142.5,71" fill="#FDCB6E" opacity="0.75"/>
+      <circle cx="148" cy="98" r="3" fill="#FDCB6E" opacity="0.4"/>
+      <polygon points="10,78 11,81 14,81 11.5,83 12.5,86 10,84.5 7.5,86 8.5,83 6,81 9,81" fill="#5EEEE4" opacity="0.55"/>
+    </g>
+  </defs>
+</svg>
+
 <!-- LOADING SCREEN — shown while Firebase Auth initialises -->
 <div id="loading-screen" style="position:fixed;inset:0;background:#0B2028;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;font-family:'Nunito',sans-serif">
+  <!-- [S6-003, corrected] Same mascot shapes as #mascot-full, inlined rather
+       than <use> — S6-004's assembly animation needs individually classed
+       part-groups, which a <use> reference can't expose from outside. -->
   <div id="loading-mascot-box" style="width:72px;height:72px;border-radius:18px;background:#E8F8F6;display:flex;align-items:center;justify-content:center;margin-bottom:20px">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 46" width="48" height="55">
-      <rect class="loading-mascot-part m-chimney" x="26" y="7" width="7" height="12" rx="1.5" fill="#1B5E54"/>
-      <polygon class="loading-mascot-part m-roof" points="20,1 39,19 1,19" fill="#1B5E54"/>
-      <rect class="loading-mascot-part m-body" x="3" y="17" width="34" height="28" rx="5" fill="#0D2F2A"/>
-      <circle class="loading-mascot-part m-eye-white" cx="13" cy="27" r="6.5" fill="white"/>
-      <circle class="loading-mascot-part m-eye-white" cx="27" cy="27" r="6.5" fill="white"/>
-      <circle class="loading-mascot-part m-eye-iris" cx="13" cy="27" r="4" fill="#2EC4B6"/>
-      <circle class="loading-mascot-part m-eye-iris" cx="27" cy="27" r="4" fill="#2EC4B6"/>
-      <circle class="loading-mascot-part m-eye-pupil" cx="12" cy="26" r="2" fill="#0D2F2A"/>
-      <circle class="loading-mascot-part m-eye-pupil" cx="26" cy="26" r="2" fill="#0D2F2A"/>
-      <circle class="loading-mascot-part m-eye-pupil" cx="11" cy="24.5" r="0.9" fill="white"/>
-      <circle class="loading-mascot-part m-eye-pupil" cx="25" cy="24.5" r="0.9" fill="white"/>
-      <ellipse class="loading-mascot-part m-cheek" cx="6" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/>
-      <ellipse class="loading-mascot-part m-cheek" cx="34" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/>
-      <path class="loading-mascot-part m-mouth" d="M11 32 Q20 39 29 32" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/>
-      <rect class="loading-mascot-part m-chin" x="14" y="32" width="12" height="13" rx="6 6 0 0" fill="#1B5E54"/>
+    <svg viewBox="0 0 160 230" width="48" height="69">
+      <g class="loading-mascot-part m-shadow">
+        <ellipse cx="80" cy="358" rx="48" ry="7" fill="#041C18" opacity="0.25"/>
+      </g>
+      <g class="loading-mascot-part m-legs">
+        <rect x="54" y="192" width="20" height="18" rx="8" fill="#0A3830" stroke="#00A896" stroke-width="1.5"/>
+        <rect x="86" y="192" width="20" height="18" rx="8" fill="#0A3830" stroke="#00A896" stroke-width="1.5"/>
+        <ellipse cx="64" cy="210" rx="14" ry="7" fill="#00A896"/>
+        <ellipse cx="96" cy="210" rx="14" ry="7" fill="#00A896"/>
+      </g>
+      <g class="loading-mascot-part m-body">
+        <rect x="22" y="86" width="116" height="102" rx="14" fill="#0A2E2A"/>
+      </g>
+      <g class="loading-mascot-part m-chimney">
+        <rect x="110" y="48" width="13" height="22" rx="4" fill="#041C18"/>
+        <circle cx="116" cy="36" r="7" fill="#0A3830" opacity="0.5"/>
+        <circle cx="120" cy="26" r="5" fill="#0A3830" opacity="0.32"/>
+      </g>
+      <g class="loading-mascot-part m-roof">
+        <path d="M8 88 Q8 88 80 34 Q152 88 152 88 Q134 92 80 92 Q26 92 8 88Z" fill="#007A6E"/>
+        <path d="M14 88 Q80 38 146 88 Q130 91 80 91 Q30 91 14 88Z" fill="#009B8E"/>
+        <path d="M20 88 Q80 42 140 88Z" fill="#00C4B4"/>
+        <path d="M42 68 Q61 52 80 46" stroke="#5EEEE4" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.4"/>
+      </g>
+      <g class="loading-mascot-part m-collar">
+        <rect x="64" y="158" width="32" height="30" rx="10" fill="#062420" stroke="#00A896" stroke-width="1.5"/>
+        <rect x="64" y="158" width="32" height="16" rx="10" fill="#062420"/>
+        <circle cx="90" cy="175" r="3" fill="#00C4B4"/>
+        <rect x="58" y="186" width="44" height="5" rx="2.5" fill="#0A3830"/>
+      </g>
+      <g class="loading-mascot-part m-arm-left">
+        <rect x="4" y="106" width="16" height="38" rx="8" fill="#083028" stroke="#00A896" stroke-width="1.5"/>
+        <circle cx="12" cy="148" r="10" fill="#0A3830" stroke="#00C4B4" stroke-width="1.5"/>
+        <circle cx="12" cy="148" r="6" fill="none" stroke="#00D4BC" stroke-width="1.2"/>
+        <line x1="12" y1="142" x2="12" y2="154" stroke="#00D4BC" stroke-width="1.2"/>
+        <line x1="12" y1="150" x2="7" y2="153" stroke="#00D4BC" stroke-width="1.2"/>
+        <line x1="12" y1="150" x2="17" y2="153" stroke="#00D4BC" stroke-width="1.2"/>
+      </g>
+      <g class="loading-mascot-part m-arm-right">
+        <rect x="140" y="106" width="16" height="38" rx="8" fill="#083028" stroke="#00A896" stroke-width="1.5"/>
+        <circle cx="148" cy="148" r="10" fill="#0A3830" stroke="#00C4B4" stroke-width="1.5"/>
+        <polygon points="148,140 150,146 156,146 151,150 153,156 148,152 143,156 145,150 140,146 146,146" fill="#FDCB6E"/>
+      </g>
+      <g class="loading-mascot-part m-eyes">
+        <circle cx="56" cy="120" r="18" fill="#0A3830"/>
+        <circle cx="56" cy="120" r="14" fill="#E8F8F6"/>
+        <circle cx="56" cy="120" r="9" fill="#00C4B4"/>
+        <circle cx="56" cy="120" r="5.5" fill="#041C18"/>
+        <circle cx="59" cy="117" r="2.5" fill="#fff"/>
+        <circle cx="52" cy="124" r="1.2" fill="#fff" opacity="0.5"/>
+        <circle cx="104" cy="120" r="18" fill="#0A3830"/>
+        <circle cx="104" cy="120" r="14" fill="#E8F8F6"/>
+        <circle cx="104" cy="120" r="9" fill="#00C4B4"/>
+        <circle cx="104" cy="120" r="5.5" fill="#041C18"/>
+        <circle cx="107" cy="117" r="2.5" fill="#fff"/>
+        <circle cx="100" cy="124" r="1.2" fill="#fff" opacity="0.5"/>
+      </g>
+      <g class="loading-mascot-part m-brows">
+        <path d="M40 104 Q56 96 70 104" stroke="#00C4B4" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <path d="M90 104 Q104 96 118 104" stroke="#00C4B4" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      </g>
+      <g class="loading-mascot-part m-cheeks">
+        <ellipse cx="34" cy="132" rx="10" ry="7" fill="#FF8FAB" opacity="0.3"/>
+        <ellipse cx="126" cy="132" rx="10" ry="7" fill="#FF8FAB" opacity="0.3"/>
+        <circle cx="80" cy="136" r="3" fill="#00A896"/>
+      </g>
+      <g class="loading-mascot-part m-mouth">
+        <path d="M52 148 Q80 168 108 148" stroke="#00D4BC" stroke-width="4" fill="none" stroke-linecap="round"/>
+      </g>
+      <g class="loading-mascot-part m-sparkles">
+        <polygon points="144,66 145.5,71 151,71 146.5,74.5 148,80 144,76.5 140,80 141.5,74.5 137,71 142.5,71" fill="#FDCB6E" opacity="0.75"/>
+        <circle cx="148" cy="98" r="3" fill="#FDCB6E" opacity="0.4"/>
+        <polygon points="10,78 11,81 14,81 11.5,83 12.5,86 10,84.5 7.5,86 8.5,83 6,81 9,81" fill="#5EEEE4" opacity="0.55"/>
+      </g>
     </svg>
   </div>
   <div style="font-size:15px;color:#A8A49D;letter-spacing:0.5px">Loading your hub…</div>
@@ -1938,8 +2047,8 @@
   <div style="width:100%;max-width:360px;margin:0 auto">
     <!-- Logo -->
     <div style="text-align:center;margin-bottom:40px">
-      <div style="width:120px;height:120px;border-radius:28px;background:#E8F8F6;display:flex;align-items:center;justify-content:center;margin:0 auto 14px">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 46" width="80" height="92"><rect x="26" y="7" width="7" height="12" rx="1.5" fill="#1B5E54"/><polygon points="20,1 39,19 1,19" fill="#1B5E54"/><rect x="3" y="17" width="34" height="28" rx="5" fill="#0D2F2A"/><circle cx="13" cy="27" r="6.5" fill="white"/><circle cx="27" cy="27" r="6.5" fill="white"/><circle cx="13" cy="27" r="4" fill="#2EC4B6"/><circle cx="27" cy="27" r="4" fill="#2EC4B6"/><circle cx="12" cy="26" r="2" fill="#0D2F2A"/><circle cx="26" cy="26" r="2" fill="#0D2F2A"/><circle cx="11" cy="24.5" r="0.9" fill="white"/><circle cx="25" cy="24.5" r="0.9" fill="white"/><ellipse cx="6" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/><ellipse cx="34" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/><path d="M11 32 Q20 39 29 32" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/><rect x="14" y="32" width="12" height="13" rx="6 6 0 0" fill="#1B5E54"/></svg>
+      <div style="display:flex;justify-content:center;margin-bottom:14px">
+        <svg viewBox="0 0 160 230" width="120" height="172"><use href="#mascot-full"/></svg>
       </div>
       <div style="font-family:'Nunito',sans-serif;font-size:30px;font-weight:800;color:#F0EDE6">Family Hub</div>
       <div style="font-size:14px;color:#A8A49D;margin-top:6px">Your family. All in one place.</div>
@@ -2052,7 +2161,7 @@
   <!-- HEADER -->
   <div id="header">
     <div id="header-center">
-      <span class="hub-emoji-l" style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:#E8F8F6;flex-shrink:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 46" width="24" height="28"><rect x="26" y="7" width="7" height="12" rx="1.5" fill="#1B5E54"/><polygon points="20,1 39,19 1,19" fill="#1B5E54"/><rect x="3" y="17" width="34" height="28" rx="5" fill="#0D2F2A"/><circle cx="13" cy="27" r="6.5" fill="white"/><circle cx="27" cy="27" r="6.5" fill="white"/><circle cx="13" cy="27" r="4" fill="#2EC4B6"/><circle cx="27" cy="27" r="4" fill="#2EC4B6"/><circle cx="12" cy="26" r="2" fill="#0D2F2A"/><circle cx="26" cy="26" r="2" fill="#0D2F2A"/><circle cx="11" cy="24.5" r="0.9" fill="white"/><circle cx="25" cy="24.5" r="0.9" fill="white"/><ellipse cx="6" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/><ellipse cx="34" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/><path d="M11 32 Q20 39 29 32" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/><rect x="14" y="32" width="12" height="13" rx="6 6 0 0" fill="#1B5E54"/></svg></span><span class="hub-name">The Family Hub</span><span class="hub-emoji-r" style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:#E8F8F6;flex-shrink:0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 46" width="24" height="28"><rect x="26" y="7" width="7" height="12" rx="1.5" fill="#1B5E54"/><polygon points="20,1 39,19 1,19" fill="#1B5E54"/><rect x="3" y="17" width="34" height="28" rx="5" fill="#0D2F2A"/><circle cx="13" cy="27" r="6.5" fill="white"/><circle cx="27" cy="27" r="6.5" fill="white"/><circle cx="13" cy="27" r="4" fill="#2EC4B6"/><circle cx="27" cy="27" r="4" fill="#2EC4B6"/><circle cx="12" cy="26" r="2" fill="#0D2F2A"/><circle cx="26" cy="26" r="2" fill="#0D2F2A"/><circle cx="11" cy="24.5" r="0.9" fill="white"/><circle cx="25" cy="24.5" r="0.9" fill="white"/><ellipse cx="6" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/><ellipse cx="34" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/><path d="M11 32 Q20 39 29 32" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/><rect x="14" y="32" width="12" height="13" rx="6 6 0 0" fill="#1B5E54"/></svg></span>
+      <span class="hub-emoji-l" style="display:inline-flex;align-items:center;justify-content:center;background:#E8F8F6;border-radius:8px;padding:2px 4px;flex-shrink:0"><svg viewBox="0 0 160 230" width="32" height="46"><use href="#mascot-full"/></svg></span><span class="hub-name">The Family Hub</span><span class="hub-emoji-r" style="display:inline-flex;align-items:center;justify-content:center;background:#E8F8F6;border-radius:8px;padding:2px 4px;flex-shrink:0"><svg viewBox="0 0 160 230" width="32" height="46"><use href="#mascot-full"/></svg></span>
     </div>
     <div id="header-row2">
       <div id="header-row2-left">
@@ -2930,9 +3039,9 @@ function getSettingsPin() { return (window.fbSettings || []).find(s => s.id === 
 // ── APP VERSION & WHAT'S NEW ──────────────────────────────────────────────────
 // S5-B08-FIX2: bump deliberately for genuinely user-visible releases only —
 // not automatically on every commit (that was the original loop complaint).
-const APP_VERSION = '3.3';
+const APP_VERSION = '3.4';
 const WHATS_NEW = {
-  version: '3.3',
+  version: '3.4',
   title: "What's new in Family Hub",
   features: [
     { icon: '🔐', name: 'Sign in with Google', desc: 'Each family member now has their own secure account' },
@@ -2953,12 +3062,17 @@ const WHATS_NEW = {
 };
 
 // ── MASCOT SVG CONSTANTS ─────────────────────────────────────────────────────
-const MASCOT_AWAKE = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 46" width="32" height="37"><rect x="26" y="7" width="7" height="12" rx="1.5" fill="#1B5E54"/><polygon points="20,1 39,19 1,19" fill="#1B5E54"/><rect x="3" y="17" width="34" height="28" rx="5" fill="#0D2F2A"/><circle cx="13" cy="27" r="6.5" fill="white"/><circle cx="27" cy="27" r="6.5" fill="white"/><circle cx="13" cy="27" r="4" fill="#2EC4B6"/><circle cx="27" cy="27" r="4" fill="#2EC4B6"/><circle cx="12" cy="26" r="2" fill="#0D2F2A"/><circle cx="26" cy="26" r="2" fill="#0D2F2A"/><circle cx="11" cy="24.5" r="0.9" fill="white"/><circle cx="25" cy="24.5" r="0.9" fill="white"/><ellipse cx="6" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/><ellipse cx="34" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/><path d="M11 32 Q20 39 29 32" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/><rect x="14" y="32" width="12" height="13" rx="6 6 0 0" fill="#1B5E54"/></svg>`;
-const MASCOT_SLEEP = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 68" width="64" height="72"><rect x="40" y="9" width="8" height="14" rx="1.5" fill="#1B5E54"/><polygon points="30,2 58,25 2,25" fill="#1B5E54"/><rect x="4" y="23" width="52" height="42" rx="6" fill="#0D2F2A"/><ellipse cx="20" cy="37" rx="9" ry="7" fill="white"/><ellipse cx="40" cy="37" rx="9" ry="7" fill="white"/><path d="M11 37 Q20 46 29 37Z" fill="#0D2F2A"/><path d="M31 37 Q40 46 49 37Z" fill="#0D2F2A"/><ellipse cx="9" cy="44" rx="5" ry="3" fill="rgba(210,90,90,0.35)"/><ellipse cx="51" cy="44" rx="5" ry="3" fill="rgba(210,90,90,0.35)"/><path d="M20 47 Q30 53 40 47" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/><rect x="19" y="47" width="22" height="18" rx="11 11 0 0" fill="#1B5E54"/><text class="zzz-1" x="47" y="28" font-size="8" fill="#2EC4B6" font-weight="800" font-family="Nunito,sans-serif">z</text><text class="zzz-2" x="51" y="20" font-size="10" fill="#2EC4B6" font-weight="800" font-family="Nunito,sans-serif">z</text><text class="zzz-3" x="56" y="12" font-size="12" fill="#2EC4B6" font-weight="800" font-family="Nunito,sans-serif">z</text></svg>`;
+// [S6-003, corrected] Sleeping variant: the definitive mascot (via <use>,
+// same #mascot-full as everywhere else) plus the sleeping overlay — half-
+// closed eyelids and two z's, layered on top since SVG paints in document
+// order. width/height keep the mascot's native 160:230 aspect ratio.
+function mascotSleepingSvg(width, height) {
+  return `<svg viewBox="0 0 160 230" width="${width}" height="${height}"><use href="#mascot-full"/><rect x="42" y="114" width="28" height="10" rx="5" fill="#0A2E2A"/><rect x="90" y="114" width="28" height="10" rx="5" fill="#0A2E2A"/><text x="130" y="100" font-family="Nunito" font-size="14" fill="#00C4B4" opacity="0.6">z</text><text x="140" y="88" font-family="Nunito" font-size="11" fill="#00C4B4" opacity="0.4">z</text></svg>`;
+}
 const MASCOT_EMPTY = (msg, hint) =>
-  `<div style="text-align:center;padding:20px 0"><div style="display:inline-flex;align-items:center;justify-content:center;width:80px;height:80px;border-radius:18px;background:#E8F8F6;margin-bottom:10px">${MASCOT_SLEEP}</div><div style="color:var(--cream-muted);font-size:14px;font-weight:600">${msg}</div><div style="font-size:12px;color:var(--cream-muted);opacity:0.6;margin-top:4px">${hint}</div></div>`;
+  `<div style="text-align:center;padding:20px 0"><div style="display:inline-flex;align-items:center;justify-content:center;width:80px;height:80px;border-radius:18px;background:#E8F8F6;margin-bottom:10px">${mascotSleepingSvg(48, 69)}</div><div style="color:var(--cream-muted);font-size:14px;font-weight:600">${msg}</div><div style="font-size:12px;color:var(--cream-muted);opacity:0.6;margin-top:4px">${hint}</div></div>`;
 const MASCOT_EMPTY_SM = (msg, hint) =>
-  `<div style="text-align:center;padding:16px 0"><div style="display:inline-flex;align-items:center;justify-content:center;width:60px;height:60px;border-radius:14px;background:#E8F8F6;margin-bottom:8px">${MASCOT_SLEEP}</div><div style="color:var(--cream-muted);font-size:13px">${msg}</div><div style="font-size:12px;color:var(--cream-muted);opacity:0.6;margin-top:3px">${hint}</div></div>`;
+  `<div style="text-align:center;padding:16px 0"><div style="display:inline-flex;align-items:center;justify-content:center;width:60px;height:60px;border-radius:14px;background:#E8F8F6;margin-bottom:8px">${mascotSleepingSvg(36, 52)}</div><div style="color:var(--cream-muted);font-size:13px">${msg}</div><div style="font-size:12px;color:var(--cream-muted);opacity:0.6;margin-top:3px">${hint}</div></div>`;
 
 // ── SHOPPING CONFIG ───────────────────────────────────────────────────────────
 const SHOP_CATS = [
@@ -6228,23 +6342,63 @@ function buildRoundedRect(ctx, x, y, w, h, r) {
 }
 
 function generatePwaIcon() {
+  // [S6-003, corrected] Same mascot shapes as #mascot-full in the page <defs>,
+  // copied verbatim rather than referenced via <use> — this SVG is rendered
+  // as a standalone data: URI image (a separate document context for the
+  // favicon/apple-touch-icon), which can't resolve a fragment reference into
+  // this page's DOM. Scaled/centred to fit the mascot's native 160x230
+  // artwork within the 192x192 icon canvas with even padding.
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
-<rect width="192" height="192" rx="44" fill="#E8F8F6"/>
-<rect x="120" y="24" width="22" height="36" rx="4" fill="#1B5E54"/>
-<polygon points="96,14 178,80 14,80" fill="#1B5E54"/>
-<rect x="18" y="74" width="156" height="106" rx="14" fill="#0D2F2A"/>
-<circle cx="68" cy="116" r="26" fill="white"/>
-<circle cx="124" cy="116" r="26" fill="white"/>
-<circle cx="68" cy="116" r="17" fill="#2EC4B6"/>
-<circle cx="124" cy="116" r="17" fill="#2EC4B6"/>
-<circle cx="63" cy="111" r="9" fill="#0D2F2A"/>
-<circle cx="119" cy="111" r="9" fill="#0D2F2A"/>
-<circle cx="57" cy="105" r="4" fill="white"/>
-<circle cx="113" cy="105" r="4" fill="white"/>
-<ellipse cx="30" cy="134" rx="16" ry="10" fill="rgba(210,90,90,0.4)"/>
-<ellipse cx="162" cy="134" rx="16" ry="10" fill="rgba(210,90,90,0.4)"/>
-<path d="M62 140 Q96 162 130 140" stroke="white" stroke-width="8" fill="none" stroke-linecap="round"/>
-<rect x="74" y="142" width="44" height="38" rx="22 22 0 0" fill="#1B5E54"/>
+<rect width="192" height="192" rx="40" fill="#E8F8F6"/>
+<g transform="translate(36,10) scale(0.748)">
+<ellipse cx="80" cy="358" rx="48" ry="7" fill="#041C18" opacity="0.25"/>
+<rect x="110" y="48" width="13" height="22" rx="4" fill="#041C18"/>
+<circle cx="116" cy="36" r="7" fill="#0A3830" opacity="0.5"/>
+<circle cx="120" cy="26" r="5" fill="#0A3830" opacity="0.32"/>
+<path d="M8 88 Q8 88 80 34 Q152 88 152 88 Q134 92 80 92 Q26 92 8 88Z" fill="#007A6E"/>
+<path d="M14 88 Q80 38 146 88 Q130 91 80 91 Q30 91 14 88Z" fill="#009B8E"/>
+<path d="M20 88 Q80 42 140 88Z" fill="#00C4B4"/>
+<path d="M42 68 Q61 52 80 46" stroke="#5EEEE4" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.4"/>
+<rect x="22" y="86" width="116" height="102" rx="14" fill="#0A2E2A"/>
+<circle cx="56" cy="120" r="18" fill="#0A3830"/>
+<circle cx="56" cy="120" r="14" fill="#E8F8F6"/>
+<circle cx="56" cy="120" r="9" fill="#00C4B4"/>
+<circle cx="56" cy="120" r="5.5" fill="#041C18"/>
+<circle cx="59" cy="117" r="2.5" fill="#fff"/>
+<circle cx="52" cy="124" r="1.2" fill="#fff" opacity="0.5"/>
+<circle cx="104" cy="120" r="18" fill="#0A3830"/>
+<circle cx="104" cy="120" r="14" fill="#E8F8F6"/>
+<circle cx="104" cy="120" r="9" fill="#00C4B4"/>
+<circle cx="104" cy="120" r="5.5" fill="#041C18"/>
+<circle cx="107" cy="117" r="2.5" fill="#fff"/>
+<circle cx="100" cy="124" r="1.2" fill="#fff" opacity="0.5"/>
+<path d="M40 104 Q56 96 70 104" stroke="#00C4B4" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+<path d="M90 104 Q104 96 118 104" stroke="#00C4B4" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+<ellipse cx="34" cy="132" rx="10" ry="7" fill="#FF8FAB" opacity="0.3"/>
+<ellipse cx="126" cy="132" rx="10" ry="7" fill="#FF8FAB" opacity="0.3"/>
+<circle cx="80" cy="136" r="3" fill="#00A896"/>
+<path d="M52 148 Q80 168 108 148" stroke="#00D4BC" stroke-width="4" fill="none" stroke-linecap="round"/>
+<rect x="64" y="158" width="32" height="30" rx="10" fill="#062420" stroke="#00A896" stroke-width="1.5"/>
+<rect x="64" y="158" width="32" height="16" rx="10" fill="#062420"/>
+<circle cx="90" cy="175" r="3" fill="#00C4B4"/>
+<rect x="58" y="186" width="44" height="5" rx="2.5" fill="#0A3830"/>
+<rect x="4" y="106" width="16" height="38" rx="8" fill="#083028" stroke="#00A896" stroke-width="1.5"/>
+<circle cx="12" cy="148" r="10" fill="#0A3830" stroke="#00C4B4" stroke-width="1.5"/>
+<circle cx="12" cy="148" r="6" fill="none" stroke="#00D4BC" stroke-width="1.2"/>
+<line x1="12" y1="142" x2="12" y2="154" stroke="#00D4BC" stroke-width="1.2"/>
+<line x1="12" y1="150" x2="7" y2="153" stroke="#00D4BC" stroke-width="1.2"/>
+<line x1="12" y1="150" x2="17" y2="153" stroke="#00D4BC" stroke-width="1.2"/>
+<rect x="140" y="106" width="16" height="38" rx="8" fill="#083028" stroke="#00A896" stroke-width="1.5"/>
+<circle cx="148" cy="148" r="10" fill="#0A3830" stroke="#00C4B4" stroke-width="1.5"/>
+<polygon points="148,140 150,146 156,146 151,150 153,156 148,152 143,156 145,150 140,146 146,146" fill="#FDCB6E"/>
+<rect x="54" y="192" width="20" height="18" rx="8" fill="#0A3830" stroke="#00A896" stroke-width="1.5"/>
+<rect x="86" y="192" width="20" height="18" rx="8" fill="#0A3830" stroke="#00A896" stroke-width="1.5"/>
+<ellipse cx="64" cy="210" rx="14" ry="7" fill="#00A896"/>
+<ellipse cx="96" cy="210" rx="14" ry="7" fill="#00A896"/>
+<polygon points="144,66 145.5,71 151,71 146.5,74.5 148,80 144,76.5 140,80 141.5,74.5 137,71 142.5,71" fill="#FDCB6E" opacity="0.75"/>
+<circle cx="148" cy="98" r="3" fill="#FDCB6E" opacity="0.4"/>
+<polygon points="10,78 11,81 14,81 11.5,83 12.5,86 10,84.5 7.5,86 8.5,83 6,81 9,81" fill="#5EEEE4" opacity="0.55"/>
+</g>
 </svg>`;
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
 }
