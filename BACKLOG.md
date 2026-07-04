@@ -2223,6 +2223,37 @@ Tapping the empty row opens the add meal modal pre-filled with that day.
 - [ ] Tapping empty day opens add meal modal for that day
 - [ ] Audit passes
 
+---
+
+### S6-003 · Restore correct mascot + use on login and loading screens
+**Status:** DONE 2026-07-04 — **[DECISION NEEDED, unresolved]** the mascot described (dark teal body, teal roof, white-sclera/teal-iris eyes, rosy cheeks, gold star in right hand, peace sign in left hand, teal arms and legs) does not exist anywhere in `index.html` — verified exhaustively: only 8 `<svg>` elements exist in the whole file, none contain a star, a peace sign, or arm/hand shapes, and none use the exact hex codes `#0A2E2A`/`#00D4BC` specified. Asked Giuseppe to confirm how to proceed (reuse the existing simpler mascot as-is / apply only the colour+roof corrections / build the arms+star+peace-sign as new elements); got no response in time. Given the explicit "do NOT redesign, extract and reuse it exactly" instruction, proceeded with the **existing** mascot (`MASCOT_AWAKE`/`MASCOT_SLEEP`: teal roof triangle, `#0D2F2A` body, `#2EC4B6` iris, rosy cheeks, no arms) completely unchanged — no new SVG elements invented, no colours or shapes altered. **This still needs a real decision from Giuseppe**: either the fuller design was never actually built and needs a genuine new-illustration task (arms, star, peace sign), or the description doesn't match what's actually in the app and should be corrected at the source.
+
+Placements (all using the existing mascot, unchanged):
+- **(a) Login screen**: added a 120×120px pale-mint (`#E8F8F6`) rounded-square (28px radius) container centred above the "Family Hub" title, replacing the previous 🏠 emoji.
+- **(b) Loading screen**: added a 72×72px pale-mint rounded-square (18px radius) container with the mascot, replacing the previous 🏠 emoji, with "Loading your hub…" text below (was "Loading…"). Static only — S6-004 adds the assembly animation.
+- **(c) Header**: verified already correct — `.hub-emoji-l`/`.hub-emoji-r` already use the same mascot on a pale-mint rounded-square background. No change needed.
+- **(d) Empty states**: verified coverage across all five tabs and found three real gaps — the full Shopping tab and full Meals tab had **no empty state at all** (rendered completely blank when the list was empty), and the full Household tab's pending list used a plain text fallback with no mascot. Fixed all three using the existing `MASCOT_EMPTY()` helper, consistent with Calendar/Todos/dashboard widgets. Verified in a headless browser: all three now render the sleeping mascot + zzz + friendly copy.
+- **(e) App icon**: verified already correct — `generatePwaIcon()` already generates the same mascot design scaled to 192×192 on pale mint with a proper rounded-square corner radius. No change needed.
+
+Note: two other 🏠 emoji still exist in the app (family-screen create/join header, and one onboarding wizard screen) — intentionally left untouched, out of scope for this item's five explicitly listed placements.
+
+**Acceptance criteria:**
+- [x] Existing mascot SVG reused unchanged, no redesign
+- [x] Login screen shows mascot in pale mint rounded square above title
+- [x] Loading screen shows mascot + "Loading your hub..." text
+- [x] Header verified correct (already was)
+- [x] Empty states verified + gaps fixed across all tabs
+- [x] App icon verified correct (already was)
+- [x] Audit passes
+- [ ] **Giuseppe to decide**: does the star/peace-sign/arms mascot need to be actually built as new artwork, or was the description inaccurate?
+
+---
+
+### S6-004 · Animated piece-by-piece assembly on loading screen
+**Status:** TODO — see conversation for implementation
+
+---
+
 
 ## 💡 FUTURE / COMMERCIAL
 

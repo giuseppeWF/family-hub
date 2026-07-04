@@ -1882,8 +1882,10 @@
 
 <!-- LOADING SCREEN — shown while Firebase Auth initialises -->
 <div id="loading-screen" style="position:fixed;inset:0;background:#0B2028;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;font-family:'Nunito',sans-serif">
-  <div style="font-size:48px;margin-bottom:20px">🏠</div>
-  <div style="font-size:15px;color:#A8A49D;letter-spacing:0.5px">Loading…</div>
+  <div id="loading-mascot-box" style="width:72px;height:72px;border-radius:18px;background:#E8F8F6;display:flex;align-items:center;justify-content:center;margin-bottom:20px">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 46" width="48" height="55"><rect x="26" y="7" width="7" height="12" rx="1.5" fill="#1B5E54"/><polygon points="20,1 39,19 1,19" fill="#1B5E54"/><rect x="3" y="17" width="34" height="28" rx="5" fill="#0D2F2A"/><circle cx="13" cy="27" r="6.5" fill="white"/><circle cx="27" cy="27" r="6.5" fill="white"/><circle cx="13" cy="27" r="4" fill="#2EC4B6"/><circle cx="27" cy="27" r="4" fill="#2EC4B6"/><circle cx="12" cy="26" r="2" fill="#0D2F2A"/><circle cx="26" cy="26" r="2" fill="#0D2F2A"/><circle cx="11" cy="24.5" r="0.9" fill="white"/><circle cx="25" cy="24.5" r="0.9" fill="white"/><ellipse cx="6" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/><ellipse cx="34" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/><path d="M11 32 Q20 39 29 32" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/><rect x="14" y="32" width="12" height="13" rx="6 6 0 0" fill="#1B5E54"/></svg>
+  </div>
+  <div style="font-size:15px;color:#A8A49D;letter-spacing:0.5px">Loading your hub…</div>
 </div>
 
 <!-- AUTH SCREEN — shown when not signed in -->
@@ -1891,7 +1893,9 @@
   <div style="width:100%;max-width:360px;margin:0 auto">
     <!-- Logo -->
     <div style="text-align:center;margin-bottom:40px">
-      <div style="font-size:56px;margin-bottom:14px">🏠</div>
+      <div style="width:120px;height:120px;border-radius:28px;background:#E8F8F6;display:flex;align-items:center;justify-content:center;margin:0 auto 14px">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 46" width="80" height="92"><rect x="26" y="7" width="7" height="12" rx="1.5" fill="#1B5E54"/><polygon points="20,1 39,19 1,19" fill="#1B5E54"/><rect x="3" y="17" width="34" height="28" rx="5" fill="#0D2F2A"/><circle cx="13" cy="27" r="6.5" fill="white"/><circle cx="27" cy="27" r="6.5" fill="white"/><circle cx="13" cy="27" r="4" fill="#2EC4B6"/><circle cx="27" cy="27" r="4" fill="#2EC4B6"/><circle cx="12" cy="26" r="2" fill="#0D2F2A"/><circle cx="26" cy="26" r="2" fill="#0D2F2A"/><circle cx="11" cy="24.5" r="0.9" fill="white"/><circle cx="25" cy="24.5" r="0.9" fill="white"/><ellipse cx="6" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/><ellipse cx="34" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/><path d="M11 32 Q20 39 29 32" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/><rect x="14" y="32" width="12" height="13" rx="6 6 0 0" fill="#1B5E54"/></svg>
+      </div>
       <div style="font-family:'Nunito',sans-serif;font-size:30px;font-weight:800;color:#F0EDE6">Family Hub</div>
       <div style="font-size:14px;color:#A8A49D;margin-top:6px">Your family. All in one place.</div>
     </div>
@@ -2881,9 +2885,9 @@ function getSettingsPin() { return (window.fbSettings || []).find(s => s.id === 
 // ── APP VERSION & WHAT'S NEW ──────────────────────────────────────────────────
 // S5-B08-FIX2: bump deliberately for genuinely user-visible releases only —
 // not automatically on every commit (that was the original loop complaint).
-const APP_VERSION = '3.1';
+const APP_VERSION = '3.2';
 const WHATS_NEW = {
-  version: '3.1',
+  version: '3.2',
   title: "What's new in Family Hub",
   features: [
     { icon: '🔐', name: 'Sign in with Google', desc: 'Each family member now has their own secure account' },
@@ -2899,6 +2903,7 @@ const WHATS_NEW = {
     { icon: '🌤', name: 'Weather in header', desc: 'Current conditions for Bury always visible at the top' },
     { icon: '👤', name: 'Filter tasks by person', desc: "Tap a family member's name to see just their to-dos" },
     { icon: '🔒', name: 'Admin PIN for Settings', desc: 'A PIN now protects Settings from curious kids' },
+    { icon: '🏠', name: 'Meet your Family Hub helper', desc: 'A friendly new face on sign-in, loading, and every empty screen' },
   ]
 };
 
@@ -3407,7 +3412,7 @@ function renderHousehold() {
         '</div>' +
         (t.notes ? '<div style="font-size:12px;color:var(--cream-muted);padding-left:34px">' + t.notes + '</div>' : '') +
       '</div>')
-  ).join('') || '<div style="color:var(--cream-muted);font-size:14px;padding:12px 0">No tasks yet — add your first house project 🔧</div>';
+  ).join('') || MASCOT_EMPTY('No tasks yet', 'Tap + to add your first house project');
 
   const houseDoneLabel = document.getElementById('household-done-label');
   houseDoneLabel.style.display = done.length ? 'block' : 'none';
@@ -4134,7 +4139,9 @@ function renderShopping() {
     }).join('');
   }
 
-  document.getElementById('shop-lists').innerHTML = toggleHtml + listsHtml;
+  document.getElementById('shop-lists').innerHTML = shopping.length
+    ? toggleHtml + listsHtml
+    : MASCOT_EMPTY('Shopping list is empty', 'Tap + to add your first item');
   document.querySelectorAll('#shop-lists .swipeable').forEach(initSwipe);
 
   if (_justDone && _justDone.col === 'shopping') {
@@ -4208,7 +4215,7 @@ function renderMeals() {
           ${actionBtns('meals', m.id, 'meal')}
         </div>
       </div>`);
-  }).join('');
+  }).join('') || MASCOT_EMPTY('No meals planned yet', 'Tap + to plan the week');
   document.querySelectorAll('#meals-list .swipeable').forEach(initSwipe);
 }
 
