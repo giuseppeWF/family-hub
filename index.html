@@ -2810,6 +2810,15 @@
     </div>
   </div>
 
+  <!-- LOCK/UNLOCK CONTEXT MENU (S4-005) — opened by long-pressing any item -->
+  <div id="lock-menu-overlay" onclick="closeLockContextMenu()" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.5);z-index:350;align-items:flex-end;justify-content:center;padding:20px">
+    <div style="background:var(--navy-mid);border:1px solid var(--border-strong);border-radius:16px;padding:6px;width:100%;max-width:340px;margin-bottom:10px" onclick="event.stopPropagation()">
+      <div id="lock-menu-item-name" style="padding:12px 14px 8px;font-size:12px;color:var(--cream-muted);text-transform:uppercase;letter-spacing:0.5px"></div>
+      <button id="lock-menu-action-btn" onclick="handleLockMenuAction()" style="width:100%;text-align:left;padding:14px;background:none;border:none;border-top:1px solid var(--border);color:var(--cream);font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;cursor:pointer">🔒 Lock this item</button>
+      <button onclick="closeLockContextMenu()" style="width:100%;text-align:left;padding:14px;background:none;border:none;border-top:1px solid var(--border);color:var(--cream-muted);font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;cursor:pointer">Cancel</button>
+    </div>
+  </div>
+
   <!-- WHAT'S NEW OVERLAY -->
   <div id="whats-new-overlay" onclick="closeWhatsNew()" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.82);z-index:400;align-items:center;justify-content:center;padding:20px">
     <div style="background:var(--navy-mid);border:1px solid var(--border-strong);border-radius:20px;padding:24px;width:100%;max-width:400px;max-height:80vh;overflow-y:auto" onclick="event.stopPropagation()">
@@ -3057,9 +3066,9 @@ function getSettingsPin() { return (window.fbSettings || []).find(s => s.id === 
 // ── APP VERSION & WHAT'S NEW ──────────────────────────────────────────────────
 // S5-B08-FIX2: bump deliberately for genuinely user-visible releases only —
 // not automatically on every commit (that was the original loop complaint).
-const APP_VERSION = '3.6';
+const APP_VERSION = '3.7';
 const WHATS_NEW = {
-  version: '3.6',
+  version: '3.7',
   title: "What's new in Family Hub",
   features: [
     { icon: '🔐', name: 'Sign in with Google', desc: 'Each family member now has their own secure account' },
@@ -3076,6 +3085,7 @@ const WHATS_NEW = {
     { icon: '👤', name: 'Filter tasks by person', desc: "Tap a family member's name to see just their to-dos" },
     { icon: '🔒', name: 'Admin PIN for Settings', desc: 'A PIN now protects Settings from curious kids' },
     { icon: '🏆', name: 'Chore leaderboard', desc: 'Earn points for chores — weekly leaderboard with medals for the top 3 (enable via Arrange)' },
+    { icon: '🔒', name: 'Lock important items', desc: 'Admin can lock an item so it can\'t be edited or deleted by mistake' },
     { icon: '🏠', name: 'Meet your Family Hub helper', desc: 'A friendly new face on sign-in, loading, and every empty screen' },
   ]
 };
@@ -3558,6 +3568,53 @@ function recurBadge(freq) {
 }
 
 // ── DUE DATE HELPER ───────────────────────────────────────────────────────────
+// S4-005: small 🔒 badge shown next to a locked item's name/text.
+function lockIcon(item) {
+  return item && item.locked
+    ? '<span title="Locked" style="font-size:12px;flex-shrink:0">🔒</span>'
+    : '';
+}
+
+// S4-005: long-press context menu — Lock/Unlock, gated behind the admin PIN.
+const LOCK_COL_GETTERS = { events: () => getEvents(), todos: () => getTodos(), shopping: () => getShopping(), meals: () => getMeals(), household: () => getHousehold() };
+let _lockMenuContext = null;
+
+function showLockContextMenu(colName, id) {
+  const getter = LOCK_COL_GETTERS[colName];
+  const item = getter ? getter().find(x => String(x.id) === String(id)) : null;
+  if (!item) return;
+  _lockMenuContext = { colName, id };
+  const nameEl = document.getElementById('lock-menu-item-name');
+  if (nameEl) nameEl.textContent = item.text || item.name || 'Item';
+  const actionBtn = document.getElementById('lock-menu-action-btn');
+  if (actionBtn) actionBtn.textContent = item.locked ? '🔓 Unlock this item' : '🔒 Lock this item';
+  const overlay = document.getElementById('lock-menu-overlay');
+  if (overlay) overlay.style.display = 'flex';
+}
+
+function closeLockContextMenu() {
+  const overlay = document.getElementById('lock-menu-overlay');
+  if (overlay) overlay.style.display = 'none';
+  _lockMenuContext = null;
+}
+
+function handleLockMenuAction() {
+  if (!_lockMenuContext) return;
+  const { colName, id } = _lockMenuContext;
+  closeLockContextMenu();
+  requireAdminPin(() => toggleItemLock(colName, id));
+}
+
+async function toggleItemLock(colName, id) {
+  const getter = LOCK_COL_GETTERS[colName];
+  const item = getter ? getter().find(x => String(x.id) === String(id)) : null;
+  if (!item) return;
+  setSyncStatus('saving');
+  try {
+    await window.fbUpdate(colName, id, { locked: !item.locked });
+  } catch (e) { setSyncStatus('error'); }
+}
+
 function dueBadge(due) {
   if (!due) return '';
   const d    = new Date(due + 'T00:00:00');
@@ -3596,6 +3653,7 @@ function renderHousehold() {
         '<div style="display:flex;width:100%;align-items:center;gap:10px">' +
           '<div class="todo-full-check">✓</div>' +
           '<div class="todo-full-text" style="flex:1">' + t.text + '</div>' +
+          lockIcon(t) +
           '<span style="font-size:12px;font-weight:700;color:' + (priorityColor[t.priority]||'var(--cream-muted)') + ';text-transform:uppercase">' + (t.priority||'') + '</span>' +
           actionBtns('household', t.id, 'household') +
         '</div>' +
@@ -3688,11 +3746,28 @@ function renderAll() {
 let swipeStartX = 0, swipeEl = null;
 
 function initSwipe(el) {
+  // S4-005: long-press → lock/unlock context menu. Runs alongside the
+  // existing swipe tracking below, self-cancelling on any real movement
+  // (more than 10px either axis) so it never fights the horizontal swipe.
+  let longPressTimer = null;
+  let longPressStartY = 0;
+
   el.addEventListener('touchstart', e => {
     swipeStartX = e.touches[0].clientX;
     swipeEl = el;
+    longPressStartY = e.touches[0].clientY;
+    longPressTimer = setTimeout(() => {
+      longPressTimer = null;
+      if (navigator.vibrate) navigator.vibrate(15);
+      showLockContextMenu(el.dataset.col, el.dataset.id);
+    }, 600);
   }, { passive: true });
   el.addEventListener('touchmove', e => {
+    if (longPressTimer) {
+      const dx = Math.abs(e.touches[0].clientX - swipeStartX);
+      const dy = Math.abs(e.touches[0].clientY - longPressStartY);
+      if (dx > 10 || dy > 10) { clearTimeout(longPressTimer); longPressTimer = null; }
+    }
     if (swipeEl !== el) return;
     const dx = swipeStartX - e.touches[0].clientX;
     if (dx > 50) {
@@ -3703,7 +3778,10 @@ function initSwipe(el) {
       el.classList.remove('revealed');
     }
   }, { passive: true });
-  el.addEventListener('touchend', () => { swipeEl = null; });
+  el.addEventListener('touchend', () => {
+    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+    swipeEl = null;
+  });
 }
 
 // Close swipes on tap elsewhere
@@ -3717,7 +3795,9 @@ function swipeRow(item, colName, editType, html) {
   const sid = String(item.id);
   const editBtn   = '<button class="swipe-btn swipe-edit" data-col="' + colName + '" data-id="' + sid + '" data-type="' + editType + '" onclick="event.stopPropagation();handleSwipeEdit(this)"><span class="swipe-btn-icon">✏️</span>Edit</button>';
   const deleteBtn = '<button class="swipe-btn swipe-delete" data-col="' + colName + '" data-id="' + sid + '" onclick="event.stopPropagation();handleSwipeDelete(this)"><span class="swipe-btn-icon">🗑</span>Delete</button>';
-  return '<div class="swipeable" id="row-' + colName + '-' + sid + '"><div class="swipe-inner">' + html + '</div><div class="swipe-actions">' + editBtn + deleteBtn + '</div></div>';
+  // S4-005: data-col/data-id let the long-press handler in initSwipe() find
+  // this row's item without parsing the DOM id string.
+  return '<div class="swipeable" id="row-' + colName + '-' + sid + '" data-col="' + colName + '" data-id="' + sid + '"><div class="swipe-inner">' + html + '</div><div class="swipe-actions">' + editBtn + deleteBtn + '</div></div>';
 }
 
 function actionBtns(colName, id, editType) {
@@ -3840,9 +3920,18 @@ async function logActivity(action, col, itemName, itemId) {
   } catch(_) {}
 }
 
+// S4-005: shared "why can't I touch this" message for locked items.
+function lockedItemMessage() {
+  const pinData = getSettingsPin();
+  const adminName = pinData && pinData.setBy ? pinData.setBy : 'the admin';
+  return `This item is locked — ask ${adminName} to unlock it`;
+}
+
 async function deleteItem(colName, id) {
   const rawItems = window['fb' + colName.charAt(0).toUpperCase() + colName.slice(1)] || [];
   const item = rawItems.find(x => String(x.id) === String(id));
+  // Locked items can't be soft-deleted either — fully protected until unlocked.
+  if (item && item.locked) { alert(lockedItemMessage()); return; }
   setSyncStatus('saving');
   try {
     const who = getDeviceUser() || 'Unknown';
@@ -4041,7 +4130,7 @@ function renderCalendar() {
       </div>
       <div class="cal-event-bar" style="background:${e.color||'#2EC4B6'}"></div>
       <div class="cal-event-info">
-        <div class="cal-event-name">${e.name}</div>
+        <div class="cal-event-name">${e.name} ${lockIcon(e)}</div>
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           <div class="cal-event-meta who-${e.who}">${e.who||''}</div>
           ${e.recur && e.recur !== 'none' ? recurBadge(e.recur) : ''}
@@ -4153,7 +4242,7 @@ function showMonthDayEvents(dStr) {
           </div>
           <div class="cal-event-bar" style="background:${e.color||'#2EC4B6'}"></div>
           <div class="cal-event-info">
-            <div class="cal-event-name">${e.name}</div>
+            <div class="cal-event-name">${e.name} ${lockIcon(e)}</div>
             <div class="cal-event-meta who-${e.who}">${e.who||''}</div>
           </div>
         </div>`).join('')
@@ -4188,7 +4277,7 @@ function filterCalDay(dStr) {
       </div>
       <div class="cal-event-bar" style="background:${e.color||'#2EC4B6'}"></div>
       <div class="cal-event-info">
-        <div class="cal-event-name">${e.name}</div>
+        <div class="cal-event-name">${e.name} ${lockIcon(e)}</div>
         <div class="cal-event-meta who-${e.who}">${e.who||''}</div>
       </div>
     </div>`).join('') || MASCOT_EMPTY_SM('Nothing on this day', 'Tap + to add an event');
@@ -4235,6 +4324,7 @@ function renderTodos() {
         <div onclick="showDetail('todo','${t.id}')" style="flex:1;display:flex;align-items:center;gap:14px;min-width:0;cursor:pointer">
           <div class="todo-full-text">${t.text}</div>
           <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+            ${lockIcon(t)}
             ${dueBadge(t.due)}
             ${recurBadge(t.recur)}
             <div style="display:flex;gap:4px;flex-wrap:wrap">${(t.who||'Everyone').split(', ').map(w=>'<span class="todo-full-who who-'+w+'">'+w+'</span>').join('')}</div>
@@ -4259,6 +4349,7 @@ function renderTodos() {
         <div onclick="showDetail('todo','${t.id}')" style="flex:1;display:flex;align-items:center;gap:14px;min-width:0;cursor:pointer">
           <div class="todo-full-text done">${t.text}</div>
           <div style="display:flex;align-items:center;gap:6px">
+            ${lockIcon(t)}
             <div class="todo-full-who">${t.who}</div>
           </div>
         </div>
@@ -4359,7 +4450,7 @@ function _shopItemHtml(s) {
       </div>
       <div onclick="showDetail('shop','${s.id}')" style="flex:1;display:flex;align-items:center;gap:14px;min-width:0;cursor:pointer">
         <div style="flex:1;min-width:0">
-          <div class="shop-full-name ${s.done?'done':''}" style="display:flex;align-items:center;gap:5px">${s.name}${whoDot}</div>
+          <div class="shop-full-name ${s.done?'done':''}" style="display:flex;align-items:center;gap:5px">${s.name}${whoDot}${lockIcon(s)}</div>
           ${storeTag ? '<div style="margin-top:2px">' + storeTag + '</div>' : ''}
         </div>
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
@@ -4472,7 +4563,7 @@ function renderMeals() {
           <div class="meal-day-date">${dateForDay(m.day)}</div>
         </div>
         <div class="meal-info">
-          <div class="meal-full-name">${m.name}</div>
+          <div class="meal-full-name">${m.name} ${lockIcon(m)}</div>
           ${m.notes ? '<div class="meal-full-meta">'+m.notes+'</div>' : ''}
         </div>
         <div style="display:flex;align-items:center;gap:8px">
@@ -4920,6 +5011,16 @@ function openEditItem(type, id) {
   const overlay = document.getElementById('edit-item-overlay');
   const fields  = document.getElementById('edit-item-fields');
   const title   = document.getElementById('edit-item-title');
+
+  // S4-005: block editing locked items entirely, regardless of type —
+  // checked once here rather than duplicated in every type-specific block.
+  const editLockGetters = { event: getEvents, todo: getTodos, shop: getShopping, meal: getMeals, household: getHousehold };
+  const editLockGetter = editLockGetters[type];
+  if (editLockGetter) {
+    const existing = editLockGetter().find(x => String(x.id) === String(id));
+    if (existing && existing.locked) { alert(lockedItemMessage()); return; }
+  }
+
   editContext = { type, id };
 
   if (type === 'todo') {
@@ -5297,6 +5398,20 @@ function showDetail(type, id) {
       content.innerHTML += `<div style="margin-top:14px;font-size:12px;color:var(--cream-muted);opacity:0.7;text-align:center">Added by ${m.createdBy} · only they can change this meal</div>`;
     }
   }
+
+  // S4-005: locked items override whatever the type-block above just set —
+  // no edit/delete regardless of type, with a friendly explanation banner.
+  const lockGetters = { event: getEvents, todo: getTodos, shop: getShopping, meal: getMeals, household: getHousehold };
+  const lockGetter = lockGetters[type];
+  const lockedItem = lockGetter ? lockGetter().find(x => String(x.id) === String(id)) : null;
+  if (lockedItem && lockedItem.locked) {
+    if (editBtn)   editBtn.style.display   = 'none';
+    if (deleteBtn) deleteBtn.style.display = 'none';
+    const pinData = getSettingsPin();
+    const adminName = pinData && pinData.setBy ? pinData.setBy : 'the admin';
+    content.innerHTML += `<div style="margin-top:14px;font-size:12px;color:var(--amber);opacity:0.9;text-align:center">🔒 Locked · ask ${adminName} to unlock it</div>`;
+  }
+
   overlay.style.display = 'flex';
 }
 
@@ -5515,6 +5630,19 @@ async function restoreDeleted(col, itemId) {
 // ── PIN LOCK ────────────────────────────────────────────────────────────────
 
 let _pinUnlocked = false;
+
+// S4-005: lets any feature (not just opening Settings) require PIN
+// verification for one specific action, reusing the exact same PIN prompt.
+let _pinSuccessCallback = null;
+function requireAdminPin(callback) {
+  const pinData = getSettingsPin();
+  if (!pinData || !pinData.hash) {
+    alert('No admin PIN has been set up yet — set one in Settings first.');
+    return;
+  }
+  _pinSuccessCallback = callback;
+  openPinOverlay('entry');
+}
 let _pinBuf = '';
 let _pinMode = 'entry';
 
@@ -5533,6 +5661,9 @@ function openPinOverlay(mode) {
 function closePinOverlay() {
   document.getElementById('pin-overlay').style.display = 'none';
   _pinBuf = '';
+  // S4-005: cancelling the prompt must drop any pending action — otherwise
+  // it could fire later when the PIN is next entered for something else.
+  _pinSuccessCallback = null;
 }
 
 function closePinIfBg(e) {
@@ -5738,10 +5869,16 @@ async function pinSubmitEntry(isChange) {
   _updatePinDots();
   if (hash === pinData.hash) {
     await window.fbUpdate('settings', 'pin', { failedAttempts: 0, lockoutUntil: null });
+    // Capture before closePinOverlay() — it clears _pinSuccessCallback too
+    // (that clearing is for the cancel path; grab it first so success works).
+    const pendingCallback = _pinSuccessCallback;
     closePinOverlay();
     if (isChange) {
       _pinBuf = '';
       openPinOverlay('change-new');
+    } else if (pendingCallback) {
+      _pinUnlocked = true;
+      pendingCallback();
     } else {
       _pinUnlocked = true;
       _openSettingsPanel();

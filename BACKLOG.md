@@ -1236,28 +1236,26 @@ Admin can "lock" specific items so they cannot be deleted or edited without PIN.
 ---
 
 ### S4-005 · Item Locking (Admin Only)
-**Status:** TODO
-**Priority:** Low
-**Category:** Feature / Security
+**Status:** DONE 2026-07-04 — "admin" here means the household Settings PIN holder (this item predates S5-003's per-account admin concept, kept consistent with that pre-existing model rather than introducing a second parallel admin notion).
 
-**Description:**
-Allow admins to lock specific items so they cannot be deleted or edited without the Settings PIN. The nuclear option for chores that keep mysteriously disappearing.
+Implementation:
+- `locked` boolean field, settable on any item in events/todos/shopping/meals/household.
+- `lockIcon(item)` helper shows a small 🔒 next to the item's name/text — wired into every full-tab list row (todos pending+done, shopping, meals, household, all three calendar event views) and the detail modal.
+- **Enforcement centralized in exactly two places**, since every delete and edit action in the whole app already funnels through `deleteItem()` and `openEditItem()` respectively (confirmed by tracing every swipe-button, action-button, and detail-modal path) — a lock-check at the top of each blocks the action app-wide with `"This item is locked — ask {admin name} to unlock it"` (admin name pulled from the existing PIN record's `setBy` field). Locked items are blocked from soft-delete too, since soft-delete IS `deleteItem()`'s only code path — nothing extra needed there.
+- Detail modal: locked items hide the Edit/Delete buttons entirely and show an explanatory banner, extending the exact same pattern already used for meal ownership (`canEdit`/`createdBy`).
+- Long-press (600ms, cancels itself if the touch moves more than 10px in either axis so it can't fight the existing horizontal swipe-to-reveal gesture) opens a small action-sheet with Lock/Unlock, labelled dynamically based on current state.
+- Lock/unlock itself requires the admin PIN: added `requireAdminPin(callback)`, a small generic extension to the existing PIN-entry flow — on correct PIN it runs the given callback instead of unconditionally opening Settings (which is still exactly what happens when there's no pending callback, so the original Settings-PIN flow is unchanged). Cancelling the PIN prompt clears the pending callback so it can never fire later for an unrelated PIN entry.
+- Not a new gap: like every other PIN-gated action in this app, this is a UI-level deterrent, not a real security boundary — a technically savvy person with dev tools could call `toggleItemLock()` directly. Matches TESTING.md Section B6's already-documented, accepted limitation for this exact reason (family app threat model, not enterprise).
 
-**Implementation notes:**
-- Add `locked: true/false` field to any Firestore document
-- Locked items show a small 🔒 icon
-- Attempting to delete or edit a locked item: show "This item is locked by [admin name]. Ask them to unlock it."
-- Only admin (PIN verified) can lock or unlock items
-- Long-press on any item → context menu: Lock / Unlock (admin only, PIN required)
-- Locked items cannot be soft-deleted either — they are fully protected
+Verified in a headless browser: lock icon renders only on locked items, delete/edit attempts on a locked item are blocked with the correct message and the item survives, the detail modal correctly hides its buttons and shows the banner (and does NOT for an unlocked item), `requireAdminPin` refuses to even prompt when no PIN exists yet, and — using real `TouchEvent`/`Touch` simulation — a genuine 600ms stationary touch opens the context menu while a horizontal swipe gesture correctly cancels the long-press timer and still triggers the pre-existing swipe-to-reveal behaviour unmodified.
 
 **Acceptance criteria:**
-- [ ] Admin can lock any item (requires PIN)
-- [ ] Locked items show 🔒 indicator
-- [ ] Non-admins cannot delete or edit locked items
-- [ ] Non-admins see clear message explaining why
-- [ ] Admin can unlock items (requires PIN)
-- [ ] Audit passes
+- [x] Admin can lock any item (requires PIN)
+- [x] Locked items show 🔒 indicator
+- [x] Non-admins cannot delete or edit locked items
+- [x] Non-admins see clear message explaining why
+- [x] Admin can unlock items (requires PIN)
+- [x] Audit passes
 
 
 ---
