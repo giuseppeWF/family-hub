@@ -1837,6 +1837,35 @@
     100% { transform: rotate(0deg); }
   }
 
+  /* S6-004: piece-by-piece assembly animation on the loading screen.
+     Parts are fully visible by default (a fast load — under 1s — shows the
+     static mascot immediately, never triggering this at all). JS adds the
+     "assembling" class after a 1s delay only if still on the loading screen,
+     which — combined with animation-fill-mode:backwards — snaps every part
+     back to its "not yet placed" state and plays the staggered entrance
+     forward from there. Last part starts at 1.9s + 0.35s duration ≈ 2.25s. */
+  @keyframes mascotPartIn {
+    0%   { opacity: 0; transform: translateY(-10px) scale(0.7); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  #loading-mascot-box.assembling .loading-mascot-part {
+    animation: mascotPartIn 0.35s ease-out backwards;
+  }
+  #loading-mascot-box.assembling .m-body      { animation-delay: 0s;    }
+  #loading-mascot-box.assembling .m-roof      { animation-delay: 0.2s;  }
+  #loading-mascot-box.assembling .m-chimney   { animation-delay: 0.4s;  }
+  #loading-mascot-box.assembling .m-eye-white { animation-delay: 0.6s;  }
+  #loading-mascot-box.assembling .m-eye-iris  { animation-delay: 0.8s;  }
+  #loading-mascot-box.assembling .m-eye-pupil { animation-delay: 1.0s;  }
+  #loading-mascot-box.assembling .m-cheek     { animation-delay: 1.3s;  }
+  #loading-mascot-box.assembling .m-mouth     { animation-delay: 1.6s;  }
+  #loading-mascot-box.assembling .m-chin      { animation-delay: 1.9s;  }
+  @media (prefers-reduced-motion: reduce) {
+    #loading-mascot-box.assembling .loading-mascot-part {
+      animation: none !important; opacity: 1 !important; transform: none !important;
+    }
+  }
+
   /* Hidden cards tray */
   #hidden-tray {
     display: none;
@@ -1883,7 +1912,23 @@
 <!-- LOADING SCREEN — shown while Firebase Auth initialises -->
 <div id="loading-screen" style="position:fixed;inset:0;background:#0B2028;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;font-family:'Nunito',sans-serif">
   <div id="loading-mascot-box" style="width:72px;height:72px;border-radius:18px;background:#E8F8F6;display:flex;align-items:center;justify-content:center;margin-bottom:20px">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 46" width="48" height="55"><rect x="26" y="7" width="7" height="12" rx="1.5" fill="#1B5E54"/><polygon points="20,1 39,19 1,19" fill="#1B5E54"/><rect x="3" y="17" width="34" height="28" rx="5" fill="#0D2F2A"/><circle cx="13" cy="27" r="6.5" fill="white"/><circle cx="27" cy="27" r="6.5" fill="white"/><circle cx="13" cy="27" r="4" fill="#2EC4B6"/><circle cx="27" cy="27" r="4" fill="#2EC4B6"/><circle cx="12" cy="26" r="2" fill="#0D2F2A"/><circle cx="26" cy="26" r="2" fill="#0D2F2A"/><circle cx="11" cy="24.5" r="0.9" fill="white"/><circle cx="25" cy="24.5" r="0.9" fill="white"/><ellipse cx="6" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/><ellipse cx="34" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/><path d="M11 32 Q20 39 29 32" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/><rect x="14" y="32" width="12" height="13" rx="6 6 0 0" fill="#1B5E54"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 46" width="48" height="55">
+      <rect class="loading-mascot-part m-chimney" x="26" y="7" width="7" height="12" rx="1.5" fill="#1B5E54"/>
+      <polygon class="loading-mascot-part m-roof" points="20,1 39,19 1,19" fill="#1B5E54"/>
+      <rect class="loading-mascot-part m-body" x="3" y="17" width="34" height="28" rx="5" fill="#0D2F2A"/>
+      <circle class="loading-mascot-part m-eye-white" cx="13" cy="27" r="6.5" fill="white"/>
+      <circle class="loading-mascot-part m-eye-white" cx="27" cy="27" r="6.5" fill="white"/>
+      <circle class="loading-mascot-part m-eye-iris" cx="13" cy="27" r="4" fill="#2EC4B6"/>
+      <circle class="loading-mascot-part m-eye-iris" cx="27" cy="27" r="4" fill="#2EC4B6"/>
+      <circle class="loading-mascot-part m-eye-pupil" cx="12" cy="26" r="2" fill="#0D2F2A"/>
+      <circle class="loading-mascot-part m-eye-pupil" cx="26" cy="26" r="2" fill="#0D2F2A"/>
+      <circle class="loading-mascot-part m-eye-pupil" cx="11" cy="24.5" r="0.9" fill="white"/>
+      <circle class="loading-mascot-part m-eye-pupil" cx="25" cy="24.5" r="0.9" fill="white"/>
+      <ellipse class="loading-mascot-part m-cheek" cx="6" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/>
+      <ellipse class="loading-mascot-part m-cheek" cx="34" cy="31" rx="3.5" ry="2.2" fill="rgba(210,90,90,0.4)"/>
+      <path class="loading-mascot-part m-mouth" d="M11 32 Q20 39 29 32" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/>
+      <rect class="loading-mascot-part m-chin" x="14" y="32" width="12" height="13" rx="6 6 0 0" fill="#1B5E54"/>
+    </svg>
   </div>
   <div style="font-size:15px;color:#A8A49D;letter-spacing:0.5px">Loading your hub…</div>
 </div>
@@ -2885,9 +2930,9 @@ function getSettingsPin() { return (window.fbSettings || []).find(s => s.id === 
 // ── APP VERSION & WHAT'S NEW ──────────────────────────────────────────────────
 // S5-B08-FIX2: bump deliberately for genuinely user-visible releases only —
 // not automatically on every commit (that was the original loop complaint).
-const APP_VERSION = '3.2';
+const APP_VERSION = '3.3';
 const WHATS_NEW = {
-  version: '3.2',
+  version: '3.3',
   title: "What's new in Family Hub",
   features: [
     { icon: '🔐', name: 'Sign in with Google', desc: 'Each family member now has their own secure account' },
@@ -6073,6 +6118,16 @@ initDrag();
 initTouchDrag();
 initOnboarding();
 setTimeout(checkWhatsNew, 1000);
+
+// S6-004: only animate the loading-screen mascot's assembly for genuinely
+// slow loads. If auth/data already resolved within 1s, loading-screen is
+// already hidden by then and this is a no-op — the mascot was shown fully
+// formed the whole time, which is the correct behaviour for a fast load.
+setTimeout(() => {
+  const ls = document.getElementById('loading-screen');
+  const box = document.getElementById('loading-mascot-box');
+  if (ls && box && ls.style.display !== 'none') box.classList.add('assembling');
+}, 1000);
 
 // ── OFFLINE DETECTION ─────────────────────────────────────────────────────────
 function setOfflineBanner(isOffline) {

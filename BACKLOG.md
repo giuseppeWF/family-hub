@@ -2250,7 +2250,19 @@ Note: two other 🏠 emoji still exist in the app (family-screen create/join hea
 ---
 
 ### S6-004 · Animated piece-by-piece assembly on loading screen
-**Status:** TODO — see conversation for implementation
+**Status:** DONE 2026-07-04 — no detailed spec existed for this in BACKLOG.md (searched — nothing under "assembly", "loading screen", or "S6-004" prior to this entry), so timing/easing choices below are my own engineering judgement within the stated constraints (~2.3s total, staggered, skip under 1s, respect reduced-motion), not a pre-agreed design.
+
+Split the loading-screen mascot's 15 SVG shapes into 9 named groups (chimney, roof, body, eye-whites, irises, pupils+highlights, cheeks, mouth, chin) via CSS classes. Default state is fully visible/assembled — a fast load never touches this, the mascot just shows normally. A `setTimeout(..., 1000)` checks whether `#loading-screen` is still visible; only then does it add an `assembling` class, which (via `animation-fill-mode:backwards`) snaps every part back to a "not yet placed" state (faded + offset + scaled down) and plays them forward with staggered `animation-delay` (0s → 1.9s across the 9 groups, 0.35s each, ending ~2.25s later). `prefers-reduced-motion: reduce` forces all parts to their final state with no animation, matching the existing `.zzz` bubble convention already used for the sleeping mascot.
+
+**Important architectural note discovered while testing this**: `#loading-screen` represents "checking auth state," not "data has finished loading" — `onAuthStateChanged`'s first callback hides it immediately, which resolves in well under 1 second in virtually all conditions (it doesn't wait for Firestore data, which streams in afterward via `onSnapshot` while the dashboard is already showing). In practice this means the assembly animation will rarely fire on a fast connection — it's there for genuinely slow conditions (cold start, poor network, e.g. the SyncGo device on Wi-Fi), which is exactly what "skip if under 1s" asks for, but don't expect to see it on every load.
+
+Verified in a headless browser: fast-hide before 1s never adds the `assembling` class (mascot stays static); forcing the loading screen to stay visible past 1s does trigger it, with the correct per-part delays and full opacity ~2.3s later; `prefers-reduced-motion` shows all parts at opacity 1 with no animation.
+
+**Acceptance criteria:**
+- [x] Piece-by-piece staggered entrance, ~2.3s total
+- [x] Skipped entirely for loads that resolve in under 1s
+- [x] `prefers-reduced-motion` respected
+- [x] Audit passes
 
 ---
 
