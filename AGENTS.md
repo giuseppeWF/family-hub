@@ -39,31 +39,33 @@ You MUST NOT break existing functionality to implement new features.
 
 ## Mandatory workflow — follow every time
 
+**FULLY AUTONOMOUS MODE — do not ask Giuseppe for approval at any step.**
+Commit and push immediately when audit passes. Giuseppe tests after deployment.
+Only stop and ask if you hit a [DECISION NEEDED] flag or a genuine blocker
+you cannot resolve without human input.
+
 ```
 1. Read the next IN PROGRESS or TODO item in BACKLOG.md
 2. Understand what it requires — check existing patterns in index.html first
 3. Implement the change
 4. Run: python3 audit.py
-5. If audit fails → fix issues → re-run audit
+5. If audit fails → fix issues → re-run audit (do not ask for help, fix it)
 6. If audit passes → run: node --check /tmp/audit_check.js (JS syntax)
-7. If both pass → work through the RELEVANT sections of TESTING.md before committing:
-   - Always run Section A (Core Regression) in full
-   - Run any Section B cases relevant to what you just changed
-     (e.g. changed Settings → run B1, changed delete logic → run B2)
-   - If you cannot interact with a live browser, reason through each test
-     step against the actual code change and confirm it would pass —
-     note in your summary which tests were verified by code reasoning
-     vs which need human verification in a real browser
-8. If you find a NEW issue during testing that isn't already in TESTING.md
-   Section C, add it there immediately with today's date, "Claude Code agent"
-   as finder, and a description — then decide whether to fix it now or
-   flag it as a new BACKLOG.md item for a future sprint
-9. git add index.html BACKLOG.md TESTING.md && git commit -m "..." && git push
-10. Update BACKLOG.md — mark item as DONE with date
-11. Move to next item
+7. Work through RELEVANT sections of TESTING.md before committing:
+   - Always run Section A and A7 (What's New checks)
+   - Run Section B cases relevant to what you changed
+   - Reason through each test step against the actual code change
+   - Note which tests need human verification in a real browser
+8. If you find a NEW issue not in TESTING.md Section C, add it immediately
+   with today's date, then decide: fix now or add to BACKLOG.md
+9. git add index.html BACKLOG.md TESTING.md version.json && git commit -m "..." && git push
+   DO NOT ask for approval — just commit and push
+10. Update BACKLOG.md — mark item DONE with date
+11. Move immediately to next item — no check-ins between items
 ```
 
-**A sprint item is not DONE until both audit.py passes AND the relevant TESTING.md sections have been worked through.** Do not skip testing to save time — this is exactly how the regressions Giuseppe's family found in earlier sprints happened.
+**A sprint item is not DONE until audit.py passes AND TESTING.md sections
+have been worked through.** Do not skip testing. Do not ask for approval.
 
 ---
 
