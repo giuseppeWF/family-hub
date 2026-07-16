@@ -2794,6 +2794,17 @@
 
       <div style="height:1px;background:var(--border);margin:20px 0"></div>
 
+      <!-- Notifications (F-007, scoped to while the hub is open) -->
+      <div style="font-size:12px;font-weight:700;color:var(--cream-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">Notifications</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(255,255,255,0.04);border-radius:10px;margin-bottom:6px">
+        <div style="font-size:14px;color:var(--cream)">🔔 Event reminders
+          <div style="font-size:11px;color:var(--cream-muted);margin-top:2px">30 mins before, while the hub is open</div>
+        </div>
+        <button id="reminder-toggle-btn" onclick="toggleEventReminders()" style="padding:6px 14px;background:transparent;border:1px solid var(--border-strong);border-radius:8px;color:var(--cream-muted);font-family:'Nunito',sans-serif;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">Enable</button>
+      </div>
+
+      <div style="height:1px;background:var(--border);margin:20px 0"></div>
+
       <!-- Photo Screensaver (S4-002) -->
       <div style="font-size:12px;font-weight:700;color:var(--cream-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">Photo Screensaver</div>
       <div style="font-size:12px;color:var(--cream-muted);margin-bottom:10px">After 5 minutes idle, the hub shows a full-screen photo slideshow. Tap anywhere to return.</div>
@@ -3129,11 +3140,12 @@ function getSettingsPin() { return (window.fbSettings || []).find(s => s.id === 
 // ── APP VERSION & WHAT'S NEW ──────────────────────────────────────────────────
 // S5-B08-FIX2: bump deliberately for genuinely user-visible releases only —
 // not automatically on every commit (that was the original loop complaint).
-const APP_VERSION = '3.9';
+const APP_VERSION = '4.0';
 const WHATS_NEW = {
-  version: '3.9',
+  version: '4.0',
   title: "What's new in Family Hub",
   features: [
+    { icon: '🔔', name: 'Event reminders', desc: 'Turn on notifications in Settings to get a nudge 30 minutes before events, while the hub is open' },
     { icon: '🖼', name: 'Photo screensaver', desc: 'Idle 5 minutes and the hub shows a slideshow of your family photos — add them in Settings' },
     { icon: '🎤', name: 'Voice input', desc: 'Tap the mic on any add form and speak instead of typing' },
     { icon: '🔐', name: 'Sign in with Google', desc: 'Each family member now has their own secure account' },
@@ -5691,6 +5703,7 @@ function _openSettingsPanel() {
   renderDeviceUserInSettings();
   renderActivityLog();
   renderSettingsPhotos();
+  updateReminderToggleUI();
   overlay.style.display = 'flex';
   // S5-B06: fetch which roster names have an actual signed-in account, then
   // re-render with the ✅/📧 status icons once that resolves (progressive —
@@ -6571,6 +6584,81 @@ window.addEventListener('fb-data', renderSettingsPhotos);
   }, { passive: true })
 );
 resetScreensaverIdleTimer();
+
+// ── EVENT REMINDER NOTIFICATIONS (F-007, scoped) ───────────────────────────
+// True push-while-closed needs server infrastructure (a scheduled Cloud
+// Function + FCM/Web Push) that this static single-file GitHub Pages app
+// doesn't have — see BACKLOG.md F-007 for the [DECISION NEEDED] on adding
+// a backend. This ships the part that's honestly buildable client-side
+// only: reminders while a hub tab (or the always-on SyncGo instance) is
+// open, checked once a minute against getEvents().
+let _reminderCheckInterval = null;
+let _remindedEventIds = new Set(JSON.parse(localStorage.getItem('fh_reminded_events') || '[]'));
+
+function eventRemindersSupported() { return 'Notification' in window; }
+function eventRemindersEnabled()   { return localStorage.getItem('fh_reminders_enabled') === 'true'; }
+
+function updateReminderToggleUI() {
+  const btn = document.getElementById('reminder-toggle-btn');
+  if (!btn) return;
+  if (!eventRemindersSupported()) {
+    btn.textContent = 'Not supported';
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    return;
+  }
+  btn.textContent = eventRemindersEnabled() ? 'On' : 'Enable';
+  btn.style.color = eventRemindersEnabled() ? 'var(--sage)' : 'var(--cream-muted)';
+}
+
+async function toggleEventReminders() {
+  if (!eventRemindersSupported()) return;
+  if (eventRemindersEnabled()) {
+    localStorage.setItem('fh_reminders_enabled', 'false');
+    stopEventReminderChecks();
+    updateReminderToggleUI();
+    return;
+  }
+  const perm = await Notification.requestPermission();
+  if (perm !== 'granted') { showMicToast('Notification permission was not granted'); updateReminderToggleUI(); return; }
+  localStorage.setItem('fh_reminders_enabled', 'true');
+  startEventReminderChecks();
+  updateReminderToggleUI();
+}
+
+function startEventReminderChecks() {
+  if (_reminderCheckInterval) return;
+  checkEventReminders();
+  _reminderCheckInterval = setInterval(checkEventReminders, 60 * 1000);
+}
+
+function stopEventReminderChecks() {
+  clearInterval(_reminderCheckInterval);
+  _reminderCheckInterval = null;
+}
+
+function checkEventReminders() {
+  if (!eventRemindersEnabled() || !eventRemindersSupported() || Notification.permission !== 'granted') return;
+  const now = new Date();
+  getEvents().forEach(e => {
+    if (!e.date || !e.start || e.pastRecurring) return;
+    if (_remindedEventIds.has(String(e.id))) return;
+    const eventTime = new Date(`${e.date}T${e.start}`);
+    const minsAway = (eventTime - now) / 60000;
+    if (minsAway > 0 && minsAway <= 30) {
+      new Notification(`📅 ${e.name}`, {
+        body: `Starting at ${e.start}${e.who && e.who !== 'Everyone' ? ' — ' + e.who : ''}`,
+      });
+      _remindedEventIds.add(String(e.id));
+      localStorage.setItem('fh_reminded_events', JSON.stringify([..._remindedEventIds].slice(-200)));
+    }
+  });
+}
+
+// Resume reminders on load if previously enabled and permission still granted
+if (eventRemindersSupported() && eventRemindersEnabled() && Notification.permission === 'granted') {
+  startEventReminderChecks();
+}
 
 // Trigger QA with 3 taps on the hub name row
 let qaTaps = 0, qaTimer = null;

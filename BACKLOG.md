@@ -2860,11 +2860,16 @@ Allow adding items via voice using the browser's Web Speech API (`webkitSpeechRe
 ---
 
 ### F-007 · Push notification reminders
-**Status:** TODO
+**Status:** PARTIALLY DONE 2026-07-16 — built the part that's honestly achievable within this app's architecture; the "true push, works even when the app is closed" half remains a real [DECISION NEEDED].
+
+What shipped: a Settings → Notifications → "🔔 Event reminders" toggle. When enabled (`Notification.requestPermission()`), a 60-second interval checks `getEvents()` and fires a browser `Notification` for any event starting in the next 30 minutes, once per event (tracked in `localStorage.fh_reminded_events`, capped at 200 entries). Feature-detected — the toggle shows "Not supported" and is disabled on browsers without the `Notification` API (this notably includes iPhone Safari in a regular browser tab, only iOS 16.4+ *installed-to-homescreen* PWAs support it, with additional setup this doesn't attempt). Persists across reloads via `fh_reminders_enabled`, resumes automatically on load if previously granted.
+
+**What did NOT ship, and why:** genuine "push notification" — one that arrives even when no hub tab/instance is open — requires server-side infrastructure (a scheduled Cloud Function or similar, sending via Web Push/FCM with VAPID keys) to wake the browser and deliver the notification. This app has no backend by design (single static HTML file on GitHub Pages, per AGENTS.md). Adding one is a real architecture decision — new Firebase project features (Cloud Functions requires the Blaze billing plan), new infrastructure to maintain, new attack surface — not something to decide unilaterally.
+
+**[DECISION NEEDED]** Do we want to add server-side infrastructure (Firebase Cloud Functions on the Blaze plan + Web Push) to support true closed-app reminders? Given the SyncGo is always-on and the shipped version already covers that device, the marginal benefit is mainly for family members' phones when the hub isn't open in a tab there. Revisit if this turns out to matter in practice.
+
 **Priority:** Low
 **Category:** Future
-
-Reminder notifications for calendar events (e.g. 30 mins before). Requires service worker + Push API + user permission. Complex on iOS. Revisit after S5-003 (auth) is live since notifications need a user identity to route correctly.
 
 ---
 
