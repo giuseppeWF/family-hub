@@ -1309,6 +1309,36 @@
     border-color: var(--sage);
   }
 
+  .mic-btn {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    background: var(--navy-card);
+    color: var(--cream-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .mic-btn.listening {
+    background: var(--sage);
+    color: var(--navy);
+    animation: micPulse 1s infinite;
+  }
+
+  @keyframes micPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(139, 195, 74, 0.5); }
+    50% { box-shadow: 0 0 0 8px rgba(139, 195, 74, 0); }
+  }
+
   .modal-select {
     width: 100%;
     background: var(--navy-card);
@@ -2430,7 +2460,10 @@
       <div id="modal-event-fields">
         <div class="modal-field">
           <label class="modal-label">Event name</label>
-          <input class="modal-input" id="new-event-name" placeholder="e.g. Dentist appointment">
+          <div style="position:relative">
+            <input class="modal-input" id="new-event-name" placeholder="e.g. Dentist appointment" style="padding-right:44px">
+            <button type="button" class="mic-btn" onclick="startVoiceInput('new-event-name', this)" aria-label="Voice input">🎤</button>
+          </div>
         </div>
         <div style="display:flex;gap:12px">
           <div class="modal-field" style="flex:1">
@@ -2495,7 +2528,10 @@
         </div>
         <div class="modal-field">
           <label class="modal-label">Task</label>
-          <input class="modal-input" id="new-todo-text" placeholder="e.g. Hoover the lounge">
+          <div style="position:relative">
+            <input class="modal-input" id="new-todo-text" placeholder="e.g. Hoover the lounge" style="padding-right:44px">
+            <button type="button" class="mic-btn" onclick="startVoiceInput('new-todo-text', this)" aria-label="Voice input">🎤</button>
+          </div>
         </div>
         <div class="modal-field">
           <label class="modal-label">Assigned to</label>
@@ -2546,7 +2582,10 @@
         </div>
         <div class="modal-field" style="position:relative">
           <label class="modal-label">Item</label>
-          <input class="modal-input" id="new-shop-name" placeholder="e.g. Olive oil" oninput="shopAutocomplete(this.value)" autocomplete="off">
+          <div style="position:relative">
+            <input class="modal-input" id="new-shop-name" placeholder="e.g. Olive oil" oninput="shopAutocomplete(this.value)" autocomplete="off" style="padding-right:44px">
+            <button type="button" class="mic-btn" onclick="startVoiceInput('new-shop-name', this)" aria-label="Voice input">🎤</button>
+          </div>
           <div id="shop-autocomplete" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--navy-mid);border:1px solid var(--border-strong);border-radius:10px;z-index:300;overflow:hidden;margin-top:4px"></div>
         </div>
         <div class="modal-field">
@@ -2609,7 +2648,10 @@
         </div>
         <div class="modal-field" style="position:relative">
           <label class="modal-label">Meal name</label>
-          <input class="modal-input" id="new-meal-name" placeholder="e.g. Pasta arrabbiata" oninput="mealAutocomplete(this.value)" autocomplete="off">
+          <div style="position:relative">
+            <input class="modal-input" id="new-meal-name" placeholder="e.g. Pasta arrabbiata" oninput="mealAutocomplete(this.value)" autocomplete="off" style="padding-right:44px">
+            <button type="button" class="mic-btn" onclick="startVoiceInput('new-meal-name', this)" aria-label="Voice input">🎤</button>
+          </div>
           <div id="meal-autocomplete" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--navy-mid);border:1px solid var(--border-strong);border-radius:10px;z-index:300;overflow:hidden;margin-top:4px"></div>
         </div>
         <div class="modal-field">
@@ -2638,7 +2680,10 @@
       <div id="modal-household-fields" style="display:none">
         <div class="modal-field">
           <label class="modal-label">Task</label>
-          <input class="modal-input" id="new-house-text" placeholder="e.g. Paint the hallway">
+          <div style="position:relative">
+            <input class="modal-input" id="new-house-text" placeholder="e.g. Paint the hallway" style="padding-right:44px">
+            <button type="button" class="mic-btn" onclick="startVoiceInput('new-house-text', this)" aria-label="Voice input">🎤</button>
+          </div>
         </div>
         <div class="modal-field">
           <label class="modal-label">Room</label>
@@ -3066,11 +3111,12 @@ function getSettingsPin() { return (window.fbSettings || []).find(s => s.id === 
 // ── APP VERSION & WHAT'S NEW ──────────────────────────────────────────────────
 // S5-B08-FIX2: bump deliberately for genuinely user-visible releases only —
 // not automatically on every commit (that was the original loop complaint).
-const APP_VERSION = '3.7';
+const APP_VERSION = '3.8';
 const WHATS_NEW = {
-  version: '3.7',
+  version: '3.8',
   title: "What's new in Family Hub",
   features: [
+    { icon: '🎤', name: 'Voice input', desc: 'Tap the mic on any add form and speak instead of typing' },
     { icon: '🔐', name: 'Sign in with Google', desc: 'Each family member now has their own secure account' },
     { icon: '📨', name: 'Invite link to join', desc: 'Share one link to invite family members — no separate code needed' },
     { icon: '🔁', name: 'Recurring events', desc: 'Set weekly dog walks, gym sessions and more to repeat automatically' },
@@ -4806,6 +4852,47 @@ function pickShopFav(id) {
   document.getElementById('shop-autocomplete').style.display = 'none';
 }
 
+// ── VOICE INPUT (F-006) ──────────────────────────────────────────────────
+let voiceRecognition = null;
+function startVoiceInput(inputId, btnEl) {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    showMicToast('Voice input not supported on this browser');
+    return;
+  }
+  if (voiceRecognition) { voiceRecognition.abort(); voiceRecognition = null; return; }
+  const input = document.getElementById(inputId);
+  const recognition = new SpeechRecognition();
+  voiceRecognition = recognition;
+  recognition.lang = 'en-GB';
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+  btnEl.classList.add('listening');
+  recognition.onresult = (e) => {
+    const transcript = e.results[0][0].transcript;
+    input.value = transcript;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.focus();
+  };
+  recognition.onerror = () => { showMicToast('Didn\'t catch that — try again'); };
+  recognition.onend = () => { btnEl.classList.remove('listening'); voiceRecognition = null; };
+  try { recognition.start(); } catch (e) { btnEl.classList.remove('listening'); voiceRecognition = null; }
+}
+
+function showMicToast(msg) {
+  let el = document.getElementById('mic-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'mic-toast';
+    el.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--navy-mid);border:1px solid var(--border-strong);border-radius:12px;padding:10px 16px;z-index:700;color:var(--cream);font-family:\'Inter\',sans-serif;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,0.5)';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.display = 'block';
+  clearTimeout(el._hideTimer);
+  el._hideTimer = setTimeout(() => { el.style.display = 'none'; }, 2500);
+}
+
 function shopAutocomplete(val) {
   const ac = document.getElementById('shop-autocomplete');
   if (!val || val.length < 2) { ac.style.display = 'none'; return; }
@@ -6336,6 +6423,9 @@ document.addEventListener('DOMContentLoaded', () => {
     qaTimer = setTimeout(() => { qaTaps = 0; }, 800);
     if (qaTaps >= 3) { qaTaps = 0; runQA(); }
   });
+  if (!(window.SpeechRecognition || window.webkitSpeechRecognition)) {
+    document.querySelectorAll('.mic-btn').forEach(b => b.style.display = 'none');
+  }
 });
 
 // ── ONBOARDING ────────────────────────────────────────────────────────────────
