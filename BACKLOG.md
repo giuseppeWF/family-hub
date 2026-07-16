@@ -2858,7 +2858,7 @@ Reminder notifications for calendar events (e.g. 30 mins before). Requires servi
 ---
 
 ### F-008 · User colour customisation
-**Status:** TODO
+**Status:** SUPERSEDED by S5-B05 2026-07-16 — reviewed while working the backlog and found this already fully built. S5-B05 (DONE 2026-07-02) added an ✏️ Edit button next to each family member in Settings with 5 colour-preset swatches plus a free `<input type="color">` picker, saved to Firestore `settings/members`-equivalent (the family doc's members array) and propagated app-wide via `injectMemberStyles()`. The member list in Settings is not admin-gated beyond the shared Settings PIN, so any family member who has the PIN can already change their own (or anyone's) colour. No further work needed — do not re-implement.
 **Priority:** Low
 **Category:** Future
 
