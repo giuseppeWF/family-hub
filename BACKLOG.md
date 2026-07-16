@@ -315,7 +315,7 @@ The forward/share approach is more deliberate, lower noise, and works regardless
 ---
 
 ### S5-002 · Forward to Family Hub
-**Status:** TODO
+**Status:** TODO — reviewed 2026-07-16, remains blocked. This needs Giuseppe to create/access the hub inbox Gmail account, set up an Apps Script project, and generate Firebase Admin credentials — none of which the agent can do from this environment. Not implemented.
 **Priority:** High
 **Category:** Integration
 
@@ -628,7 +628,7 @@ Restrict the Firebase API key so it can only be used from the Family Hub domain.
 ## 📋 COMPLIANCE TRACK
 
 ### C-001 · ICO Registration
-**Status:** TODO
+**Status:** TODO — reviewed 2026-07-16. Pure external admin/legal task (ico.org.uk registration, £40 fee, requires Giuseppe's personal/business details and payment). No code involved — not something an agent can complete.
 **Priority:** High
 **Category:** Compliance / Legal
 
@@ -650,7 +650,7 @@ Register with the Information Commissioner's Office (ICO) as a data controller. 
 ---
 
 ### C-002 · Cyber Essentials Certification
-**Status:** TODO
+**Status:** TODO — reviewed 2026-07-16. External certification process (~£300-500, third-party assessor, self-assessment questionnaire Giuseppe must answer). No code involved — not something an agent can complete.
 **Priority:** Medium
 **Category:** Compliance / Certification
 
@@ -675,7 +675,7 @@ Achieve Cyber Essentials certification — the UK government-backed baseline sec
 ---
 
 ### C-003 · Data Processing Agreement with Google/Firebase
-**Status:** TODO
+**Status:** TODO — reviewed 2026-07-16. Requires Giuseppe to accept Google's DPA in Google Cloud Console under his account. No code involved — not something an agent can complete.
 **Priority:** Medium
 **Category:** Compliance / GDPR
 
@@ -821,7 +821,7 @@ Add an optional `videoUrl` field to each feature announcement. If present, show 
 ---
 
 ### S3-012 · User Documentation & Feature Guide
-**Status:** TODO
+**Status:** TODO — explicitly skipped 2026-07-16 per Giuseppe's instruction: "Do not start S3-012 — that needs human content input." Not implemented this session.
 **Priority:** Medium
 **Category:** Documentation
 
@@ -2279,7 +2279,7 @@ Verified in a headless browser: fast-hide before 1s never adds the `assembling` 
 ---
 
 ### F-009 · Siri / Hey Google shortcut for voice adding
-**Status:** TODO
+**Status:** TODO — reviewed 2026-07-16. This is entirely personal-device configuration (family members creating Shortcuts/Google Assistant routines on their own phones) — there's no index.html code to write. The email-forward parser it relies on is S5-002, which is itself blocked (see above). Not actionable until S5-002 ships; the on-device setup itself is Giuseppe/family's to do, not the agent's.
 **Priority:** Medium
 **Category:** Future / Delight
 
@@ -2320,7 +2320,7 @@ Similar flow using Google Assistant routines + Gmail.
 ## 💡 FUTURE / COMMERCIAL
 
 ### F-001 · Multi-household Support
-**Status:** TODO
+**Status:** TODO — reviewed 2026-07-16, [DECISION NEEDED] blocks implementation, not implemented.
 **Priority:** Low
 **Category:** Commercial
 
@@ -2330,7 +2330,7 @@ Similar flow using Google Assistant routines + Gmail.
 ---
 
 ### F-002 · Connector-agnostic Data Layer
-**Status:** TODO
+**Status:** TODO — reviewed 2026-07-16, [DECISION NEEDED] blocks implementation, not implemented.
 **Priority:** Medium
 **Category:** Commercial
 
@@ -2340,7 +2340,7 @@ Similar flow using Google Assistant routines + Gmail.
 ---
 
 ### F-003 · Mobile Companion App
-**Status:** TODO
+**Status:** TODO — reviewed 2026-07-16. No acceptance criteria and no real spec beyond one sentence ("lightweight PWA optimised for phone use") — the existing app is already a responsive PWA usable on phones (see S3-013/S3-014 mobile polish passes), so it's unclear what this would concretely add without more definition. Treating the missing spec as an implicit [DECISION NEEDED]: what would this app do differently from opening the existing hub URL on a phone? Not implemented pending that answer.
 **Priority:** Medium
 **Category:** Commercial
 
@@ -2349,7 +2349,7 @@ Similar flow using Google Assistant routines + Gmail.
 ---
 
 ### F-004 · Bi-directional Calendar Sync
-**Status:** TODO
+**Status:** TODO — reviewed 2026-07-16, [DECISION NEEDED] explicitly says revisit after S5-002 is live; S5-002 is still TODO/blocked (see above), so this stays blocked too. Not implemented.
 **Priority:** Medium
 **Category:** Commercial / Integration
 
@@ -2367,7 +2367,7 @@ When events are created on the Family Hub, offer to push them back to family mem
 ---
 
 ### F-005 · Presence & Availability Dashboard
-**Status:** TODO
+**Status:** TODO — reviewed 2026-07-16. Description explicitly frames this as expanding the `presence` collection/OOO/location concepts introduced by S5-002, which hasn't been built yet (still blocked — see above). Building the presence dashboard ahead of the data source it's meant to display would mean re-deciding that data model twice. Not implemented; revisit once S5-002 ships.
 **Priority:** Medium
 **Category:** Feature / Commercial
 
