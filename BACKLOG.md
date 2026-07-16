@@ -165,26 +165,27 @@ When the app loads for the first time (no data in Firestore), show a friendly se
 ## 🎮 SPRINT 4 — Delight Layer
 
 ### S4-001 · Chore Rewards / Gamification
-**Status:** DONE 2026-07-04 — [DECISION NEEDED] resolved per instruction: everyone earns points by default, admin can exclude specific members (implemented as a per-member "Exclude from chore points" checkbox in the Settings member-edit form, reusing S6-B05's existing edit UI).
+**Status:** TODO
+**Priority:** Low
+**Category:** Feature — Engagement
 
-Implementation:
-- Add-todo and edit-todo modals: a "Points for completing this chore" field appears only when Type is set to "Chore" (defaults to 10, hidden and forced to 0 for plain to-dos). Also wired into the favourites quick-pick path (`pickTodoFav`), which can set type to "chore" too.
-- `scores` Firestore collection, doc ID `{weekKey}__{memberName}` where weekKey is the Monday of that week. **Weekly reset is implicit, not a scheduled job**: a new week naturally starts every member at 0 since it's simply a different doc ID — nothing to prune or cron.
-- `toggleTodo()`: marking a chore done awards its points to every assignee's current-week score (or every non-excluded member if assigned to "Everyone" — consistent with how "Everyone" already behaves for every other who-field in the app); un-ticking claws the same points back, so rapid toggle spam can't farm points.
-- Dashboard leaderboard card (`data-card="leaderboard"`), hidden by default, addable via the existing Arrange/hidden-tray system exactly like the Household card. Shows current week's scorers sorted descending with 🥇🥈🥉 for the top 3, member-colour-coded names.
-- Not built (genuinely out of scope, not requested in this pass): the ORIGINAL backlog's separate [DECISION NEEDED] — "should parents be able to manually award bonus points?" — remains unanswered and unbuilt. Flagging it as a real follow-up, not silently deciding it.
+**Description:**
+Points system for Malachi and Mack. Completing chores earns points. Weekly leaderboard shown on dashboard. Parents can assign point values to tasks.
 
-**Incidental discovery + fix while building this**: `getWeekKey()`'s first draft used `new Date(dateStr + 'T00:00:00')` then `fmt()` (which uses `toISOString()`) — this combination rolls the date back by one day in any positive-UTC-offset timezone (BST included), since local midnight converts to the previous UTC day, *every single time*, not as a rare edge case. Traced the same exact pattern to four **pre-existing, already-shipping** bugs elsewhere: `setRecurEnd()` (the "+1 month"/"+1 year" quick buttons for a recurring event's end date), the recurring-events 90-day generation cap, `nextOccurrence()` (next due date for a completed recurring chore/todo), and the "copy task" tomorrow/next-week quick dates — all silently off by one day for anyone in BST. Fixed the root cause once with a new `shiftDateStr(dateStr, {days, months, years})` helper (builds and formats using local Date parts throughout, never round-tripping through `toISOString()`) and refactored all five call sites (including `getWeekKey` itself) onto it.
-
-Verified in a headless browser: points field show/hide correctly by type, score awarded on completion and clawed back on undo, "Everyone" awards all non-excluded members, exclusion respected, leaderboard renders medals correctly, week-key/date-shift bug fix confirmed against known dates, and the leaderboard card correctly starts hidden and can be added back via Arrange.
+**Implementation notes:**
+- Add `points` field to todo items (default 10 for chores, 0 for todos)
+- Store scores in Firestore: `scores` collection, doc per family member per week
+- When toggleTodo marks a chore done, add points to that person's weekly score
+- Dashboard widget: small leaderboard card (hidden by default, add via Arrange)
+- Weekly reset: scores auto-reset on Monday
+- [DECISION NEEDED] Should parents be able to manually award bonus points?
 
 **Acceptance criteria:**
-- [x] Points assigned to chores (add + edit modals)
-- [x] Score updates when chore marked done (and reverts on undo)
-- [x] Weekly leaderboard on dashboard (hidden by default, addable via Arrange)
-- [x] Weekly auto-reset (implicit via week-keyed doc IDs)
-- [x] Audit passes
-- [ ] Follow-up, not built: manual bonus-point awarding by admin (separate unresolved [DECISION NEEDED] from the original spec)
+- [ ] Points assigned to chores
+- [ ] Score updates when chore marked done
+- [ ] Weekly leaderboard on dashboard (optional widget)
+- [ ] Weekly auto-reset
+- [ ] Audit passes
 
 ---
 
@@ -214,24 +215,20 @@ When the app has been idle for 5 minutes, switch to a full-screen photo slidesho
 ---
 
 ### S4-003 · Better Empty States (Polish Pass)
-**Status:** DONE 2026-07-04 — audited every listed section against the sleeping-mascot (`MASCOT_EMPTY`/`MASCOT_EMPTY_SM`) pattern:
-- **Calendar week view** (`#cal-events-full`, the full week list): already correct — "Nothing this week yet" + hint.
-- **Calendar month view (empty day)**: was plain text with no mascot — fixed, now `MASCOT_EMPTY_SM('Nothing on this day', 'Tap + to add an event')`.
-- **Calendar week view (tapping a specific empty day)**: separate code path (`filterCalDay`) from the above, also plain text with no hint at all — fixed the same way.
-- **Todos pending**: already correct (filter-aware: "Nothing for X" vs "All tasks done!").
-- **Todos done**: no mascot, by design — the whole "Done" section (label + list) hides entirely when empty rather than showing an empty state for an irrelevant section. Confirmed intentional, left as-is.
-- **Shopping (each category)**: not actually possible to have an empty category — categories are derived from items actually present (`activeCats`), so a zero-item category never renders a section at all. Whole-list empty state already fixed in S6-003.
-- **Meals**: whole-list empty state already fixed in S6-003.
-- **Household**: whole-list empty state already fixed in S6-003; "done" section hides entirely when empty, same reasoning as Todos done.
-- **Household filtered by room**: real gap found — always said "No tasks yet" regardless of which room was selected, misleading when other rooms have tasks and only the selected room is empty. Fixed to match the Todos filter pattern: "Nothing in {room}" / "Try a different room or add a task" when a specific room is selected, generic message only when "All" is selected.
+**Status:** TODO
+**Priority:** Low
+**Category:** UX Polish
 
-Verified all four fixes in a headless browser: month-view and week-view empty-day states both render the mascot, room-filtered household shows the room-specific message.
+**Description:**
+Review all empty states across all tabs. Make sure they're friendly, have an emoji, explain what the section is for, and have a clear call to action.
+
+**Tabs to review:** calendar week view, calendar month view, todos pending, todos done, shopping (each category), meals, household, household filtered by room.
 
 **Acceptance criteria:**
-- [x] All empty states have emoji (mascot) + title + subtitle + action hint
-- [x] Consistent visual style across all tabs (`MASCOT_EMPTY`/`MASCOT_EMPTY_SM` used everywhere applicable)
-- [x] Month view empty day has "Tap + to add an event" hint
-- [x] Audit passes
+- [ ] All empty states have emoji + title + subtitle + action hint
+- [ ] Consistent visual style across all tabs
+- [ ] Month view empty day has "Tap + to add an event" hint
+- [ ] Audit passes
 
 ---
 
@@ -536,7 +533,7 @@ Add Google Sign-In so family members authenticate before accessing the hub. Impl
 ---
 
 ### S5-004 · Firestore Security Rules — Phase 1 Deployment
-**Status:** DONE — superseded 2026-07-03 by deploying Phase 2 rules directly (per-family isolation via S5-003), rather than Phase 1 as an intermediate step. See S5-004-READY for the deployment record and S5-003-FIX2 for the bootstrap/flat-collection rule fixes that were needed after the first Phase 2 deploy broke sign-in.
+**Status:** TODO
 **Priority:** Critical
 **Category:** Security
 
@@ -1236,26 +1233,28 @@ Admin can "lock" specific items so they cannot be deleted or edited without PIN.
 ---
 
 ### S4-005 · Item Locking (Admin Only)
-**Status:** DONE 2026-07-04 — "admin" here means the household Settings PIN holder (this item predates S5-003's per-account admin concept, kept consistent with that pre-existing model rather than introducing a second parallel admin notion).
+**Status:** TODO
+**Priority:** Low
+**Category:** Feature / Security
 
-Implementation:
-- `locked` boolean field, settable on any item in events/todos/shopping/meals/household.
-- `lockIcon(item)` helper shows a small 🔒 next to the item's name/text — wired into every full-tab list row (todos pending+done, shopping, meals, household, all three calendar event views) and the detail modal.
-- **Enforcement centralized in exactly two places**, since every delete and edit action in the whole app already funnels through `deleteItem()` and `openEditItem()` respectively (confirmed by tracing every swipe-button, action-button, and detail-modal path) — a lock-check at the top of each blocks the action app-wide with `"This item is locked — ask {admin name} to unlock it"` (admin name pulled from the existing PIN record's `setBy` field). Locked items are blocked from soft-delete too, since soft-delete IS `deleteItem()`'s only code path — nothing extra needed there.
-- Detail modal: locked items hide the Edit/Delete buttons entirely and show an explanatory banner, extending the exact same pattern already used for meal ownership (`canEdit`/`createdBy`).
-- Long-press (600ms, cancels itself if the touch moves more than 10px in either axis so it can't fight the existing horizontal swipe-to-reveal gesture) opens a small action-sheet with Lock/Unlock, labelled dynamically based on current state.
-- Lock/unlock itself requires the admin PIN: added `requireAdminPin(callback)`, a small generic extension to the existing PIN-entry flow — on correct PIN it runs the given callback instead of unconditionally opening Settings (which is still exactly what happens when there's no pending callback, so the original Settings-PIN flow is unchanged). Cancelling the PIN prompt clears the pending callback so it can never fire later for an unrelated PIN entry.
-- Not a new gap: like every other PIN-gated action in this app, this is a UI-level deterrent, not a real security boundary — a technically savvy person with dev tools could call `toggleItemLock()` directly. Matches TESTING.md Section B6's already-documented, accepted limitation for this exact reason (family app threat model, not enterprise).
+**Description:**
+Allow admins to lock specific items so they cannot be deleted or edited without the Settings PIN. The nuclear option for chores that keep mysteriously disappearing.
 
-Verified in a headless browser: lock icon renders only on locked items, delete/edit attempts on a locked item are blocked with the correct message and the item survives, the detail modal correctly hides its buttons and shows the banner (and does NOT for an unlocked item), `requireAdminPin` refuses to even prompt when no PIN exists yet, and — using real `TouchEvent`/`Touch` simulation — a genuine 600ms stationary touch opens the context menu while a horizontal swipe gesture correctly cancels the long-press timer and still triggers the pre-existing swipe-to-reveal behaviour unmodified.
+**Implementation notes:**
+- Add `locked: true/false` field to any Firestore document
+- Locked items show a small 🔒 icon
+- Attempting to delete or edit a locked item: show "This item is locked by [admin name]. Ask them to unlock it."
+- Only admin (PIN verified) can lock or unlock items
+- Long-press on any item → context menu: Lock / Unlock (admin only, PIN required)
+- Locked items cannot be soft-deleted either — they are fully protected
 
 **Acceptance criteria:**
-- [x] Admin can lock any item (requires PIN)
-- [x] Locked items show 🔒 indicator
-- [x] Non-admins cannot delete or edit locked items
-- [x] Non-admins see clear message explaining why
-- [x] Admin can unlock items (requires PIN)
-- [x] Audit passes
+- [ ] Admin can lock any item (requires PIN)
+- [ ] Locked items show 🔒 indicator
+- [ ] Non-admins cannot delete or edit locked items
+- [ ] Non-admins see clear message explaining why
+- [ ] Admin can unlock items (requires PIN)
+- [ ] Audit passes
 
 
 ---
@@ -2084,10 +2083,7 @@ S5-B05 was marked done but the ✏️ edit button is not visible next to family 
 ---
 
 ### S5-B08 · What's New popup keeps reappearing + features list never updated
-**Status:** DONE 2026-07-03, properly fixed 2026-07-04 (S5-B08-FIX2) — the first pass (below) fixed the too-frequent version bumping and stale features list, but missed the actual root cause of genuine reappearance: `checkWhatsNew()`/`closeWhatsNew()` compared against `APP_VERSION`, the constant baked into whatever HTML happened to be loaded. If the browser/CDN serves an inconsistent mix of cached and fresh `index.html` across reloads (observed earlier this sprint with GitHub Pages propagation lag), the baked-in `APP_VERSION` flips between values unpredictably from one load to the next even though the server hasn't changed — making the "have I seen this version" comparison unreliable and causing the popup to reappear. **Fix:** `checkWhatsNew()` now fetches `version.json` itself (cache-busted, same pattern as the S3-018 update banner) and compares/stores against that fetched value instead of the baked-in constant — a stable source of truth regardless of which HTML bytes happen to be cached. Falls back to `APP_VERSION` only if the fetch fails (e.g. offline). Added 8 new audit.py checks (section 15) enforcing this permanently: APP_VERSION exists, version.json exists and matches, `checkWhatsNew()` actually calls `fetch('version.json'...)`, `closeWhatsNew()` persists the fetched value (not the constant), features list is non-trivial and contains none of the original stale placeholder strings. `WHATS_NEW` updated with the current Sprint 3-6 feature list, `APP_VERSION`/`version.json` bumped to `3.1`. Verified in a headless browser by mocking `fetch` to return different version.json values across calls, independent of the actual baked-in `APP_VERSION` — confirmed the popup's show/hide/persist decision follows the mocked server value in all four cases (first show, dismiss-persists-fetched-value, stays hidden on same version, shows again on genuinely new version).
-  **Incidental find while fixing this**: a concurrent commit (`589a659`, from a stale local save) had accidentally regressed `audit.py` itself — reverted required-field/listener/core-fn lists, shrunk the `openEditItem` search window back to 5000 chars (breaking the `'event'` case check), and reverted the duplicate-ID regex to a naive pattern that false-positived on the literal string `id="' + sid + '"` appearing in dynamically-built HTML. Restored all of it from the last known-good commit (`309b6e7`) before adding the new checks on top.
-
-Original 2026-07-03 pass: the check/dismiss logic itself was already correct (`localStorage.getItem('fh_seen_version') === APP_VERSION` on check, `localStorage.setItem('fh_seen_version', APP_VERSION)` on dismiss both consistently reference the same key/constant). Fixed the too-frequent version bumping (4.2 → 4.8 in one sprint) and the stale Sprint 3 placeholder features list (dog walk rota, weather widget, etc.), added a `title` field wired into the popup heading. This was real progress but did not fix the underlying cache-inconsistency bug — see above.
+**Status:** DONE 2026-07-03 — the check/dismiss logic itself was already correct (`localStorage.getItem('fh_seen_version') === APP_VERSION` on check, `localStorage.setItem('fh_seen_version', APP_VERSION)` on dismiss both consistently reference the same key/constant, verified by reading the code). The actual cause of "keeps reappearing": `APP_VERSION` had been bumped on nearly every single commit this sprint (4.2 → 4.3 → 4.4 → 4.5 → 4.6 → 4.7 → 4.8), so each new deploy legitimately counted as "a new version" and correctly re-showed the popup once — it just felt like a loop because of how often it was bumped, compounded by the features list still showing Sprint 3 placeholder content (dog walk rota, weather widget, etc.) that had nothing to do with what was actually new. Fixed: `WHATS_NEW` replaced with the specified Sprint 3-5 feature list (Google sign-in, invite links, mascot, recurring events, multi-day events, event notes, smarter shopping, favourites, undo delete, weather in header) plus a `title` field now wired into the popup heading (previously hardcoded, ignoring the constant). `APP_VERSION` reset to `'3.0'` in index.html and `version.json` updated to match exactly. Going forward, `APP_VERSION` should only bump for genuinely user-visible releases, not every commit. Verified in a headless browser: shows once with the new content, dismissal persists to localStorage, stays hidden across a reload at the same version.
 **Priority:** High
 **Category:** Bug
 
@@ -2149,7 +2145,7 @@ Also update APP_VERSION to '3.0' and update version.json to match.
 ## 📦 SPRINT 6 — Widget Polish
 
 ### S6-001 · Overview widget — show due date on tasks
-**Status:** DONE 2026-07-03 — added the existing `dueBadge(due)` helper next to the who-tag in the dashboard todos widget row, only rendered when `t.due` is set. Task text truncates with ellipsis (`overflow:hidden;text-overflow:ellipsis;white-space:nowrap`) so long todo names never push the badges off-row or wrap. Verified in a headless browser with overdue/today/soon/no-due-date cases — all render correctly on one line.
+**Status:** TODO
 **Priority:** High
 **Category:** UX / Enhancement
 
@@ -2179,7 +2175,7 @@ Tasks and chores on the overview To-dos widget should show their due date inline
 ---
 
 ### S6-002 · Meals widget — full 7 days, actual date, who's cooking, scrollable
-**Status:** DONE 2026-07-03 — dashboard meals widget now iterates all 7 days Monday-first (previously "next 3 upcoming, wrapping from today" — changed to match the full Meals tab's own Monday-first ordering, which is what the spec's `weekDates[dayOrder.indexOf(m.day)]` snippet implied). Each day shows its real date next to the abbreviated name (e.g. "Fri 4 Jul"). Days with a meal show who's cooking in their member colour below the meal name. Empty days show "Nothing planned yet" + "+ Add", tapping opens the add-meal modal pre-filled with that specific day via a new `openMealModalForDay(day)` helper (overrides `openModal('meal')`'s own "next free day" default). Internal scrolling needed no new code — `.dash-card-body`'s existing `overflow-y:auto;max-height:220px` already applies to every dashboard card. Verified in a headless browser: 7 rows render, correct dates/colours/placeholder text, tapping an empty day opens the modal with that day selected.
+**Status:** TODO
 **Priority:** High
 **Category:** UX / Enhancement
 
@@ -2224,48 +2220,122 @@ Tapping the empty row opens the add meal modal pre-filled with that day.
 - [ ] Tapping empty day opens add meal modal for that day
 - [ ] Audit passes
 
+
 ---
 
-### S6-003 · Restore correct mascot + use on login and loading screens
-**Status:** DONE 2026-07-04, definitively fixed same day — the earlier pass (first paragraph below, kept for history) used the old simpler face-only mascot because no fuller version existed anywhere in the codebase. Giuseppe then supplied the exact, verbatim SVG for the correct mascot (full body: teal roof, dark teal `#0A2E2A` body, teal-iris eyes, rosy cheeks, peace sign in the left hand, gold star in the right hand, legs, sparkle details) — resolving the earlier [DECISION NEEDED]. Copied it verbatim into a single hidden `<svg><defs><g id="mascot-full">` block right after `<body>`, referenced via `<use href="#mascot-full">` everywhere possible for pixel-perfect consistency:
-- **Header**: `.hub-emoji-l`/`.hub-emoji-r` now use `<use href="#mascot-full">` at 32×46 in a pale-mint padded pill (was the old face-only inline SVG). Mobile responsive override changed from forcing a fixed 28×28 span to scaling the inner `<svg>` to 20×29, preserving the new mascot's taller aspect ratio instead of squashing it.
-- **Login screen**: `<use href="#mascot-full">` at 120×172, no background box (per the exact instructions given — unlike header/icon, no pale-mint wrapper specified here).
-- **App icon**: `<use>` doesn't work here — a `data:image/svg+xml` icon is a separate document context with no access to this page's `<defs>`. Inlined the same shapes verbatim instead, in a self-contained `viewBox="0 0 192 192"` (the literal snippet given used `viewBox="0 0 160 230"` with a 192×192 background rect, which doesn't fit the stated coordinate space — corrected to a proper `translate(36,10) scale(0.748)` centering the native 160×230 artwork within the 192×192 pale-mint rounded square). Verified by rendering the actual generated data URI — mascot fully visible, correctly centred.
-- **Empty states** (`MASCOT_EMPTY`/`MASCOT_EMPTY_SM`): now `<use href="#mascot-full">` plus the exact given sleeping overlay (two half-closed-eyelid rects + two static z's), sized 48×69 / 36×52 to preserve the mascot's native aspect ratio within the existing 80×80 / 60×60 pale-mint boxes.
-- Removed the now-dead `MASCOT_AWAKE`/`MASCOT_SLEEP` constants and the `floatZzz`/`.zzz-1/2/3` keyframe animation entirely — the new sleeping overlay uses two *static* z's at fixed opacity as given verbatim, which conflicts with animating them via the old keyframes (the animation's own opacity keyframes would override the given static opacity values). This does drop the previous S4-019 floating-zzz animation as a minor side effect of following the exact given markup — flagging this trade-off explicitly rather than silently blending old animation logic into new verbatim content.
-- **Loading screen**: the exact mascot shapes inlined directly rather than via `<use>` — S6-004's assembly animation needs individually classed part-groups (roof, eyes, arms, etc.), which a `<use>` reference can't expose to CSS from outside. Re-grouped into 13 named groups matching the new design's actual parts (shadow, legs, body, chimney, roof, collar, arm-left, arm-right, eyes, brows, cheeks, mouth, sparkles) — see S6-004's updated timing.
+### S6-003 · Mascot — restore correct design + use on login and loading screens
+**Status:** TODO
+**Priority:** High
+**Category:** Design
 
-Verified in a headless browser: header, login, app icon (rendered the actual data URI), and all three previously-fixed empty states all show the correct new design with roof/eyes/cheeks/arms/star/peace-sign/legs present; loading-screen assembly animation still completes correctly with the new 13-group structure.
+The mascot currently in the app does not match the agreed design. The correct mascot (confirmed by Giuseppe, webp image shared 3 Jul 2026) has:
+- Dark teal body (#0A2E2A)
+- Teal roof with softened peak
+- White-sclera eyes with teal iris and dark pupils
+- Rosy pink cheeks
+- Gold star (★) in right hand
+- Peace sign (☮) in left hand
+- Small teal arms and legs with rounded feet
+- Pale mint (#E8F8F6) background
 
-Superseded first-pass notes (kept for history, no longer the current state): used the existing simpler `MASCOT_AWAKE`/`MASCOT_SLEEP` (teal roof triangle, `#0D2F2A` body, `#2EC4B6` iris, rosy cheeks, no arms/star/peace-sign) on login/loading screens, verified header/app icon already used it, and fixed three real empty-state gaps (Shopping and Meals tabs had no empty state at all; Household used plain text). Those empty-state and header/app-icon placement fixes carried forward unchanged into this pass — only the underlying mascot SVG itself changed.
+**The agent must extract the existing correct SVG from the app** (it was built correctly at one point — find the version in git history where it matched) rather than rebuilding from scratch.
+
+**Where the mascot must appear:**
+
+1. **Header** — small version (32px height) in a rounded square pale mint container, replacing the house emoji. Already partially implemented but using wrong design.
+
+2. **Sign-in / login screen** — centre of the page above "Family Hub" title. Larger version (~120px). Same design, pale mint background. This is the first thing new family members see — it should be welcoming and characterful.
+
+3. **Loading screen** — shown while the app is initialising (auth check, family resolution, data migration). Animated version — see S6-004 for the assembly animation.
+
+4. **Empty states** — sleeping version (half-closed eyes, zzz bubbles) in each tab when there are no items. Already built, verify it uses correct design.
+
+5. **App icon** — apple-touch-icon meta tag, 192×192 on pale mint rounded square background.
 
 **Acceptance criteria:**
-- [x] Definitive mascot SVG copied verbatim, used via `<use href="#mascot-full">` everywhere technically possible
-- [x] Header, login screen, empty states, app icon, loading screen all show the correct design (roof/eyes/cheeks/arms/star/peace-sign/legs)
-- [x] App icon technical exception documented (standalone data URI can't use `<use>`)
-- [x] Loading screen technical exception documented (inline shapes needed for S6-004's per-part animation)
-- [x] Audit passes
+- [ ] Mascot matches the agreed design from the webp reference image
+- [ ] Appears correctly on sign-in screen above title
+- [ ] Appears correctly in header (rounded square, pale mint bg)
+- [ ] Empty states use sleeping version with correct design
+- [ ] App icon uses correct mascot
+- [ ] Audit passes
 
 ---
 
-### S6-004 · Animated piece-by-piece assembly on loading screen
-**Status:** DONE 2026-07-04 — no detailed spec existed for this in BACKLOG.md (searched — nothing under "assembly", "loading screen", or "S6-004" prior to this entry), so timing/easing choices below are my own engineering judgement within the stated constraints (~2.3s total, staggered, skip under 1s, respect reduced-motion), not a pre-agreed design.
+### S6-004 · Mascot — animated assembly on loading screen
+**Status:** TODO
+**Priority:** Low
+**Category:** Delight / Polish
 
-Split the loading-screen mascot's SVG shapes into named groups via CSS classes. Default state is fully visible/assembled — a fast load never touches this, the mascot just shows normally. A `setTimeout(..., 1000)` checks whether `#loading-screen` is still visible; only then does it add an `assembling` class, which (via `animation-fill-mode:backwards`) snaps every part back to a "not yet placed" state (faded + offset + scaled down) and plays them forward with staggered `animation-delay`, ending ~2.25s later. `prefers-reduced-motion: reduce` forces all parts to their final state with no animation.
+On the loading screen (shown during auth check and initial data load), animate the mascot assembling itself piece by piece — similar to the Google device setup animation or a build/construct feel. Makes the loading wait feel intentional and fun rather than just a spinner.
 
-**Updated same day for the definitive mascot (S6-003)**: originally 9 groups on the old face-only design (chimney, roof, body, eye-whites, irises, pupils+highlights, cheeks, mouth, chin). Re-grouped into 13 groups matching the new full-body design's actual parts — shadow (0s), legs (0.16s), body (0.32s), chimney (0.48s), roof (0.63s), collar (0.79s), arm-left/peace-sign (0.95s), arm-right/star (1.11s), eyes (1.27s), brows (1.43s), cheeks (1.58s), mouth (1.74s), sparkles (1.90s) — same 0.35s duration per group, same ~2.25s total. The new mascot is inlined directly on the loading screen rather than via `<use href="#mascot-full">` like everywhere else, specifically so these groups stay individually targetable by CSS — a `<use>` reference renders as an opaque unit that can't be styled part-by-part from outside.
+**Animation sequence (CSS keyframes, no JS library needed):**
+1. Feet appear first (slide up from bottom, 0-0.3s)
+2. Body appears (fade in + slight scale up, 0.3-0.6s)  
+3. Arms appear (slide in from sides, 0.6-0.9s)
+4. Roof/hat appears (drop down from top, 0.9-1.2s)
+5. Eyes appear (pop in with slight bounce, 1.2-1.5s)
+6. Star and peace sign appear in hands (spin in, 1.5-1.8s)
+7. Smile appears (draw across, 1.8-2.0s)
+8. Whole mascot does a small happy bounce (2.0-2.3s)
+9. Hold, then fade to app (2.3s+)
 
-**Important architectural note discovered while testing this**: `#loading-screen` represents "checking auth state," not "data has finished loading" — `onAuthStateChanged`'s first callback hides it immediately, which resolves in well under 1 second in virtually all conditions (it doesn't wait for Firestore data, which streams in afterward via `onSnapshot` while the dashboard is already showing). In practice this means the assembly animation will rarely fire on a fast connection — it's there for genuinely slow conditions (cold start, poor network, e.g. the SyncGo device on Wi-Fi), which is exactly what "skip if under 1s" asks for, but don't expect to see it on every load.
-
-Verified in a headless browser: fast-hide before 1s never adds the `assembling` class (mascot stays static); forcing the loading screen to stay visible past 1s does trigger it, with the correct per-part delays and full opacity ~2.3s later; `prefers-reduced-motion` shows all parts at opacity 1 with no animation.
+**Implementation:**
+- Each mascot part is a separate SVG group with an id
+- CSS animation class applied to each group with staggered delays
+- Total assembly time: ~2.3 seconds — fast enough not to frustrate, slow enough to appreciate
+- If data loads in under 1 second, skip the animation and go straight to app
+- Add a minimum display time of 1.5s so the animation isn't cut off
 
 **Acceptance criteria:**
-- [x] Piece-by-piece staggered entrance, ~2.3s total
-- [x] Skipped entirely for loads that resolve in under 1s
-- [x] `prefers-reduced-motion` respected
-- [x] Audit passes
+- [ ] Loading screen shows mascot assembling piece by piece
+- [ ] Animation sequence follows the order above
+- [ ] Total animation under 2.5 seconds
+- [ ] Skips animation if data loads in under 1 second
+- [ ] Smooth fade transition from loading to app
+- [ ] Respects prefers-reduced-motion (show static mascot, skip animation)
+- [ ] Audit passes
+
 
 ---
+
+### F-009 · Siri / Hey Google shortcut for voice adding
+**Status:** TODO
+**Priority:** Medium
+**Category:** Future / Delight
+
+Let family members add items to the hub by voice — no typing, no app opening needed.
+
+**iPhone (Siri Shortcut):**
+Create a Shortcuts automation that:
+1. Asks "What do you want to add?"
+2. Takes the spoken response as text
+3. Sends an email to the hub inbox with the text as the subject
+4. The smart inbox parser handles the rest
+
+Setup steps:
+1. Open the Shortcuts app on iPhone
+2. Create new shortcut
+3. Add action: "Ask for Input" (type: Text, prompt: "What to add to the hub?")
+4. Add action: "Send Email"
+   - To: lucarellihub@gmail.com
+   - Subject: [result from step 3]
+   - Body: (empty)
+5. Name the shortcut "Add to Hub"
+6. Add to Home Screen
+
+Then: "Hey Siri, Add to Hub" → "What to add?" → "Milk and bread" 
+→ Email sent → Items appear in shopping list within 5 minutes
+
+**Android (Google Assistant):**
+Similar flow using Google Assistant routines + Gmail.
+
+**Acceptance criteria:**
+- [ ] Siri shortcut created and tested on iPhone
+- [ ] "Hey Siri, Add to Hub" triggers the flow
+- [ ] Spoken text sent as email to hub inbox
+- [ ] Smart parser picks it up correctly
+- [ ] Setup guide written for each family member
 
 
 ## 💡 FUTURE / COMMERCIAL
@@ -2860,7 +2930,7 @@ Let family members choose their own colour rather than using the assigned defaul
 ---
 
 ### S5-004-DEPLOY · Deploy Firestore Security Rules to Firebase Console
-**Status:** DONE 2026-07-03 — deployed via S5-004-READY once all five family members had signed in. See S5-004-READY for the record.
+**Status:** BLOCKED — wait for S5-003 (Google Sign-In) to be live first
 **Priority:** Critical
 **Category:** Security / Infrastructure
 
