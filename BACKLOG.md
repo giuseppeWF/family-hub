@@ -61,7 +61,7 @@ When a recurring event date passes, automatically generate the next occurrence i
 ---
 
 ### S3-003 · Offline Mode / Service Worker
-**Status:** BLOCKED — depends on S3-018
+**Status:** DONE — found already fully implemented 2026-07-16 while working the backlog in priority order, but never marked DONE (likely a casualty of the same stale-copy BACKLOG.md overwrite fixed in commit 0cc1221). Verified in index.html: inline blob-URL service worker (`fh-v3` cache) registered after S3-018's version-check block, cache-first for `/family-hub/` assets with network-first-then-cache-fallback for `firestore.googleapis.com`/`identitytoolkit` requests, `#offline-banner` ("📴 Offline — showing last known data") wired to `online`/`offline` window events via `setOfflineBanner()`. Data updates on reconnect are handled by Firestore's own `onSnapshot` reconnection, not custom code. No changes needed — do not re-implement.
 **Priority:** Medium
 **Category:** Infrastructure
 
@@ -85,10 +85,10 @@ navigator.serviceWorker.register(URL.createObjectURL(blob));
 ```
 
 **Acceptance criteria:**
-- [ ] App loads when WiFi is disconnected (from cache)
-- [ ] "Offline" indicator shown when no connection
-- [ ] Data updates when connection restored
-- [ ] Audit passes
+- [x] App loads when WiFi is disconnected (from cache)
+- [x] "Offline" indicator shown when no connection
+- [x] Data updates when connection restored
+- [x] Audit passes
 
 ---
 
