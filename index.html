@@ -3140,9 +3140,9 @@ function getSettingsPin() { return (window.fbSettings || []).find(s => s.id === 
 // ── APP VERSION & WHAT'S NEW ──────────────────────────────────────────────────
 // S5-B08-FIX2: bump deliberately for genuinely user-visible releases only —
 // not automatically on every commit (that was the original loop complaint).
-const APP_VERSION = '4.0';
+const APP_VERSION = '4.1';
 const WHATS_NEW = {
-  version: '4.0',
+  version: '4.1',
   title: "What's new in Family Hub",
   features: [
     { icon: '🔔', name: 'Event reminders', desc: 'Turn on notifications in Settings to get a nudge 30 minutes before events, while the hub is open' },
@@ -3317,8 +3317,18 @@ function checkDeviceUserPrompt() {
 }
 
 // ── DATE HELPERS ──────────────────────────────────────────────────────────────
+// fmt()/todayStr must format using LOCAL date parts, never toISOString() —
+// toISOString() converts to UTC first, which rolls the date back by one day
+// for any Date built at local midnight whenever the local zone is ahead of
+// UTC (e.g. BST). That silently shifted every calendar-day string (month
+// view, week strip, today-highlight, event-day matching) back by a day,
+// which visually reads as "today"/events being one day AHEAD of where they
+// should be (S7-B01). shiftDateStr() below already used local parts
+// correctly for its own call sites — fmt()/todayStr are the same primitive,
+// fixed the same way, since they're what everything else here builds on.
+function fmt(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
 const today    = new Date();
-const todayStr = today.toISOString().split('T')[0];
+const todayStr = fmt(today);
 
 function getWeekDates() {
   const dates = [], mon = new Date(today);
@@ -3328,7 +3338,6 @@ function getWeekDates() {
   }
   return dates;
 }
-function fmt(d) { return d.toISOString().split('T')[0]; }
 
 // Adds days/months/years to a 'YYYY-MM-DD' string and returns a new one,
 // entirely in local time. Deliberately does NOT go via `new Date(str +

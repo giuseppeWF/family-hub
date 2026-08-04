@@ -3269,3 +3269,31 @@ The `firestore.rules` file is already written and committed to the repo. It need
 - [ ] App still functions correctly after deployment
 - [ ] Firebase Console shows new rules version in history
 - [ ] Test mode is no longer active
+
+---
+
+## 🐛 SPRINT 7 — Critical Bugs & UK Locale (Aug 2026)
+
+**Note:** These items (S7-B01 through S7-001) were specified directly by Giuseppe for this session and did not previously exist in this file — added here as they're worked, following this file's usual DONE-writeup convention, so the record is complete for future sessions.
+
+### S7-B01 · Mobile date bug — everything shown one day ahead
+**Status:** DONE 2026-08-04
+**Priority:** Critical
+**Category:** Bug / Calendar
+
+**Description:**
+Reported as a mobile date bug — the app's notion of "today" and event dates appeared shifted one day ahead of the real date.
+
+**Root cause:**
+`fmt(d)` (the core Date→'YYYY-MM-DD' formatter used almost everywhere: month view, week strip, today-highlight, event-day matching, and `todayStr` itself) was implemented as `d.toISOString().split('T')[0]`. `toISOString()` converts to UTC before formatting. Calendar-day `Date` objects throughout the app are built at **local midnight** (e.g. `new Date(year, month, d)`). In any positive-UTC-offset timezone — including the UK during BST, which is in effect right now — local midnight converts to 23:00 the *previous* UTC day, so `fmt()` silently returned yesterday's date for every calendar cell. Meanwhile `todayStr` (built from the actual current moment, not midnight) was usually correct. The mismatch meant the cell landing on the real "today" failed its `dStr === todayStr` check, while the *next* day's cell (whose local-midnight-to-UTC rollback happened to land on the real today) matched instead — so "today" and all date-based matching visually appeared shifted one day forward. Not new: this is the exact `toISOString()` pattern already diagnosed once in S4-001 and fixed there via `shiftDateStr()` for *other* call sites (recurring end-date shortcuts, generation cap, next-occurrence, copy-task quick dates) — but `fmt()`/`todayStr`, the most-used date primitives in the file, were never migrated onto the same fix.
+
+**Fix:** `fmt()` now builds the string from local `getFullYear()`/`getMonth()`/`getDate()` parts (same approach as `shiftDateStr()`), and `todayStr` is derived from `fmt(today)` instead of its own separate `toISOString()` call. Single shared, correct primitive — no call site changes needed since every consumer (28 usages) just compares/uses the resulting string.
+
+**Verified:** Reproduced the bug and the fix in Node with `TZ=Europe/London` against a simulated BST date (`new Date(2026,7,5)` local midnight) — old `fmt()` returned `2026-08-04` (wrong), new `fmt()` returns `2026-08-05` (correct). Reasoned through every one of the 28 `todayStr`/`fmt()` call sites — all are plain string comparisons/usages with no compensating logic elsewhere that assumed the old (buggy) value, so no double-correction risk. `python3 audit.py` and `node --check` both pass.
+
+**Acceptance criteria:**
+- [x] "Today" highlight lands on the actual current date, not tomorrow
+- [x] Event/task date matching uses the correct calendar day
+- [x] Fix verified against a real BST date via Node repro
+- [x] No other code compensated for the old bug (checked before fixing)
+- [x] Audit passes
