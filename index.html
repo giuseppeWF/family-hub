@@ -2870,6 +2870,16 @@
     </div>
   </div>
 
+  <!-- RECURRING EVENT SCOPE PROMPT (S7-B04) -->
+  <div id="recur-scope-overlay" onclick="closeRecurScopeIfBg(event)" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.88);z-index:520;align-items:center;justify-content:center;padding:20px">
+    <div style="background:var(--navy-mid);border:1px solid var(--border-strong);border-radius:20px;padding:24px;width:100%;max-width:340px" onclick="event.stopPropagation()">
+      <div id="recur-scope-title" style="font-family:'Nunito',sans-serif;font-size:16px;font-weight:800;color:var(--cream);margin-bottom:18px">This is a recurring event</div>
+      <button onclick="resolveRecurScope('this')" style="width:100%;padding:14px;margin-bottom:10px;background:var(--sage);border:none;border-radius:12px;color:var(--navy);font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;cursor:pointer">Just this event</button>
+      <button onclick="resolveRecurScope('series')" style="width:100%;padding:14px;margin-bottom:10px;background:transparent;border:2px solid var(--sage);border-radius:12px;color:var(--sage);font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;cursor:pointer">This and future events</button>
+      <button onclick="resolveRecurScope(null)" style="width:100%;padding:12px;background:transparent;border:1px solid var(--border-strong);border-radius:12px;color:var(--cream-muted);font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;cursor:pointer">Cancel</button>
+    </div>
+  </div>
+
   <!-- EDIT ITEM OVERLAY -->
   <div id="edit-item-overlay" onclick="closeEditItemIfBg(event)">
     <div class="modal-box" onclick="event.stopPropagation()">
@@ -3140,9 +3150,9 @@ function getSettingsPin() { return (window.fbSettings || []).find(s => s.id === 
 // ── APP VERSION & WHAT'S NEW ──────────────────────────────────────────────────
 // S5-B08-FIX2: bump deliberately for genuinely user-visible releases only —
 // not automatically on every commit (that was the original loop complaint).
-const APP_VERSION = '4.4';
+const APP_VERSION = '4.5';
 const WHATS_NEW = {
-  version: '4.4',
+  version: '4.5',
   title: "What's new in Family Hub",
   features: [
     { icon: '🔔', name: 'Event reminders', desc: 'Turn on notifications in Settings to get a nudge 30 minutes before events, while the hub is open' },
@@ -3165,6 +3175,7 @@ const WHATS_NEW = {
     { icon: '🔒', name: 'Lock important items', desc: 'Admin can lock an item so it can\'t be edited or deleted by mistake' },
     { icon: '🏠', name: 'Meet your Family Hub helper', desc: 'A friendly new face on sign-in, loading, and every empty screen' },
     { icon: '👋', name: 'Your phone knows it\'s you', desc: 'Sign in with Google on your own phone and the hub greets you by name automatically — no more picking yourself from a list every time' },
+    { icon: '🔁', name: 'Edit or delete just one, or the whole series', desc: 'Changing a recurring event now asks whether it\'s just this one, or this and all future ones' },
   ]
 };
 
@@ -3945,11 +3956,16 @@ function handleSwipeDelete(btn) {
 
 let _undoItem = null, _undoTimer = null;
 
-function showUndoToast(col, item) {
-  _undoItem = { col, item };
+function showUndoToast(col, item, items) {
+  // items (plural) supports undoing a whole recurring-event series delete
+  // (S7-B04) as a single action — falls back to just the one item otherwise.
+  const targets = items && items.length ? items : (item ? [item] : []);
+  _undoItem = { col, items: targets };
   const label = item ? (item.text || item.name || '') : '';
   const msg = document.getElementById('undo-toast-msg');
-  if (msg) msg.textContent = label ? `"${label}" deleted` : 'Item deleted';
+  if (msg) msg.textContent = targets.length > 1
+    ? `"${label}" and ${targets.length - 1} future occurrence${targets.length > 2 ? 's' : ''} deleted`
+    : (label ? `"${label}" deleted` : 'Item deleted');
   const toast = document.getElementById('undo-toast');
   if (toast) toast.style.display = 'flex';
   clearTimeout(_undoTimer);
@@ -4024,13 +4040,16 @@ async function undoDelete() {
   clearTimeout(_undoTimer);
   const toast = document.getElementById('undo-toast');
   if (toast) toast.style.display = 'none';
-  const { col, item } = _undoItem;
+  const { col, items } = _undoItem;
   _undoItem = null;
-  if (!item || !item.id) return;
+  if (!items || !items.length) return;
   setSyncStatus('saving');
   try {
-    await window.fbUpdate(col, item.id, { deleted: false, deletedAt: null, deletedBy: null });
-    await logActivity('restored', col, item.text || item.name || '', item.id);
+    for (const item of items) {
+      if (!item || !item.id) continue;
+      await window.fbUpdate(col, item.id, { deleted: false, deletedAt: null, deletedBy: null });
+      await logActivity('restored', col, item.text || item.name || '', item.id);
+    }
   } catch(e) { setSyncStatus('error'); }
 }
 
@@ -4049,17 +4068,75 @@ function lockedItemMessage() {
   return `This item is locked — ask ${adminName} to unlock it`;
 }
 
+// ── RECURRING EVENT SCOPE — single vs series (S7-B04) ─────────────────────────
+// Recurring events materialise as separate sibling Firestore docs (see
+// processRecurringEvents, which pre-generates up to 24 future occurrences),
+// not a single doc with a repeat rule — so "this and future" is a real,
+// meaningful choice, not just cosmetic. New events get a seriesId (their own
+// id, carried forward automatically since processRecurringEvents spreads the
+// previous occurrence's fields onto each new one). Events created before
+// this fix have no seriesId, so sibling matching falls back to
+// name+recur+who — the same equality the app already used for recurring-event
+// dedup, so it's a consistent, if slightly heuristic, definition of "series".
+function getRecurSeries(event, { futureOnly = false } = {}) {
+  if (!event) return [];
+  const siblings = getEvents().filter(x => {
+    if (x.pastRecurring) return false;
+    const sameSeries = event.seriesId
+      ? x.seriesId === event.seriesId
+      : (!x.seriesId && x.name === event.name && x.recur === event.recur && x.who === event.who);
+    if (!sameSeries) return false;
+    return futureOnly ? x.date >= event.date : true;
+  });
+  return siblings.length ? siblings : [event];
+}
+
+let _recurScopeResolver = null;
+function askRecurScope(actionLabel) {
+  return new Promise(resolve => {
+    _recurScopeResolver = resolve;
+    const titleEl = document.getElementById('recur-scope-title');
+    if (titleEl) titleEl.textContent = `${actionLabel} this recurring event —`;
+    const ov = document.getElementById('recur-scope-overlay');
+    if (ov) ov.style.display = 'flex';
+  });
+}
+function resolveRecurScope(choice) {
+  const ov = document.getElementById('recur-scope-overlay');
+  if (ov) ov.style.display = 'none';
+  if (_recurScopeResolver) { const r = _recurScopeResolver; _recurScopeResolver = null; r(choice); }
+}
+function closeRecurScopeIfBg(e) {
+  if (e.target === document.getElementById('recur-scope-overlay')) resolveRecurScope(null);
+}
+
 async function deleteItem(colName, id) {
   const rawItems = window['fb' + colName.charAt(0).toUpperCase() + colName.slice(1)] || [];
   const item = rawItems.find(x => String(x.id) === String(id));
   // Locked items can't be soft-deleted either — fully protected until unlocked.
   if (item && item.locked) { alert(lockedItemMessage()); return; }
+
+  let scope = 'this';
+  if (colName === 'events' && item && item.recur && item.recur !== 'none') {
+    scope = await askRecurScope('Delete');
+    if (!scope) return; // cancelled
+  }
+
   setSyncStatus('saving');
   try {
     const who = getDeviceUser() || 'Unknown';
-    await window.fbUpdate(colName, id, { deleted: true, deletedAt: new Date().toISOString(), deletedBy: who });
-    showUndoToast(colName, item);
-    await logActivity('deleted', colName, item ? (item.text || item.name || '') : '', id);
+    const candidates = scope === 'series' ? getRecurSeries(item, { futureOnly: true }) : [item];
+    const deletedTargets = [];
+    for (const t of candidates) {
+      if (t.locked) continue; // never force-delete a locked sibling even in series mode
+      await window.fbUpdate(colName, t.id, { deleted: true, deletedAt: new Date().toISOString(), deletedBy: who });
+      deletedTargets.push(t);
+    }
+    showUndoToast(colName, item, deletedTargets);
+    const label = deletedTargets.length > 1
+      ? `${item.text || item.name || ''} (and ${deletedTargets.length - 1} future occurrence${deletedTargets.length > 2 ? 's' : ''})`
+      : (item ? (item.text || item.name || '') : '');
+    await logActivity('deleted', colName, label, id);
   } catch(e) { setSyncStatus('error'); }
 }
 
@@ -5055,6 +5132,10 @@ async function saveModal() {
         end:   document.getElementById('new-event-end').value   || '10:00',
         who, color: colorMap[firstWho] || '#2EC4B6',
         recur: recur !== 'none' ? recur : null,
+        // [S7-B04] Own id doubles as the series identifier — every generated
+        // future occurrence carries it forward automatically (processRecurringEvents
+        // spreads the previous occurrence's fields, seriesId included, onto the next).
+        seriesId: recur !== 'none' ? id : null,
         notes: notes || null });
       _savedName = name; _savedCol = 'events'; _savedId = id;
       document.getElementById('new-event-name').value     = '';
@@ -5359,6 +5440,16 @@ async function saveEditItem() {
       });
     }
     if (type === 'event') {
+      // [S7-B04] Ask single-vs-series BEFORE writing anything, based on the
+      // event's state as it currently stands in Firestore (not the edited
+      // form values — the user might be editing recur itself).
+      const original = getEvents().find(x => String(x.id) === String(id));
+      let scope = 'this';
+      if (original && original.recur && original.recur !== 'none') {
+        scope = await askRecurScope('Save changes to');
+        if (!scope) { setSyncStatus('live'); return; } // cancelled — leave the edit modal open, nothing written
+      }
+
       const who = getWhoValue('edit-event-who');
       const colorMap = { Giuseppe:'#E8A838', Ross:'#E07070', Malachi:'#5B9BD5', Mack:'#2EC4B6', Rachel:'#B08BE8', Everyone:'#9B8BCC' };
       const firstWhoEdit = (who||'Everyone').split(',')[0].trim();
@@ -5366,16 +5457,35 @@ async function saveEditItem() {
       const editStartDate = document.getElementById('edit-event-date').value;
       const editEndDateEl = document.getElementById('edit-event-end-date');
       const editEndDate = editEndDateEl ? editEndDateEl.value : '';
-      await window.fbUpdate('events', id, {
+
+      // Fields that make sense to share across every occurrence in a series.
+      // date/endDate are deliberately excluded — each occurrence keeps its
+      // own calendar day even when "this and future" is chosen.
+      const sharedFields = {
         name:  document.getElementById('edit-event-name').value.trim(),
-        date:  editStartDate,
-        endDate: (editEndDate && editEndDate !== editStartDate) ? editEndDate : null,
         start: document.getElementById('edit-event-start').value,
         end:   document.getElementById('edit-event-end').value,
         recur: document.getElementById('edit-event-recur').value,
         who,   color: colorMap[firstWhoEdit] || '#2EC4B6',
         notes: notesEl ? notesEl.value.trim() || null : null,
-      });
+      };
+
+      if (scope === 'series' && original) {
+        const futureSiblings = getRecurSeries(original, { futureOnly: true })
+          .filter(x => !x.locked); // never force-edit a locked sibling
+        for (const sib of futureSiblings) {
+          const isThisOne = String(sib.id) === String(id);
+          await window.fbUpdate('events', sib.id, isThisOne
+            ? { ...sharedFields, date: editStartDate, endDate: (editEndDate && editEndDate !== editStartDate) ? editEndDate : null }
+            : sharedFields);
+        }
+      } else {
+        await window.fbUpdate('events', id, {
+          ...sharedFields,
+          date:  editStartDate,
+          endDate: (editEndDate && editEndDate !== editStartDate) ? editEndDate : null,
+        });
+      }
     }
     const colMap = { todo:'todos', shop:'shopping', household:'household', meal:'meals', event:'events' };
     const nameEl = { todo:'edit-todo-text', shop:'edit-shop-name', household:'edit-house-text', meal:'edit-meal-name', event:'edit-event-name' };
@@ -6535,7 +6645,8 @@ function resetScreensaverIdleTimer() {
 
 function maybeStartScreensaver() {
   const blockers = ['modal-overlay', 'edit-item-overlay', 'settings-overlay', 'pin-overlay',
-                     'privacy-overlay', 'detail-overlay', 'onboarding-overlay', 'auth-screen'];
+                     'privacy-overlay', 'detail-overlay', 'onboarding-overlay', 'auth-screen',
+                     'recur-scope-overlay'];
   for (const id of blockers) {
     const el = document.getElementById(id);
     if (el && getComputedStyle(el).display !== 'none') { resetScreensaverIdleTimer(); return; }

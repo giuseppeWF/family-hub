@@ -140,6 +140,12 @@ Test steps:
 ### B5. Recurring task / event abuse
 - [ ] Mark a daily recurring task done 10 times in a row rapidly — confirm it doesn't create 10 duplicate "next occurrence" entries, only one
 - [ ] Set a recurring event to "Daily" and leave the app open for a simulated week (or manipulate system date if testing allows) — confirm it doesn't runaway-generate hundreds of future events
+- [ ] **(S7-B04, added 2026-08-04)** Delete a recurring event → the single-vs-series prompt must appear; deleting a NON-recurring event must never show this prompt
+- [ ] **(S7-B04)** Choose "This and future events" on delete → only occurrences dated on/after the one you deleted from disappear; earlier occurrences in the same series are untouched
+- [ ] **(S7-B04)** Choose "This and future events" on edit → the edited name/time/who/notes apply to every future occurrence, but each occurrence keeps its OWN date (verify no two occurrences collapse onto the same date)
+- [ ] **(S7-B04)** Cancel the single-vs-series prompt (both delete and edit) → confirm nothing was written to Firestore and, for edit, the edit modal stays open with the sync indicator back to "Live", not stuck on "Saving…"
+- [ ] **(S7-B04)** Tap Undo after a series delete → ALL deleted occurrences reappear, not just the one you originally tapped delete on
+- [ ] **(S7-B04)** Lock one future occurrence in a series (S4-005), then delete/edit "this and future" from an earlier occurrence → the locked occurrence is skipped, not force-deleted/edited
 
 ### B6. Browser tools / console access
 **Expected limitation — document, do not attempt to fully prevent**

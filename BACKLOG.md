@@ -3387,3 +3387,34 @@ The "device user" concept (S3-016 — "who is physically using this device right
 - [x] Confirmed no AM/PM formatting anywhere in displayed times (event cards, detail modal, notifications) — already always 24-hour
 - [x] Limitation documented (same caveat as S7-B02)
 - [x] Audit passes
+
+---
+
+### S7-B04 · Recurring event delete/edit — single vs series prompt
+**Status:** DONE 2026-08-04
+**Priority:** High
+**Category:** Feature / Bug — Calendar
+
+**Description:** Deleting or editing a recurring event silently acted on only the one occurrence, with no way to apply the change/delete to the whole series — a common source of confusion (e.g. changing a dog-walk time only fixes one day, not the recurring slot).
+
+**Why "series" is a real, addressable concept here:** Recurring events aren't a single doc with a repeat rule — `processRecurringEvents()` pre-generates up to 24 real future occurrence documents (capped 90 days ahead) each time the current one passes. So "this and future" is operating on real sibling Firestore docs, not a synthetic concept.
+
+**Implementation:**
+- New events created with a `recur` value now get a `seriesId` (their own `id`) — carried forward onto every generated future occurrence automatically, since `processRecurringEvents()` already spreads the previous occurrence's fields onto each new one. `getRecurSeries(event, {futureOnly})` uses `seriesId` when present; for events created before this change (no `seriesId`), it falls back to the same `name+recur+who` equality the app already used for recurring-event dedup — a consistent, if heuristic, definition of "series" with no data migration needed.
+- New small prompt overlay (`recur-scope-overlay`) — "Just this event" / "This and future events" / "Cancel" — shown only when the event being deleted/edited has an active `recur` value.
+- **Delete:** `deleteItem()` now asks scope for recurring events (both the detail-modal Delete button and the swipe-row delete button go through this same function, so both are covered). "This and future" soft-deletes every sibling from this occurrence's date onward. Locked siblings are skipped even in series mode — locking still fully protects an item. Cancelling does nothing.
+- **Edit:** `saveEditItem()` checks the event's *current* Firestore state (not the edited form) to decide whether to ask — so editing recur itself still prompts correctly. "This and future" applies the shared fields (name, start/end time, who, colour, recur, notes) to every future sibling; each sibling **keeps its own date** — only the occurrence actually being edited gets its date/end-date fields changed. Cancelling leaves the edit modal open with nothing written (sync status reset, not left stuck on "Saving…").
+- **Undo (S4-004) extended to cover series deletes:** `showUndoToast()`/`undoDelete()` now take/restore an array of items instead of a single one, so undoing a series delete restores every occurrence that was actually deleted, not just the primary one — otherwise a series delete would only be *partially* reversible, which conflicts with this project's own stated testing philosophy (TESTING.md: "nothing destructive should be permanent or silent").
+
+**Verified:** Unit-tested `getRecurSeries()` matching logic in Node against a mix of `seriesId`-based (new) and legacy heuristic-matched siblings, plus a non-recurring control item — all resolved correctly, including `futureOnly` filtering. `python3 audit.py` and `node --check` pass.
+
+**Acceptance criteria:**
+- [x] Deleting a recurring event (detail modal or swipe) prompts single-vs-series; non-recurring events are unaffected (no prompt)
+- [x] Editing a recurring event prompts single-vs-series before writing anything
+- [x] "This and future" applies to the correct sibling occurrences (same series, same date or later)
+- [x] Each occurrence keeps its own date even when editing "this and future"
+- [x] Locked siblings are never force-edited/deleted even in series mode
+- [x] Cancelling the prompt performs no writes
+- [x] Undo restores the full set of items deleted in a series delete, not just one
+- [x] Legacy events (created before this fix, no `seriesId`) still resolve correctly via heuristic match
+- [x] Audit passes
