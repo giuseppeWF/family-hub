@@ -3368,3 +3368,22 @@ The "device user" concept (S3-016 — "who is physically using this device right
 - [x] All in-app displayed dates already use explicit `en-GB` locale (verified, no change needed)
 - [x] Limitation documented: not guaranteed on Firefox/Safari or when device OS locale is non-UK — flagged rather than silently assumed fixed
 - [x] Audit passes
+
+---
+
+### S7-B03 · 24-hour time picker
+**Status:** DONE 2026-08-04 (delivered together with S7-B02, same commit — same underlying mechanism)
+**Priority:** High
+**Category:** Bug / Locale
+
+**Description:** Event start/end time pickers were showing a 12-hour AM/PM control instead of 24-hour, on some devices.
+
+**Fix:** Same as S7-B02 — `lang="en-GB"` added to all four `<input type="time">` elements (event add/edit start + end). Additionally verified every place the app *displays* a time (event cards, week/month view, detail modal, event-reminder notifications) — all render the raw `HH:MM` string (`e.start`/`e.end`) directly with no `toLocaleTimeString()`/AM-PM conversion anywhere in the codebase, so the app's own rendered UI was never actually locale-dependent for time display — only the native picker control itself was affected.
+
+**Same platform limitation applies:** the native `<input type="time">` widget's 12h-vs-24h rendering is a browser/OS locale decision, not something any page attribute can force with a spec guarantee. Effective on Chromium; not guaranteed on Firefox/Safari (see S7-B02's note) — if the SyncGo (Firefox/Android) still shows AM/PM after this deploys, it's an Android system-locale setting on that specific device, not a code issue, and the only guaranteed alternative is a custom-built time control (not attempted — real UX trade-off, would need a deliberate decision, not a silent swap).
+
+**Acceptance criteria:**
+- [x] `lang="en-GB"` set on every time input
+- [x] Confirmed no AM/PM formatting anywhere in displayed times (event cards, detail modal, notifications) — already always 24-hour
+- [x] Limitation documented (same caveat as S7-B02)
+- [x] Audit passes
