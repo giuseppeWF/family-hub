@@ -3323,3 +3323,28 @@ The What's New popup started reappearing again despite two prior fix attempts (S
 - [x] A failed `version.json` fetch leaves `fh_seen_version` unchanged
 - [x] Permanent audit.py regression check added
 - [x] Audit passes (150 checks, up from 149)
+
+---
+
+### S7-B05 · Device user remembered permanently — auto-match Google Sign-In name
+**Status:** DONE 2026-08-04
+**Priority:** Critical
+**Category:** Bug / UX
+
+**Description:**
+The "device user" concept (S3-016 — "who is physically using this device right now", used to attribute todos/shopping/photos added from a shared screen) is picked once via a chip picker and then stored in `localStorage['fh_this_device_user']` forever. On a personal device (someone's own phone, signed into their own Google account since S5-003) this is redundant — we already know who they are — and worse, since the value never re-evaluates, if a different family member's Google account ever signs in on that same browser the leftover value from whoever picked first stays wrong permanently, misattributing everything they add from then on.
+
+**Fix:** Added `matchDeviceUserToGoogleAccount()` — matches `window.currentUser.displayName` (the signed-in Google account's name) against the family roster, case-insensitively, on either the full name or its first word (Google accounts are usually "First Last"; roster entries are usually first-name-only, e.g. "Ross"). `checkDeviceUserPrompt()` (already run on every `fb-data` event) now calls this first:
+- **Confident match found** (e.g. displayName "Ross Lucarelli" → roster "Ross"): silently keeps the device user in sync with it, correcting it automatically if it ever drifts — no picker shown, no manual step needed on a personal device.
+- **No confident match** (e.g. a shared kiosk device like the SyncGo, signed into one generic/shared account): unchanged fallback to the existing manual chip picker, and whatever's picked is kept until changed — this is the correct behaviour for a genuinely shared device where Google identity can't tell us who's standing in front of it.
+- Settings retains its existing "Switch" button (`openDeviceUserPicker()`) as a manual override for the no-match case; on a device with a confident auto-match, the next `fb-data` event resyncs it to the signed-in account, which is deliberate — a personal device should always reflect who's actually signed into it.
+
+**Verified:** Unit-tested the matching logic in Node against realistic Google display names (`Ross Lucarelli`→Ross, `malachi`→Malachi, `Giuseppe`→Giuseppe, `Rachel W`→Rachel) and confirmed no false-positive match for a generic/shared account name (`The Lucarelli Family`) or empty displayName — both correctly fall through to the manual picker. `python3 audit.py` and `node --check` pass.
+
+**Acceptance criteria:**
+- [x] Personal device signed into a Google account matching a roster name is never prompted — device user auto-set silently
+- [x] Device user auto-corrects if a different, clearly-matching account later signs in on the same browser
+- [x] Shared/kiosk devices with no confident name match keep the existing manual picker behaviour unchanged
+- [x] Manual "Switch" override in Settings still available for the no-match case
+- [x] No false-positive matches on generic/shared account names
+- [x] Audit passes

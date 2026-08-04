@@ -3140,9 +3140,9 @@ function getSettingsPin() { return (window.fbSettings || []).find(s => s.id === 
 // ── APP VERSION & WHAT'S NEW ──────────────────────────────────────────────────
 // S5-B08-FIX2: bump deliberately for genuinely user-visible releases only —
 // not automatically on every commit (that was the original loop complaint).
-const APP_VERSION = '4.2';
+const APP_VERSION = '4.3';
 const WHATS_NEW = {
-  version: '4.2',
+  version: '4.3',
   title: "What's new in Family Hub",
   features: [
     { icon: '🔔', name: 'Event reminders', desc: 'Turn on notifications in Settings to get a nudge 30 minutes before events, while the hub is open' },
@@ -3164,6 +3164,7 @@ const WHATS_NEW = {
     { icon: '🏆', name: 'Chore leaderboard', desc: 'Earn points for chores — weekly leaderboard with medals for the top 3 (enable via Arrange)' },
     { icon: '🔒', name: 'Lock important items', desc: 'Admin can lock an item so it can\'t be edited or deleted by mistake' },
     { icon: '🏠', name: 'Meet your Family Hub helper', desc: 'A friendly new face on sign-in, loading, and every empty screen' },
+    { icon: '👋', name: 'Your phone knows it\'s you', desc: 'Sign in with Google on your own phone and the hub greets you by name automatically — no more picking yourself from a list every time' },
   ]
 };
 
@@ -3305,13 +3306,48 @@ function renderDeviceUserChips() {
       style="padding:12px 20px;border-radius:50px;font-family:'Nunito',sans-serif;font-size:16px;font-weight:700;cursor:pointer;border:2px solid ${isSelected ? m.color : 'var(--border-strong)'};background:${isSelected ? m.color + '22' : 'transparent'};color:${m.color || 'var(--cream)'}">${m.name}</button>`;
   }).join('');
 }
+// [S7-B05] Match the signed-in Google account's display name against the
+// family roster, case-insensitively, on either the full name or its first
+// word (Google accounts are usually "First Last"; roster entries are
+// usually first-name-only). A confident match means this is clearly
+// someone's OWN personal device (phone) signed into their OWN account —
+// asking "which family member are you" is redundant, and is exactly why
+// the old "set once, remembered forever" value went stale: if a different
+// family member's Google account later signs in on the same browser, the
+// leftover value from whoever picked first stayed wrong permanently.
+// Returns the matched roster name, or null if there's no confident match
+// (e.g. a shared kiosk device — like the SyncGo — signed into one shared
+// account) — callers fall back to the manual picker in that case.
+function matchDeviceUserToGoogleAccount() {
+  const user = window.currentUser;
+  const displayName = ((user && user.displayName) || '').trim();
+  if (!displayName) return null;
+  const first = displayName.split(/\s+/)[0].toLowerCase();
+  const full  = displayName.toLowerCase();
+  const match = getFamilyMembers().find(m => {
+    const name = (m.name || '').toLowerCase();
+    return name && (name === full || name === first);
+  });
+  return match ? match.name : null;
+}
+
 function checkDeviceUserPrompt() {
-  if (getDeviceUser()) return;
   const members = getFamilyMembers();
   if (!members.length) return;
   const isOnboarding = document.getElementById('onboarding-overlay') &&
     document.getElementById('onboarding-overlay').style.display !== 'none';
   if (isOnboarding) return;
+
+  const matched = matchDeviceUserToGoogleAccount();
+  if (matched) {
+    // Confident auto-match — keep it in sync with whoever is actually
+    // signed in, rather than trusting a value picked once and never
+    // revisited even after a different person signs in on this browser.
+    if (getDeviceUser() !== matched) setDeviceUser(matched);
+    return;
+  }
+
+  if (getDeviceUser()) return; // no confident auto-match, but already picked manually — keep it (shared-device case)
   const ov = document.getElementById('device-user-overlay');
   if (ov) { renderDeviceUserChips(); ov.style.display = 'flex'; }
 }
