@@ -149,6 +149,9 @@ Test steps:
 - [ ] **(S7-B06, added 2026-08-04)** Create a Weekly (or Daily/Fortnightly/Monthly) event with a "Repeat until" date several months out — confirm it shows on ONLY its actual occurrence day(s) on the calendar (week strip, month view), never on every day between creation and the "repeat until" date. Test on both mobile and web — this was found on mobile but the bug was in shared JS logic (`eventOnDay`), not device-specific
 - [ ] **(S7-B06)** Tap each "Repeat until" quick-pick chip (1 month / 3 months / 6 months / 1 year) in both the Add Event and Edit Event modals — confirm the "Repeat until" date field itself visibly updates, separately from "End date"
 - [ ] **(S7-B06)** Create a genuine multi-day event (S4-009, e.g. a 3-day holiday) with NO recurrence — confirm it still correctly spans all 3 days (this field's original behaviour must be unaffected by the recur-until fix)
+- [ ] **(S7-B06-FIX2, added 2026-08-04)** Create a weekly (or daily/fortnightly/monthly) event dated in the FUTURE (not today, not in the past) — confirm its future occurrences appear on the calendar (week strip and month view) immediately, without needing to wait for the first occurrence's own date to pass
+- [ ] **(S7-B06-FIX2)** Confirm a reminder notification still fires for an upcoming recurring event whose future siblings have already been pre-generated (checking `recurSeriesGenerated` must never be confused with `pastRecurring` for reminder purposes)
+- [ ] **(S7-B06-FIX2)** Reload the app after generation has run — confirm no duplicate occurrences appear and the series doesn't keep growing on every reload
 
 ### B6. Browser tools / console access
 **Expected limitation — document, do not attempt to fully prevent**
@@ -213,6 +216,7 @@ When new issues are found during family testing, add them here with date, finder
 | 2026-08-04 | Independent test-agent pass (S7-001) | Household rows required detail modal to mark done (unlike Todos/Shopping) | S7-001 | Fixed S7-001 |
 | 2026-08-04 | Giuseppe (mobile) | Weekly recurring event shows on every day, not once a week | S7-B06 | Fixed S7-B06 |
 | 2026-08-04 | Giuseppe (mobile) | "Repeat until" quick-pick chips appear to do nothing when tapped | S7-B06 | Fixed S7-B06 (same root cause as above) |
+| 2026-08-04 | Giuseppe (mobile, with screenshots) | Weekly recurring event still only shows once after S7-B06 fix | S7-B06-FIX2 | Fixed S7-B06-FIX2 |
 | 2026-08-04 | Giuseppe | Voice input only available on the first field of each form | S7-B07 | Fixed S7-B07 |
 
 ---

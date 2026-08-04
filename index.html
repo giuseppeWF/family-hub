@@ -3201,9 +3201,9 @@ function getSettingsPin() { return (window.fbSettings || []).find(s => s.id === 
 // ── APP VERSION & WHAT'S NEW ──────────────────────────────────────────────────
 // S5-B08-FIX2: bump deliberately for genuinely user-visible releases only —
 // not automatically on every commit (that was the original loop complaint).
-const APP_VERSION = '4.7';
+const APP_VERSION = '4.8';
 const WHATS_NEW = {
-  version: '4.7',
+  version: '4.8',
   title: "What's new in Family Hub",
   features: [
     { icon: '🔔', name: 'Event reminders', desc: 'Turn on notifications in Settings to get a nudge 30 minutes before events, while the hub is open' },
@@ -3723,28 +3723,50 @@ function switchView(name) {
 }
 
 // ── RECURRING EVENTS — AUTO-GENERATE NEXT OCCURRENCES (up to 90 days / 3 months) ──────
+// [Bug report, 2026-08-04] "Added a weekly recurring event but it only
+// shows on the calendar once." Root cause: generation only ever ran for
+// events whose OWN date had already passed (`e.date < todayStr`). A
+// recurring event created for a future date (e.g. next Friday) would sit
+// with no siblings generated at all until that Friday itself had come and
+// gone — so anyone looking at the following weeks in the meantime saw only
+// the single original occurrence. (This was previously masked by the
+// separate S7-B06 display bug, which made a future recurring event LOOK
+// like it repeated — incorrectly, on every day — right up to its
+// "repeat until" date; fixing that display bug correctly stopped the
+// every-day rendering and exposed this real, separate generation-timing
+// gap underneath it.)
+//
+// Fix: generate a recurring event's upcoming occurrences immediately,
+// regardless of whether its own date is in the past, today, or the future.
+// `pastRecurring` (only ever set on an occurrence whose date has actually
+// happened) is kept separate from the new `recurSeriesGenerated` flag (set
+// once a still-upcoming event's future siblings have been generated) —
+// conflating them would incorrectly suppress reminders (checkEventReminders
+// skips pastRecurring events) and series matching (getRecurSeries excludes
+// pastRecurring) for an event that hasn't happened yet.
 async function processRecurringEvents() {
   const events = getEvents();
-  if (!events.some(e => e.recur && e.recur !== 'none' && !e.pastRecurring && e.date < todayStr)) return;
+  const needsGeneration = e => e.recur && e.recur !== 'none' && !e.pastRecurring && !e.recurSeriesGenerated;
+  if (!events.some(needsGeneration)) return;
 
   const capStr = shiftDateStr(todayStr, { days: 90 });
 
   for (const e of events) {
-    if (!e.recur || e.recur === 'none' || e.pastRecurring) continue;
-    if (e.date >= todayStr) continue;
+    if (!needsGeneration(e)) continue;
+    const isPast = e.date < todayStr;
 
     // Advance to the first future occurrence
     let nextDate = nextOccurrence(e.date, e.recur);
     while (nextDate < todayStr) nextDate = nextOccurrence(nextDate, e.recur);
 
     if (nextDate > capStr) {
-      try { await window.fbUpdate('events', e.id, { pastRecurring: true }); } catch(_) {}
+      try { await window.fbUpdate('events', e.id, isPast ? { pastRecurring: true } : { recurSeriesGenerated: true }); } catch(_) {}
       continue;
     }
 
     setSyncStatus('saving');
     try {
-      const { pastRecurring: _p, endDate: _ed, ...rest } = e;
+      const { pastRecurring: _p, recurSeriesGenerated: _rsg, endDate: _ed, ...rest } = e;
       let count = 0;
       // Generate all occurrences up to capStr (max 24 to avoid runaway)
       while (nextDate <= capStr && count < 24) {
@@ -3762,7 +3784,7 @@ async function processRecurringEvents() {
         nextDate = nextOccurrence(nextDate, e.recur);
         count++;
       }
-      await window.fbUpdate('events', e.id, { pastRecurring: true });
+      await window.fbUpdate('events', e.id, isPast ? { pastRecurring: true } : { recurSeriesGenerated: true });
     } catch(err) { setSyncStatus('error'); }
   }
 }

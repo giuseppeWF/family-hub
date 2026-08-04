@@ -3507,3 +3507,30 @@ The "device user" concept (S3-016 — "who is physically using this device right
 - [x] Matches against the real family roster, not a hardcoded name list
 - [x] Verified with unit tests against realistic phrasings
 - [x] Audit passes
+
+---
+
+### S7-B06-FIX2 · Weekly recurring event still only showing once — real cause
+**Status:** DONE 2026-08-04
+**Priority:** Critical
+**Category:** Bug / Calendar
+
+**Found by:** Giuseppe, real-device testing with screenshots, 4 Aug 2026 — "Adding the recurring event is still not working. I added a weekly recurring event but it only shows on the calendar once." Screenshots showed a "Malachi MMA" weekly event, start date 7 Aug 2026, repeat until 7 Nov 2026 — but the month view showed it only on the 3rd and 7th, not weekly going forward.
+
+**Why S7-B06 wasn't enough:** S7-B06 fixed a real bug (the display bug that made a recurring event render on *every day* up to its "repeat until" date). That fix was correct and is confirmed working — the every-day rendering is gone. But it unmasked a second, separate bug underneath: `processRecurringEvents()` only ever generated a series' future occurrences once the CURRENT occurrence's own date had already passed (`if (e.date >= todayStr) continue;`). A recurring event created for a future date (e.g. this Friday) would sit with **zero siblings generated** until that Friday itself arrived and passed — so anyone looking at the following weeks in the meantime saw only the single original occurrence, exactly matching the report. Previously the S7-B06 display bug coincidentally made a future recurring event *look* like it was repeating (wrongly, every day) — which is presumably why this generation gap was never separately noticed until the display bug was fixed and the real underlying behaviour became visible.
+
+**Fix:** `processRecurringEvents()` now generates a series' occurrences immediately regardless of whether the triggering event's own date is in the past, today, or the future. Introduced a new flag, `recurSeriesGenerated`, kept deliberately separate from the existing `pastRecurring`:
+- `pastRecurring` continues to mean exactly what it always did — this specific occurrence's date has actually happened. Still gates `checkEventReminders()` (don't remind about something already over) and `getRecurSeries()` (don't include stale, already-superseded occurrences in "this and future" operations).
+- `recurSeriesGenerated` means "this event's future siblings have been generated" — set on a still-upcoming event once its siblings exist, WITHOUT marking it `pastRecurring` (which would have wrongly suppressed its own reminder and excluded it from its own series).
+
+**Verified:** Simulated the exact reported scenario in Node with a model faithful to the real app's async Firestore behaviour (`getEvents()` returns a fresh `.filter()`'d copy every call; `fbSave`/`fbUpdate` never synchronously mutate the array a running function already captured — matching how `window.fbEvents` is only ever replaced by a new array from an async `onSnapshot`, never mutated in place). A weekly event dated this Friday with "repeat until" 3 months out correctly generated 13 occurrences (Fri 7 Aug through Fri 30 Oct, correctly capped at the 90-day generation window) in one pass, with only the original triggering event marked `recurSeriesGenerated` — no cascade, no duplicates. Ran the same function a second time against the resulting state (simulating a later session) and confirmed the occurrence count stayed at 13 — idempotent, no runaway growth.
+
+**Note for Giuseppe:** existing events created before this fix (like the "Malachi MMA" one in the screenshots) will pick up their missing future occurrences the next time the app is opened fresh (`processRecurringEvents()` runs once per page load) — no manual fix needed, but a reload/refresh is required to trigger it, since it already ran once this session before this fix was deployed.
+
+**Acceptance criteria:**
+- [x] A weekly (or daily/fortnightly/monthly) recurring event scheduled for a FUTURE date generates its future occurrences immediately, not only after its own date passes
+- [x] Reminders still fire correctly for an upcoming event whose siblings have been pre-generated (not wrongly suppressed by conflating the two flags)
+- [x] `getRecurSeries()` (S7-B04 single-vs-series delete/edit) still correctly includes a pre-generated-but-still-upcoming event in its own series
+- [x] No duplicate occurrences created on a second run against the same data
+- [x] Verified via a Firestore-async-faithful Node simulation, not just read-through reasoning
+- [x] Audit passes
