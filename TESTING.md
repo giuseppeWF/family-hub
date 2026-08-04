@@ -146,6 +146,9 @@ Test steps:
 - [ ] **(S7-B04)** Cancel the single-vs-series prompt (both delete and edit) → confirm nothing was written to Firestore and, for edit, the edit modal stays open with the sync indicator back to "Live", not stuck on "Saving…"
 - [ ] **(S7-B04)** Tap Undo after a series delete → ALL deleted occurrences reappear, not just the one you originally tapped delete on
 - [ ] **(S7-B04)** Lock one future occurrence in a series (S4-005), then delete/edit "this and future" from an earlier occurrence → the locked occurrence is skipped, not force-deleted/edited
+- [ ] **(S7-B06, added 2026-08-04)** Create a Weekly (or Daily/Fortnightly/Monthly) event with a "Repeat until" date several months out — confirm it shows on ONLY its actual occurrence day(s) on the calendar (week strip, month view), never on every day between creation and the "repeat until" date. Test on both mobile and web — this was found on mobile but the bug was in shared JS logic (`eventOnDay`), not device-specific
+- [ ] **(S7-B06)** Tap each "Repeat until" quick-pick chip (1 month / 3 months / 6 months / 1 year) in both the Add Event and Edit Event modals — confirm the "Repeat until" date field itself visibly updates, separately from "End date"
+- [ ] **(S7-B06)** Create a genuine multi-day event (S4-009, e.g. a 3-day holiday) with NO recurrence — confirm it still correctly spans all 3 days (this field's original behaviour must be unaffected by the recur-until fix)
 
 ### B6. Browser tools / console access
 **Expected limitation — document, do not attempt to fully prevent**
@@ -179,6 +182,14 @@ Test steps:
 - [ ] Refresh Device A right after deleting something on it — confirm it does NOT re-show its own just-dismissed/expired toast from the historical activity log (only genuinely new deletes should trigger the cross-device toast, not the initial load of existing history)
 - [ ] Known limit, not a bug: undoing a recurring-event *series* delete (S7-B04) from a DIFFERENT device than the one that deleted it only restores the single occurrence that device's delete button was on, not the rest of the series — full series restore only works from the same device, right after the delete, via Undo
 
+### B11. Voice input coverage and whole-event fill
+**Found by:** Giuseppe, real-device testing, 4 Aug 2026 — S7-B07.
+- [ ] Every free-text field on every add form (event notes, shop quantity, shop store, meal notes, household notes — plus the existing name/text fields) has a working 🎤 button
+- [ ] On the Add Event modal, tap "🎤 Say the whole thing" and say "Dentist appointment Tuesday at 3pm with Malachi" — confirm name/date/time/who all fill in correctly and nothing saves automatically
+- [ ] Say a phrase with "next Tuesday" vs bare "Tuesday" on the same day — confirm "next" resolves a full week later than the bare form
+- [ ] Say a phrase with no recognisable date/time/who (e.g. "walk the dogs") — confirm the whole phrase becomes the event name and no fields are incorrectly guessed
+- [ ] On a browser without SpeechRecognition support, confirm both the per-field mic buttons AND the new "say the whole thing" banner are hidden, not just the per-field ones
+
 ---
 
 ## Section C — New Issues Log
@@ -200,6 +211,9 @@ When new issues are found during family testing, add them here with date, finder
 | 2026-08-04 | Independent test-agent pass (S7-001) | No double-submission guard on Save — rapid taps create duplicate items | S7-001 | Fixed S7-001 |
 | 2026-08-04 | Independent test-agent pass (S7-001) | Undo toast never appeared on other devices | S7-001 | Fixed S7-001 |
 | 2026-08-04 | Independent test-agent pass (S7-001) | Household rows required detail modal to mark done (unlike Todos/Shopping) | S7-001 | Fixed S7-001 |
+| 2026-08-04 | Giuseppe (mobile) | Weekly recurring event shows on every day, not once a week | S7-B06 | Fixed S7-B06 |
+| 2026-08-04 | Giuseppe (mobile) | "Repeat until" quick-pick chips appear to do nothing when tapped | S7-B06 | Fixed S7-B06 (same root cause as above) |
+| 2026-08-04 | Giuseppe | Voice input only available on the first field of each form | S7-B07 | Fixed S7-B07 |
 
 ---
 

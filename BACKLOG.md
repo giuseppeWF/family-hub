@@ -3449,3 +3449,61 @@ The "device user" concept (S3-016 — "who is physically using this device right
 - [x] Every CRITICAL and FAIL finding fixed this session
 - [x] Each fix verified independently (audit + syntax + targeted reasoning/repro)
 - [x] Audit passes
+
+---
+
+### S7-B06 · Weekly recurring event showing on every day, not once a week
+**Status:** DONE 2026-08-04
+**Priority:** Critical
+**Category:** Bug / Calendar
+
+**Found by:** Giuseppe, real-device testing (mobile), 4 Aug 2026 — "Adding a 'weekly' event is adding the event to every day, rather than the same day every week. Also you cannot click on any of the 'repeat until' options. Nothing happens."
+
+**Root cause:** Both symptoms traced to the same bug. The "Repeat until" quick-pick chips (`setRecurEnd()` — 1 month/3 months/6 months/1 year) wrote their result into `new-event-end-date`, the SAME field used for genuine multi-day events (S4-009, e.g. a holiday spanning several days). `eventOnDay(e, dStr)` renders an event on **every day** between `e.date` and `e.endDate` inclusive, with no awareness that `recur` exists. So setting a weekly event to "repeat until 3 months" set `endDate` to 3 months out, and the event immediately rendered on **every single day** in that 3-month span, not once a week — the exact reported symptom. This wasn't a delayed/generation-timing bug — it happened the instant the event was saved, because it's a display bug (`eventOnDay`), not a generation bug (`processRecurringEvents`). The "nothing happens when I tap Repeat-until" symptom was the same root cause seen from the other side: the buttons DID work, but they silently updated the "End date" field near the TOP of the form (easy to miss/scroll past), while appearing to do nothing to the "Repeat" section the user was actually looking at.
+
+**Fix:** Split the two concepts into genuinely separate fields:
+- `endDate` — multi-day event span only, untouched by recurrence, exactly as before.
+- New `recurUntil` field — caps how far a recurring series generates (`processRecurringEvents()`'s `seriesEnd` now reads `e.recurUntil`, not `e.endDate`).
+- Added a real `new-event-recur-until` date input (plus the same 4 quick-pick chips, now correctly wired) directly under the "Repeat" dropdown in the add modal, and the identical field/chips to the **edit** modal (which previously had no "repeat until" UI at all — you could only set it when first creating an event, never change it afterwards).
+- `recurUntil` is treated as a series-wide shared field in S7-B04's "this and future" edit path (changing when a series ends is a series-level property, unlike `date`/`endDate` which stay per-occurrence).
+
+**Verified:** Reproduced the exact bug and the fix with a Node simulation of `eventOnDay()` — old behaviour (`endDate` = 3-months-out recur-until) showed the event as present on Aug 5/11/18 (`true`/`true`/`true`); new behaviour (`endDate: null`, `recurUntil` separate) correctly shows it only on its actual date, `false` on the other days. `python3 audit.py` (151 checks, up from 150 — new field registered) and `node --check` pass.
+
+**Acceptance criteria:**
+- [x] A weekly (or daily/fortnightly/monthly) event appears only on its actual occurrence date(s), never every day in between
+- [x] "Repeat until" quick-pick chips visibly and correctly set a real, separate field
+- [x] "Repeat until" is now editable after creation, not just at add-time
+- [x] Multi-day events (S4-009) are unaffected — `endDate` semantics unchanged
+- [x] Fix reproduced and verified via Node simulation, not just read-through
+- [x] Audit passes
+
+---
+
+### S7-B07 · Voice input on all form fields + fill-whole-event-by-voice
+**Status:** DONE 2026-08-04
+**Priority:** Medium
+**Category:** Feature / Bug — Accessibility
+
+**Found by:** Giuseppe, real-device testing, 4 Aug 2026 — "voice input doesn't seem available on all form fields. Only the first one. Would it be possible to complete all fields in one go when spoken?"
+
+**Bug part:** Confirmed — mic buttons only existed on each modal's primary name/text field (event name, todo text, shop name, meal name, household text). Added the same `startVoiceInput()` mic button to every remaining free-text field: event notes, shopping quantity, shopping store, meal notes, household notes. (Date/time/who fields are intentionally excluded — a native date/time picker and a chip selector aren't dictation targets; that's what the new whole-phrase parser below is for.)
+
+**Feature part — "complete all fields in one go":** There's no AI/NLP service available (this is a static single-file app on GitHub Pages, no backend) — built as a deliberately conservative regex/heuristic parser (`parseVoiceEventPhrase()`) rather than a proper language model, scoped to the Event form first since that's the richest field set and the example given ("Dentist appointment Tuesday at 3pm with Malachi"). A new "🎤 Say the whole thing" banner at the top of the Add Event modal listens once, parses out event name / date / time / who, and fills all four fields at once:
+- **Time:** only confident, unambiguous forms ("3pm", "3:30 pm", "15:00") — deliberately does NOT guess at a bare number like "at 3", since that's too easily a false match against a name containing a number.
+- **Date:** "today"/"tomorrow", or a weekday name. A bare weekday name means its nearest upcoming occurrence (today counts if it matches); "next <weekday>" always pushes a full week further, since saying "next" is the user's explicit signal they don't mean the one that's already here.
+- **Who:** matched against the actual family roster (not a hardcoded list), so it stays correct as members are added/renamed.
+- **Name:** whatever's left after removing the matched date/time/who phrases and common connector words ("with"/"on"/"at").
+- Never auto-saves — every parsed field lands in the normal, editable form field, and a toast summarises what was understood ("Got it: \"Dentist appointment\", Tue 4 Aug, 15:00, Malachi — check and save") so a misparse is immediately visible and correctable before the user taps Save.
+- Not yet extended to Todos/Shopping/Meals/Household — Events was the explicit example and has the clearest, richest field set (name+date+time+who) to parse into. The same date/who extraction logic would carry over reasonably directly to Todos (name+due-date+who) if wanted; Shopping/Meals/Household have weaker fits (quantity extraction, day-only, enum room/priority fields) and would need their own thinking, not a mechanical copy.
+
+**Verified:** Unit-tested `parseVoiceEventPhrase()` in Node against 7 realistic phrasings (including "next Tuesday" vs bare "Tuesday", am/pm and 24-hour time, a member name, and a phrase with no date/time/who at all) — every case produced the correct name/date/time/who split. `python3 audit.py` and `node --check` pass.
+
+**Acceptance criteria:**
+- [x] Every free-text field across all 5 add forms has a working mic button, not just the first
+- [x] New "say the whole thing" voice-fill option on the Add Event modal
+- [x] Parses name, date, time, and who from a single spoken phrase where confidently identifiable
+- [x] Never saves automatically — always leaves the result in the editable form for review
+- [x] Handles "next <weekday>" vs bare "<weekday>" distinctly
+- [x] Matches against the real family roster, not a hardcoded name list
+- [x] Verified with unit tests against realistic phrasings
+- [x] Audit passes

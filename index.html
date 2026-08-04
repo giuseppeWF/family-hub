@@ -1360,7 +1360,7 @@
     padding: 0;
   }
 
-  .mic-btn.listening {
+  .mic-btn.listening, .voice-fill-btn.listening {
     background: var(--sage);
     color: var(--navy);
     animation: micPulse 1s infinite;
@@ -2491,6 +2491,9 @@
       <div class="modal-title" id="modal-title">Add item</div>
 
       <div id="modal-event-fields">
+        <button type="button" id="event-voice-fill-btn" class="voice-fill-btn" onclick="startVoiceFillEvent(this)" style="position:static;display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border-radius:12px;padding:10px 14px;margin-bottom:12px;background:rgba(46,196,182,0.1);border:1px dashed var(--sage);color:var(--sage);font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer">
+          🎤 Say the whole thing — e.g. "Dentist appointment Tuesday at 3pm with Malachi"
+        </button>
         <div class="modal-field">
           <label class="modal-label">Event name</label>
           <div style="position:relative">
@@ -2534,17 +2537,21 @@
           </select>
         </div>
         <div id="recur-end-chips" style="display:none;margin:-4px 0 8px 0">
-          <div style="font-size:12px;color:var(--cream-muted);margin-bottom:6px">Repeat until</div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <div style="font-size:12px;color:var(--cream-muted);margin-bottom:6px">Repeat until (optional — leave blank to repeat indefinitely)</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
             <button type="button" onclick="setRecurEnd(1,'month')" style="padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--cream);font-size:12px;cursor:pointer">1 month</button>
             <button type="button" onclick="setRecurEnd(3,'month')" style="padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--cream);font-size:12px;cursor:pointer">3 months</button>
             <button type="button" onclick="setRecurEnd(6,'month')" style="padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--cream);font-size:12px;cursor:pointer">6 months</button>
             <button type="button" onclick="setRecurEnd(1,'year')" style="padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--cream);font-size:12px;cursor:pointer">1 year</button>
           </div>
+          <input class="modal-input" id="new-event-recur-until" type="date" lang="en-GB">
         </div>
         <div class="modal-field">
           <label class="modal-label">Notes <span style="font-weight:400;opacity:0.6">(optional)</span></label>
-          <textarea class="modal-input" id="new-event-notes" rows="2" placeholder="e.g. Bring ID, parking on Mill St" style="resize:none;font-family:inherit"></textarea>
+          <div style="position:relative">
+            <textarea class="modal-input" id="new-event-notes" rows="2" placeholder="e.g. Bring ID, parking on Mill St" style="resize:none;font-family:inherit;padding-right:44px"></textarea>
+            <button type="button" class="mic-btn" onclick="startVoiceInput('new-event-notes', this)" aria-label="Voice input">🎤</button>
+          </div>
         </div>
       </div>
 
@@ -2623,11 +2630,17 @@
         </div>
         <div class="modal-field">
           <label class="modal-label">Quantity</label>
-          <input class="modal-input" id="new-shop-qty" placeholder="e.g. 2 bottles">
+          <div style="position:relative">
+            <input class="modal-input" id="new-shop-qty" placeholder="e.g. 2 bottles" style="padding-right:44px">
+            <button type="button" class="mic-btn" onclick="startVoiceInput('new-shop-qty', this)" aria-label="Voice input">🎤</button>
+          </div>
         </div>
         <div class="modal-field">
           <label class="modal-label">Store (optional)</label>
-          <input class="modal-input" id="new-shop-store" placeholder="e.g. Lidl, Home Bargains, Amazon">
+          <div style="position:relative">
+            <input class="modal-input" id="new-shop-store" placeholder="e.g. Lidl, Home Bargains, Amazon" style="padding-right:44px">
+            <button type="button" class="mic-btn" onclick="startVoiceInput('new-shop-store', this)" aria-label="Voice input">🎤</button>
+          </div>
         </div>
         <div class="modal-field">
           <label class="modal-label" style="display:flex;align-items:center;gap:8px">Category<span id="shop-cat-guess-label" style="display:none;font-size:11px;font-weight:600;color:var(--sage);background:rgba(46,196,182,0.12);border-radius:6px;padding:2px 7px">✨ Suggested</span></label>
@@ -2697,7 +2710,10 @@
         </div>
         <div class="modal-field">
           <label class="modal-label">Notes (optional)</label>
-          <input class="modal-input" id="new-meal-notes" placeholder="e.g. Kids prefer less spicy">
+          <div style="position:relative">
+            <input class="modal-input" id="new-meal-notes" placeholder="e.g. Kids prefer less spicy" style="padding-right:44px">
+            <button type="button" class="mic-btn" onclick="startVoiceInput('new-meal-notes', this)" aria-label="Voice input">🎤</button>
+          </div>
         </div>
         <div class="modal-field">
           <label class="modal-label">Who's cooking?</label>
@@ -2748,7 +2764,10 @@
         </div>
         <div class="modal-field">
           <label class="modal-label">Notes (optional)</label>
-          <input class="modal-input" id="new-house-notes" placeholder="e.g. Need to buy paint first">
+          <div style="position:relative">
+            <input class="modal-input" id="new-house-notes" placeholder="e.g. Need to buy paint first" style="padding-right:44px">
+            <button type="button" class="mic-btn" onclick="startVoiceInput('new-house-notes', this)" aria-label="Voice input">🎤</button>
+          </div>
         </div>
       </div>
 
@@ -3182,9 +3201,9 @@ function getSettingsPin() { return (window.fbSettings || []).find(s => s.id === 
 // ── APP VERSION & WHAT'S NEW ──────────────────────────────────────────────────
 // S5-B08-FIX2: bump deliberately for genuinely user-visible releases only —
 // not automatically on every commit (that was the original loop complaint).
-const APP_VERSION = '4.6';
+const APP_VERSION = '4.7';
 const WHATS_NEW = {
-  version: '4.6',
+  version: '4.7',
   title: "What's new in Family Hub",
   features: [
     { icon: '🔔', name: 'Event reminders', desc: 'Turn on notifications in Settings to get a nudge 30 minutes before events, while the hub is open' },
@@ -3210,6 +3229,8 @@ const WHATS_NEW = {
     { icon: '🔁', name: 'Edit or delete just one, or the whole series', desc: 'Changing a recurring event now asks whether it\'s just this one, or this and all future ones' },
     { icon: '✅', name: 'Tick off house tasks in one tap', desc: 'The circle on a household task now marks it done straight away, no need to open it first' },
     { icon: '↩️', name: 'Undo now shows up everywhere', desc: 'Delete something by mistake and the Undo option now appears on every family device, not just the one you deleted it from' },
+    { icon: '🎤', name: 'Say the whole event in one go', desc: 'On Add Event, tap "Say the whole thing" and speak — e.g. "Dentist appointment Tuesday at 3pm with Malachi" fills in the name, date, time and who all at once' },
+    { icon: '🎙️', name: 'Voice input everywhere', desc: 'The microphone button now works on every text field — notes, quantities, store names — not just the first one' },
   ]
 };
 
@@ -3727,7 +3748,9 @@ async function processRecurringEvents() {
       let count = 0;
       // Generate all occurrences up to capStr (max 24 to avoid runaway)
       while (nextDate <= capStr && count < 24) {
-        const seriesEnd = e.endDate || null;
+        // recurUntil (the "repeat until" date) caps the series — was
+        // previously (wrongly) e.endDate, which is the multi-day-span field.
+        const seriesEnd = e.recurUntil || null;
         if (seriesEnd && nextDate > seriesEnd) break;
         const exists = events.some(x =>
           x.name === e.name && x.date === nextDate && String(x.id) !== String(e.id) && !x.pastRecurring
@@ -4906,10 +4929,34 @@ function toggleRecurChips() {
   if (chips) chips.style.display = recur !== 'none' ? '' : 'none';
 }
 function setRecurEnd(n, unit) {
+  // [Bug report, 2026-08-04] This used to write into new-event-end-date —
+  // the SAME field the multi-day-event span end uses. eventOnDay() renders
+  // an event on every day between date and endDate inclusive with no idea
+  // that recur even exists, so "repeat weekly, until 3 months" set endDate
+  // 3 months out and the event immediately rendered on every single day in
+  // between, not once a week — the reported "weekly event added to every
+  // day" bug. Recur-until is now its own field, entirely separate from the
+  // multi-day span.
   const startEl = document.getElementById('new-event-date');
-  const endEl = document.getElementById('new-event-end-date');
-  if (!startEl || !endEl) return;
-  endEl.value = shiftDateStr(startEl.value || todayStr,
+  const untilEl = document.getElementById('new-event-recur-until');
+  if (!startEl || !untilEl) return;
+  untilEl.value = shiftDateStr(startEl.value || todayStr,
+    unit === 'month' ? { months: n } : unit === 'year' ? { years: n } : {});
+}
+
+// Edit-modal counterparts — the edit modal previously had no "repeat until"
+// UI at all (only the add modal did), so editing a recurring event's end
+// date wasn't possible.
+function toggleEditRecurChips() {
+  const recur = document.getElementById('edit-event-recur').value;
+  const chips = document.getElementById('edit-recur-end-chips');
+  if (chips) chips.style.display = recur !== 'none' ? '' : 'none';
+}
+function setEditRecurEnd(n, unit) {
+  const startEl = document.getElementById('edit-event-date');
+  const untilEl = document.getElementById('edit-event-recur-until');
+  if (!startEl || !untilEl) return;
+  untilEl.value = shiftDateStr(startEl.value || todayStr,
     unit === 'month' ? { months: n } : unit === 'year' ? { years: n } : {});
 }
 
@@ -5145,6 +5192,121 @@ function startVoiceInput(inputId, btnEl) {
   try { recognition.start(); } catch (e) { btnEl.classList.remove('listening'); voiceRecognition = null; }
 }
 
+// [Bug report, 2026-08-04] Voice input only worked on the first field of
+// each form. Fixed that separately by adding a mic button to every free-text
+// field. This is the follow-up ask: fill a whole event in one spoken phrase
+// (e.g. "Dentist appointment Tuesday at 3pm with Malachi"). No AI/NLP
+// service is available (single-file static app, no backend) — this is a
+// deliberately conservative regex/heuristic parser: it only fills a field
+// when it's confident, and NEVER saves anything automatically — the parsed
+// result always lands in the normal editable form fields for the user to
+// check before tapping Save.
+function parseVoiceEventPhrase(transcript) {
+  let remaining = ' ' + transcript.trim() + ' ';
+  const result = { name: null, date: null, time: null, who: null };
+
+  // Time — only confident, unambiguous forms: "3pm", "3:30 pm", "15:00".
+  // Deliberately does NOT match a bare number like "at 3" — too easily a
+  // false positive against an event name that happens to contain a number.
+  const timeMatch = remaining.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i) ||
+                     remaining.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/);
+  if (timeMatch) {
+    let hour, minute;
+    if (timeMatch[3]) {
+      hour = parseInt(timeMatch[1], 10) % 12;
+      minute = timeMatch[2] ? parseInt(timeMatch[2], 10) : 0;
+      if (/pm/i.test(timeMatch[3])) hour += 12;
+    } else {
+      hour = parseInt(timeMatch[1], 10);
+      minute = parseInt(timeMatch[2], 10);
+    }
+    result.time = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+    remaining = remaining.replace(timeMatch[0], ' ').replace(/\bat\s+$/i, ' ');
+  }
+
+  // Date — today/tomorrow, or a weekday name (optionally "next <weekday>").
+  // Bare weekday = the nearest upcoming occurrence (today counts if it
+  // matches); "next <weekday>" always pushes to the following week, even if
+  // today happens to already be that weekday — the word "next" is the
+  // user's explicit signal they don't mean the one that's already arrived.
+  if (/\btomorrow\b/i.test(remaining)) {
+    result.date = shiftDateStr(todayStr, { days: 1 });
+    remaining = remaining.replace(/\btomorrow\b/i, ' ');
+  } else if (/\btoday\b/i.test(remaining)) {
+    result.date = todayStr;
+    remaining = remaining.replace(/\btoday\b/i, ' ');
+  } else {
+    const dayNames = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+    const dayMatch = remaining.match(new RegExp('\\b(next\\s+)?(' + dayNames.join('|') + ')\\b', 'i'));
+    if (dayMatch) {
+      const isNext = !!dayMatch[1];
+      const targetDow = dayNames.indexOf(dayMatch[2].toLowerCase());
+      const todayDow = new Date(todayStr + 'T00:00:00').getDay();
+      let delta = (targetDow - todayDow + 7) % 7;
+      if (isNext && delta === 0) delta = 7;
+      result.date = shiftDateStr(todayStr, { days: delta });
+      remaining = remaining.replace(dayMatch[0], ' ');
+    }
+  }
+
+  // Who — match a real family member's name as a whole word. Checked
+  // against the actual roster, not a fixed list, so it stays correct as
+  // members are added/renamed.
+  for (const m of getFamilyMembers()) {
+    if (!m.name) continue;
+    const nameRe = new RegExp('\\b' + m.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+    if (nameRe.test(remaining)) {
+      result.who = m.name;
+      remaining = remaining.replace(nameRe, ' ');
+      break;
+    }
+  }
+
+  // Whatever's left, minus common connector words, becomes the event name.
+  remaining = remaining.replace(/\b(with|on|at)\b/gi, ' ').replace(/\s{2,}/g, ' ').trim();
+  result.name = remaining || null;
+  return result;
+}
+
+function startVoiceFillEvent(btnEl) {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) { showMicToast('Voice input not supported on this browser'); return; }
+  if (voiceRecognition) { voiceRecognition.abort(); voiceRecognition = null; return; }
+  const recognition = new SpeechRecognition();
+  voiceRecognition = recognition;
+  recognition.lang = 'en-GB';
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+  btnEl.classList.add('listening');
+  recognition.onresult = (e) => {
+    const transcript = e.results[0][0].transcript;
+    const parsed = parseVoiceEventPhrase(transcript);
+    if (parsed.name) {
+      const nameEl = document.getElementById('new-event-name');
+      nameEl.value = parsed.name;
+      nameEl.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    if (parsed.date) {
+      document.getElementById('new-event-date').value = parsed.date;
+      syncEventEndDate();
+    }
+    if (parsed.time) document.getElementById('new-event-start').value = parsed.time;
+    if (parsed.who) {
+      const chip = document.querySelector('#new-event-who-chips .who-chip[data-name="' + parsed.who.replace(/"/g, '\\"') + '"]');
+      if (chip) chip.click();
+    }
+    const filled = [];
+    if (parsed.name) filled.push(`"${parsed.name}"`);
+    if (parsed.date) filled.push(new Date(parsed.date + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }));
+    if (parsed.time) filled.push(parsed.time);
+    if (parsed.who) filled.push(parsed.who);
+    showMicToast(filled.length ? `Got it: ${filled.join(', ')} — check and save` : "Didn't catch enough — try again or fill in manually");
+  };
+  recognition.onerror = () => { showMicToast('Didn\'t catch that — try again'); };
+  recognition.onend = () => { btnEl.classList.remove('listening'); voiceRecognition = null; };
+  try { recognition.start(); } catch (e) { btnEl.classList.remove('listening'); voiceRecognition = null; }
+}
+
 function showMicToast(msg) {
   let el = document.getElementById('mic-toast');
   if (!el) {
@@ -5243,12 +5405,17 @@ async function saveModal() {
       const firstWho = (who||'Everyone').split(',')[0].trim();
       const notes = document.getElementById('new-event-notes').value.trim();
       const startDate = document.getElementById('new-event-date').value || todayStr;
+      // Multi-day span end (S4-009) — independent of recurrence. Was
+      // previously also (mis)used as the recur-until cap; see setRecurEnd().
       const endDateVal = document.getElementById('new-event-end-date').value || startDate;
-      if (recur !== 'none' && (!endDateVal || endDateVal <= startDate)) {
-        if (!confirm('⚠️ This event repeats but has no end date — it will generate indefinitely. Save anyway?')) { setSyncStatus('live'); return; }
+      const recurUntilEl = document.getElementById('new-event-recur-until');
+      const recurUntil = (recur !== 'none' && recurUntilEl && recurUntilEl.value) ? recurUntilEl.value : null;
+      if (recur !== 'none' && !recurUntil) {
+        if (!confirm('⚠️ This event repeats but has no "repeat until" date — it will generate indefinitely. Save anyway?')) { setSyncStatus('live'); return; }
       }
       await window.fbSave('events', { id, name, date: startDate,
         endDate: endDateVal !== startDate ? endDateVal : null,
+        recurUntil,
         start: document.getElementById('new-event-start').value || '09:00',
         end:   document.getElementById('new-event-end').value   || '10:00',
         who, color: colorMap[firstWho] || '#2EC4B6',
@@ -5264,6 +5431,7 @@ async function saveModal() {
       toggleRecurChips();
       document.getElementById('new-event-notes').value    = '';
       document.getElementById('new-event-end-date').value = '';
+      if (recurUntilEl) recurUntilEl.value = '';
     }
     if (currentModal === 'todo') {
       const text = document.getElementById('new-todo-text').value.trim(); if (!text) { setSyncStatus('live'); return; }
@@ -5495,19 +5663,30 @@ function openEditItem(type, id) {
           <input class="modal-input" id="edit-event-end" type="time" lang="en-GB" value="${e.end||''}"></div>
       </div>
       <div class="modal-field"><label class="modal-label">Repeat</label>
-        <select class="modal-select" id="edit-event-recur">
+        <select class="modal-select" id="edit-event-recur" onchange="toggleEditRecurChips()">
           <option value="none">No repeat</option>
           <option value="daily">Daily</option>
           <option value="weekly">Weekly</option>
           <option value="fortnightly">Every 2 weeks</option>
           <option value="monthly">Monthly</option>
         </select></div>
+      <div id="edit-recur-end-chips" style="display:none;margin:-4px 0 8px 0">
+        <div style="font-size:12px;color:var(--cream-muted);margin-bottom:6px">Repeat until (optional — leave blank to repeat indefinitely)</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+          <button type="button" onclick="setEditRecurEnd(1,'month')" style="padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--cream);font-size:12px;cursor:pointer">1 month</button>
+          <button type="button" onclick="setEditRecurEnd(3,'month')" style="padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--cream);font-size:12px;cursor:pointer">3 months</button>
+          <button type="button" onclick="setEditRecurEnd(6,'month')" style="padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--cream);font-size:12px;cursor:pointer">6 months</button>
+          <button type="button" onclick="setEditRecurEnd(1,'year')" style="padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--cream);font-size:12px;cursor:pointer">1 year</button>
+        </div>
+        <input class="modal-input" id="edit-event-recur-until" type="date" lang="en-GB" value="${e.recurUntil||''}">
+      </div>
       <div class="modal-field"><label class="modal-label">Who</label>
         <div id="edit-event-who-chips" style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0"></div>
         <input type="hidden" id="edit-event-who" value="Everyone"></div>
       <div class="modal-field"><label class="modal-label">Notes <span style="font-weight:400;opacity:0.6">(optional)</span></label>
-        <textarea class="modal-input" id="edit-event-notes" rows="2" style="resize:none;font-family:inherit">${(e.notes||'').replace(/</g,'&lt;')}</textarea></div>`;
+        <textarea class="modal-input" id="edit-event-notes" rows="2" style="resize:none;font-family:inherit">${escapeHtml(e.notes||'')}</textarea></div>`;
     document.getElementById('edit-event-recur').value = e.recur || 'none';
+    toggleEditRecurChips();
     renderWhoChipsWithValue('edit-event-who-chips', 'edit-event-who', e.who || 'Everyone');
   }
   overlay.classList.add('open');
@@ -5590,15 +5769,23 @@ async function saveEditItem() {
       const editStartDate = document.getElementById('edit-event-date').value;
       const editEndDateEl = document.getElementById('edit-event-end-date');
       const editEndDate = editEndDateEl ? editEndDateEl.value : '';
+      const editRecur = document.getElementById('edit-event-recur').value;
+      const editRecurUntilEl = document.getElementById('edit-event-recur-until');
+      const editRecurUntil = (editRecur !== 'none' && editRecurUntilEl && editRecurUntilEl.value) ? editRecurUntilEl.value : null;
 
       // Fields that make sense to share across every occurrence in a series.
       // date/endDate are deliberately excluded — each occurrence keeps its
-      // own calendar day even when "this and future" is chosen.
+      // own calendar day even when "this and future" is chosen. recurUntil
+      // IS shared — it describes when the whole series stops, not a single
+      // occurrence — and is a separate field from endDate (the multi-day
+      // span end); see setRecurEnd()'s comment for why they were previously,
+      // wrongly, the same field.
       const sharedFields = {
         name:  document.getElementById('edit-event-name').value.trim(),
         start: document.getElementById('edit-event-start').value,
         end:   document.getElementById('edit-event-end').value,
-        recur: document.getElementById('edit-event-recur').value,
+        recur: editRecur,
+        recurUntil: editRecurUntil,
         who,   color: colorMap[firstWhoEdit] || '#2EC4B6',
         notes: notesEl ? notesEl.value.trim() || null : null,
       };
@@ -6993,7 +7180,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (qaTaps >= 3) { qaTaps = 0; runQA(); }
   });
   if (!(window.SpeechRecognition || window.webkitSpeechRecognition)) {
-    document.querySelectorAll('.mic-btn').forEach(b => b.style.display = 'none');
+    document.querySelectorAll('.mic-btn, .voice-fill-btn').forEach(b => b.style.display = 'none');
   }
 });
 
