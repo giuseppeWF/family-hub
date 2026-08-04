@@ -425,6 +425,7 @@
     listenCol('scores',      d => { window.fbScores      = d; window.dispatchEvent(new CustomEvent('fb-data')); });
     listenCol('photos',      d => { window.fbPhotos      = d; window.dispatchEvent(new CustomEvent('fb-data')); });
     startNotificationsListener();
+    startCrossDeviceUndoListener();
   };
 
   // ── S5-B06: admin join notifications ───────────────────────────────────────
@@ -452,6 +453,36 @@
       await setDoc(doc(db, 'notifications', window.currentFamilyId, 'items', notifId), { seen: true }, { merge: true });
     } catch (e) { /* non-critical */ }
   };
+
+  // [S7-001] Cross-device undo toast. showUndoToast() only ever updated local
+  // DOM state — TESTING.md B2 explicitly requires "Undo toast appears on
+  // OTHER connected devices too", which was never actually built. activityLog
+  // is already replicated to every device (via listenCol above), so every
+  // delete already leaves a record there — this adds a SEPARATE docChanges()
+  // listener (listenCol itself re-fetches the whole collection on every
+  // snapshot and can't distinguish "just happened" from "existed already",
+  // which is fine for its own purpose but wrong for a toast). Skips every
+  // change in the FIRST snapshot (that's just the existing history loading,
+  // not a live event) and skips entries logged by this same browser tab
+  // (that device already showed its own toast synchronously in deleteItem()).
+  function startCrossDeviceUndoListener() {
+    if (!window.currentFamilyId) return;
+    let ready = false;
+    const q = query(
+      collection(db, 'activityLog'),
+      where('familyId', '==', window.currentFamilyId),
+      where('action', '==', 'deleted')
+    );
+    onSnapshot(q, snap => {
+      if (!ready) { ready = true; return; } // initial load — not a live event
+      snap.docChanges().forEach(change => {
+        if (change.type !== 'added') return;
+        const entry = change.doc.data();
+        if (entry.sessionId === window._deviceSessionId) return; // this tab already showed its own toast
+        if (typeof window.showRemoteUndoToast === 'function') window.showRemoteUndoToast(entry);
+      });
+    });
+  }
 
   // S5-B06: which roster ("who") names correspond to someone who has actually
   // signed in and joined the family, vs a name only ever used for task
@@ -1384,6 +1415,7 @@
     color: var(--navy);
     cursor: pointer;
   }
+  .btn-save:disabled { opacity: 0.6; cursor: default; }
 
   /* ── PEOPLE COLOURS ─────────────────────── */
   .who-Giuseppe { color: var(--amber); }
@@ -2722,7 +2754,7 @@
 
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeModal()">Cancel</button>
-        <button class="btn-save" onclick="saveModal()">Save</button>
+        <button class="btn-save" id="modal-save-btn" onclick="saveModal()">Save</button>
       </div>
     </div>
   </div>
@@ -2887,7 +2919,7 @@
       <div id="edit-item-fields"></div>
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeEditItem()">Cancel</button>
-        <button class="btn-save" onclick="saveEditItem()">Save changes</button>
+        <button class="btn-save" id="edit-item-save-btn" onclick="saveEditItem()">Save changes</button>
       </div>
     </div>
   </div>
@@ -3150,9 +3182,9 @@ function getSettingsPin() { return (window.fbSettings || []).find(s => s.id === 
 // ── APP VERSION & WHAT'S NEW ──────────────────────────────────────────────────
 // S5-B08-FIX2: bump deliberately for genuinely user-visible releases only —
 // not automatically on every commit (that was the original loop complaint).
-const APP_VERSION = '4.5';
+const APP_VERSION = '4.6';
 const WHATS_NEW = {
-  version: '4.5',
+  version: '4.6',
   title: "What's new in Family Hub",
   features: [
     { icon: '🔔', name: 'Event reminders', desc: 'Turn on notifications in Settings to get a nudge 30 minutes before events, while the hub is open' },
@@ -3176,6 +3208,8 @@ const WHATS_NEW = {
     { icon: '🏠', name: 'Meet your Family Hub helper', desc: 'A friendly new face on sign-in, loading, and every empty screen' },
     { icon: '👋', name: 'Your phone knows it\'s you', desc: 'Sign in with Google on your own phone and the hub greets you by name automatically — no more picking yourself from a list every time' },
     { icon: '🔁', name: 'Edit or delete just one, or the whole series', desc: 'Changing a recurring event now asks whether it\'s just this one, or this and all future ones' },
+    { icon: '✅', name: 'Tick off house tasks in one tap', desc: 'The circle on a household task now marks it done straight away, no need to open it first' },
+    { icon: '↩️', name: 'Undo now shows up everywhere', desc: 'Delete something by mistake and the Undo option now appears on every family device, not just the one you deleted it from' },
   ]
 };
 
@@ -3313,8 +3347,14 @@ function renderDeviceUserChips() {
   members.forEach(m => memberColors[m.name] = m.color);
   cont.innerHTML = members.map(m => {
     const isSelected = m.name === current;
-    return `<button type="button" onclick="setDeviceUser('${m.name}')"
-      style="padding:12px 20px;border-radius:50px;font-family:'Nunito',sans-serif;font-size:16px;font-weight:700;cursor:pointer;border:2px solid ${isSelected ? m.color : 'var(--border-strong)'};background:${isSelected ? m.color + '22' : 'transparent'};color:${m.color || 'var(--cream)'}">${m.name}</button>`;
+    // [S7-001] Member name goes through a data-attribute + dataset read
+    // (matching handleSwipeDelete's existing pattern), not embedded directly
+    // inside the onclick JS string — HTML-escaping a name before splicing it
+    // into an inline onclick('...') argument does NOT stop a quote in the
+    // name from breaking out of that JS string literal, since the browser
+    // HTML-decodes the attribute value BEFORE parsing it as JS.
+    return `<button type="button" data-name="${escapeHtml(m.name)}" onclick="setDeviceUser(this.dataset.name)"
+      style="padding:12px 20px;border-radius:50px;font-family:'Nunito',sans-serif;font-size:16px;font-weight:700;cursor:pointer;border:2px solid ${isSelected ? m.color : 'var(--border-strong)'};background:${isSelected ? m.color + '22' : 'transparent'};color:${m.color || 'var(--cream)'}">${escapeHtml(m.name)}</button>`;
   }).join('');
 }
 // [S7-B05] Match the signed-in Google account's display name against the
@@ -3342,6 +3382,19 @@ function matchDeviceUserToGoogleAccount() {
   return match ? match.name : null;
 }
 
+// [S7-001] Shared "is the user in the middle of something" check — used to
+// stop the device-user picker (and the screensaver) from popping up over an
+// in-progress modal. Kept as one list so the two call sites can't drift.
+function isBlockingOverlayOpen() {
+  const blockers = ['modal-overlay', 'edit-item-overlay', 'settings-overlay', 'pin-overlay',
+                     'privacy-overlay', 'detail-overlay', 'onboarding-overlay', 'auth-screen',
+                     'recur-scope-overlay'];
+  return blockers.some(id => {
+    const el = document.getElementById(id);
+    return el && getComputedStyle(el).display !== 'none';
+  });
+}
+
 function checkDeviceUserPrompt() {
   const members = getFamilyMembers();
   if (!members.length) return;
@@ -3359,6 +3412,14 @@ function checkDeviceUserPrompt() {
   }
 
   if (getDeviceUser()) return; // no confident auto-match, but already picked manually — keep it (shared-device case)
+  // [S7-001] checkDeviceUserPrompt() runs on every fb-data event — i.e. on
+  // every remote Firestore write from ANY connected device, not just once
+  // per session. Without this guard it was popping the picker overlay
+  // (z-index 490, above every modal in the app) on top of whatever the
+  // person on THIS device was actively doing — e.g. mid-way through filling
+  // in an Add Event modal — every time someone elsewhere added an item.
+  // Deferring is safe: the very next fb-data event re-runs this check.
+  if (isBlockingOverlayOpen()) return;
   const ov = document.getElementById('device-user-overlay');
   if (ov) { renderDeviceUserChips(); ov.style.display = 'flex'; }
 }
@@ -3405,6 +3466,25 @@ function shiftDateStr(dateStr, { days = 0, months = 0, years = 0 } = {}) {
 }
 const weekDates = getWeekDates();
 const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+// [S7-001] Every list/dashboard/detail render interpolates user-typed text
+// (event/todo/shop/meal/household name/text/notes/qty/store, member names)
+// straight into innerHTML template strings with no escaping anywhere in the
+// file — confirmed via a full-file grep before writing this. On a
+// no-real-auth shared family device, anyone can type `<img src=x
+// onerror=...>` into any name field and have it execute in another family
+// member's session the moment that item renders — a real stored-injection
+// bug, not a theoretical one. Safe for both innerHTML text content and
+// `value="..."` attribute contexts (escapes the 5 HTML-significant chars).
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 // ── SAMPLE DATA (seeded to Firestore on first run) ────────────────────────────
 const sampleEvents = [
@@ -3510,6 +3590,11 @@ function setSyncStatus(state) {
   if (state === 'saving'){ dot.style.background = '#E8A838'; dot.classList.add('syncing');    label.textContent = 'Saving…'; }
   if (state === 'error') { dot.style.background = '#E07070'; dot.classList.remove('syncing'); label.textContent = 'Offline'; }
 }
+
+// [S7-001] One random token per page load — lets startCrossDeviceUndoListener()
+// (in the module script above) tell "a delete this same tab already showed a
+// local toast for" apart from "a delete that happened somewhere else."
+window._deviceSessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).slice(2);
 
 // Watch for Firestore connection via custom events
 let connected = false;
@@ -3782,19 +3867,27 @@ function renderHousehold() {
 
   document.getElementById('household-pending').innerHTML = filtered.map(t =>
     swipeRow(t, 'household', 'household',
-      '<div class="todo-full-row" onclick="showDetail(\'household\',\'' + t.id + '\')" style="flex-direction:column;align-items:flex-start;gap:6px">' +
+      // [S7-001] Check circle now has its OWN onclick (toggleHousehold +
+      // stopPropagation), matching Todos/Shopping/Dashboard — previously the
+      // whole row shared one onclick="showDetail(...)", so marking a house
+      // task done required opening the detail modal (TESTING.md A2a).
+      '<div class="todo-full-row" style="flex-direction:column;align-items:flex-start;gap:6px">' +
         '<div style="display:flex;width:100%;align-items:center;gap:10px">' +
-          '<div class="todo-full-check">✓</div>' +
-          '<div class="todo-full-text" style="flex:1">' + t.text + '</div>' +
-          lockIcon(t) +
-          '<span style="font-size:12px;font-weight:700;color:' + (priorityColor[t.priority]||'var(--cream-muted)') + ';text-transform:uppercase">' + (t.priority||'') + '</span>' +
+          '<div onclick="toggleHousehold(\'' + t.id + '\');event.stopPropagation()" style="display:flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;flex-shrink:0;cursor:pointer">' +
+            '<div class="todo-full-check">✓</div>' +
+          '</div>' +
+          '<div onclick="showDetail(\'household\',\'' + t.id + '\')" style="flex:1;display:flex;align-items:center;gap:10px;min-width:0;cursor:pointer">' +
+            '<div class="todo-full-text" style="flex:1">' + escapeHtml(t.text) + '</div>' +
+            lockIcon(t) +
+            '<span style="font-size:12px;font-weight:700;color:' + (priorityColor[t.priority]||'var(--cream-muted)') + ';text-transform:uppercase">' + (t.priority||'') + '</span>' +
+          '</div>' +
           actionBtns('household', t.id, 'household') +
         '</div>' +
-        '<div style="display:flex;gap:8px;padding-left:34px">' +
+        '<div onclick="showDetail(\'household\',\'' + t.id + '\')" style="display:flex;gap:8px;padding-left:34px;cursor:pointer">' +
           '<span style="font-size:12px;padding:2px 8px;border-radius:6px;background:rgba(255,255,255,0.06);color:var(--cream-muted)">' + (t.room||'') + '</span>' +
           '<span class="who-' + t.who + '" style="font-size:12px;font-weight:600">' + (t.who||'') + '</span>' +
         '</div>' +
-        (t.notes ? '<div style="font-size:12px;color:var(--cream-muted);padding-left:34px">' + t.notes + '</div>' : '') +
+        (t.notes ? '<div onclick="showDetail(\'household\',\'' + t.id + '\')" style="font-size:12px;color:var(--cream-muted);padding-left:34px;cursor:pointer">' + escapeHtml(t.notes) + '</div>' : '') +
       '</div>')
   ).join('') || (activeRoom !== 'All'
     ? MASCOT_EMPTY(`Nothing in ${activeRoom}`, 'Try a different room or add a task')
@@ -3805,10 +3898,14 @@ function renderHousehold() {
   houseDoneLabel.textContent = done.length ? `Completed (${done.length})` : 'Completed';
   document.getElementById('household-done').innerHTML = done.map(t =>
     swipeRow(t, 'household', 'household',
-      '<div class="todo-full-row" style="opacity:0.5" onclick="showDetail(\'household\',\'' + t.id + '\')">' +
-        '<div class="todo-full-check done">✓</div>' +
-        '<div class="todo-full-text done">' + t.text + '</div>' +
-        '<span style="font-size:12px;color:var(--cream-muted)">' + (t.room||'') + '</span>' +
+      '<div class="todo-full-row" style="opacity:0.5">' +
+        '<div onclick="toggleHousehold(\'' + t.id + '\');event.stopPropagation()" style="display:flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;flex-shrink:0;cursor:pointer">' +
+          '<div class="todo-full-check done">✓</div>' +
+        '</div>' +
+        '<div onclick="showDetail(\'household\',\'' + t.id + '\')" style="flex:1;display:flex;align-items:center;gap:10px;min-width:0;cursor:pointer">' +
+          '<div class="todo-full-text done">' + escapeHtml(t.text) + '</div>' +
+          '<span style="font-size:12px;color:var(--cream-muted)">' + (t.room||'') + '</span>' +
+        '</div>' +
       '</div>')
   ).join('');
 
@@ -3827,12 +3924,12 @@ function renderHousehold() {
     dashEl.innerHTML = highPriority.length
       ? highPriority.map(t => `<div class="task-row" onclick="showDetail('household','${t.id}')" style="cursor:pointer">
           <div class="task-check">✓</div>
-          <div class="task-text">${t.text}</div>
+          <div class="task-text">${escapeHtml(t.text)}</div>
           <span style="font-size:12px;font-weight:700;color:var(--rose);text-transform:uppercase">${t.room||''}</span>
         </div>`).join('')
       : pending.slice(0,4).map(t => `<div class="task-row" onclick="showDetail('household','${t.id}')" style="cursor:pointer">
           <div class="task-check">✓</div>
-          <div class="task-text">${t.text}</div>
+          <div class="task-text">${escapeHtml(t.text)}</div>
           <span style="font-size:12px;color:var(--cream-muted)">${t.room||''}</span>
         </div>`).join('')
       || '<div style="color:var(--cream-muted);font-size:14px;padding-top:8px">No tasks yet 🔧</div>';
@@ -3976,6 +4073,22 @@ function showUndoToast(col, item, items) {
   }, 5000);
 }
 
+// [S7-001] Cross-device counterpart to showUndoToast() — triggered by
+// startCrossDeviceUndoListener() (module script) when ANOTHER device deletes
+// something. Reuses the exact same #undo-toast / _undoItem / undoDelete()
+// pipeline as a same-device delete, since restoring only ever needs the
+// item's id (plus name, for the activity-log message) — both of which are
+// already in the activityLog entry. Known limit: for a recurring-event
+// series delete (S7-B04), only the single originating occurrence can be
+// restored this way — the log entry doesn't carry the rest of the series'
+// ids, only the primary one (same-device Undo, right after the delete,
+// still restores the whole series via the in-memory `items` array).
+window.showRemoteUndoToast = function(entry) {
+  if (!entry || !entry.col || !entry.itemId) return;
+  const displayName = (entry.itemName || '').replace(/\s*\(and \d+ future occurrences?\)\s*$/, '');
+  showUndoToast(entry.col, { id: entry.itemId, name: displayName });
+};
+
 // ── S5-B06: admin join notifications ─────────────────────────────────────────
 let _joinToastQueue = [];
 let _joinToastShowing = false;
@@ -3994,7 +4107,7 @@ function processJoinToastQueue() {
   _joinToastCurrentNotifId = notifId;
   const hubName = (window.currentFamilyDoc && window.currentFamilyDoc.name) || 'the hub';
   const msg = document.getElementById('join-toast-msg');
-  if (msg) msg.textContent = `🎉 ${data.name || 'Someone'} just joined ${hubName}!`;
+  if (msg) msg.textContent = `🎉 ${escapeHtml(data.name || 'Someone')} just joined ${hubName}!`;
   const toast = document.getElementById('join-toast');
   if (toast) toast.style.display = 'block';
   clearTimeout(_joinToastTimer);
@@ -4057,7 +4170,7 @@ async function logActivity(action, col, itemName, itemId) {
   const who = getDeviceUser() || 'Unknown';
   const id = 'log_' + Date.now();
   try {
-    await window.fbSave('activityLog', { id, action, col, itemName: itemName || '', itemId: itemId || '', who, at: new Date().toISOString() });
+    await window.fbSave('activityLog', { id, action, col, itemName: itemName || '', itemId: itemId || '', who, at: new Date().toISOString(), sessionId: window._deviceSessionId || null });
   } catch(_) {}
 }
 
@@ -4134,7 +4247,7 @@ async function deleteItem(colName, id) {
     }
     showUndoToast(colName, item, deletedTargets);
     const label = deletedTargets.length > 1
-      ? `${item.text || item.name || ''} (and ${deletedTargets.length - 1} future occurrence${deletedTargets.length > 2 ? 's' : ''})`
+      ? `${escapeHtml(item.text || item.name || '')} (and ${deletedTargets.length - 1} future occurrence${deletedTargets.length > 2 ? 's' : ''})`
       : (item ? (item.text || item.name || '') : '');
     await logActivity('deleted', colName, label, id);
   } catch(e) { setSyncStatus('error'); }
@@ -4187,7 +4300,7 @@ function renderDashboard() {
     ? todayEvts.map(e => `<div class="event-row" onclick="showDetail('event','${e.id}')" style="cursor:pointer">
         <div class="event-time">${e.start||''}</div>
         <div class="event-dot" style="background:${e.color||'#2EC4B6'}"></div>
-        <div style="min-width:0"><div class="event-label">${e.name}</div><div class="event-who">${e.who||''}</div>${e.notes?`<div style="font-size:11px;color:var(--cream-muted);opacity:0.7;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px">${e.notes.slice(0,60)}${e.notes.length>60?'…':''}</div>`:''}</div>
+        <div style="min-width:0"><div class="event-label">${escapeHtml(e.name)}</div><div class="event-who">${e.who||''}</div>${e.notes?`<div style="font-size:11px;color:var(--cream-muted);opacity:0.7;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px">${escapeHtml(e.notes.slice(0,60))}${e.notes.length>60?'…':''}</div>`:''}</div>
       </div>`).join('')
     : MASCOT_EMPTY_SM('Nothing scheduled today', 'Tap + to add an event');
 
@@ -4200,7 +4313,7 @@ function renderDashboard() {
           <div class="task-check">✓</div>
         </div>
         <div onclick="showDetail('todo','${t.id}')" style="flex:1;display:flex;align-items:center;gap:6px;cursor:pointer;min-width:0">
-          <div class="task-text" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">${t.text}</div>
+          <div class="task-text" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">${escapeHtml(t.text)}</div>
           <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
             ${t.due ? dueBadge(t.due) : ''}
             <span class="task-tag who-tag-${t.who}" style="font-size:12px;padding:2px 7px;border-radius:6px;font-weight:600">${t.who}</span>
@@ -4220,7 +4333,7 @@ function renderDashboard() {
           ? `<span style="display:inline-flex;align-items:center;gap:3px;font-size:12px;font-weight:600;color:${mc.color}"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${mc.color}"></span>${s.who}</span>`
           : '';
         const storeChip = s.store
-          ? `<span style="font-size:12px;color:var(--cream-muted);background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:5px;padding:1px 5px">${s.store}</span>`
+          ? `<span style="font-size:12px;color:var(--cream-muted);background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:5px;padding:1px 5px">${escapeHtml(s.store)}</span>`
           : '';
         const meta = (whoChip || storeChip)
           ? `<div style="display:flex;align-items:center;gap:5px;margin-top:2px">${whoChip}${storeChip}</div>`
@@ -4230,10 +4343,10 @@ function renderDashboard() {
             <div class="task-check">✓</div>
           </div>
           <div onclick="showDetail('shop','${s.id}')" style="flex:1;min-width:0;cursor:pointer">
-            <div class="task-text">${s.name}</div>
+            <div class="task-text">${escapeHtml(s.name)}</div>
             ${meta}
           </div>
-          <span class="task-tag" style="color:var(--cream-muted);margin-top:2px">${s.qty||''}</span>
+          <span class="task-tag" style="color:var(--cream-muted);margin-top:2px">${escapeHtml(s.qty||'')}</span>
         </div>`;
       }).join('')
     : MASCOT_EMPTY_SM('Shopping list is empty', 'Tap + to add items');
@@ -4263,8 +4376,8 @@ function renderDashboard() {
     return `<div class="meal-row" onclick="showDetail('meal','${m.id}')" style="cursor:pointer">
         <div class="meal-day" style="min-width:56px">${dayLabel}</div>
         <div style="flex:1">
-          <div class="meal-name">${m.name}</div>
-          ${m.notes ? '<div style="font-size:12px;color:var(--cream-muted);margin-top:2px">' + m.notes + '</div>' : ''}
+          <div class="meal-name">${escapeHtml(m.name)}</div>
+          ${m.notes ? '<div style="font-size:12px;color:var(--cream-muted);margin-top:2px">' + escapeHtml(m.notes) + '</div>' : ''}
           ${whoLine}
         </div>
       </div>`;
@@ -4329,13 +4442,13 @@ function renderCalendar() {
       </div>
       <div class="cal-event-bar" style="background:${e.color||'#2EC4B6'}"></div>
       <div class="cal-event-info">
-        <div class="cal-event-name">${e.name} ${lockIcon(e)}</div>
+        <div class="cal-event-name">${escapeHtml(e.name)} ${lockIcon(e)}</div>
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           <div class="cal-event-meta who-${e.who}">${e.who||''}</div>
           ${e.recur && e.recur !== 'none' ? recurBadge(e.recur) : ''}
           ${e.endDate && e.endDate !== e.date ? `<span style="font-size:11px;background:rgba(255,255,255,0.1);border-radius:4px;padding:1px 5px;color:var(--cream-muted)">until ${new Date(e.endDate+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>` : ''}
         </div>
-        ${e.notes ? `<div style="font-size:11px;color:var(--cream-muted);opacity:0.7;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px">${e.notes.replace(/</g,'&lt;')}</div>` : ''}
+        ${e.notes ? `<div style="font-size:11px;color:var(--cream-muted);opacity:0.7;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px">${escapeHtml(e.notes)}</div>` : ''}
       </div>
     </div>`;
   }).join('') || MASCOT_EMPTY('Nothing this week yet', 'Tap + to add an event');
@@ -4400,7 +4513,7 @@ function renderMonthView() {
     html += `<div class="${classes}" onclick="selectMonthDay('${dStr}')">
       <div class="month-day-num">${d}</div>
       ${dayEvts.slice(0,2).map(e =>
-        `<div class="month-event-pill" style="background:${e.color||'#2EC4B6'}">${e.name}</div>`
+        `<div class="month-event-pill" style="background:${e.color||'#2EC4B6'}">${escapeHtml(e.name)}</div>`
       ).join('')}
       ${dayEvts.length > 2 ? `<div style="font-size:12px;color:var(--cream-muted);text-align:center">+${dayEvts.length-2}</div>` : ''}
     </div>`;
@@ -4441,7 +4554,7 @@ function showMonthDayEvents(dStr) {
           </div>
           <div class="cal-event-bar" style="background:${e.color||'#2EC4B6'}"></div>
           <div class="cal-event-info">
-            <div class="cal-event-name">${e.name} ${lockIcon(e)}</div>
+            <div class="cal-event-name">${escapeHtml(e.name)} ${lockIcon(e)}</div>
             <div class="cal-event-meta who-${e.who}">${e.who||''}</div>
           </div>
         </div>`).join('')
@@ -4476,7 +4589,7 @@ function filterCalDay(dStr) {
       </div>
       <div class="cal-event-bar" style="background:${e.color||'#2EC4B6'}"></div>
       <div class="cal-event-info">
-        <div class="cal-event-name">${e.name} ${lockIcon(e)}</div>
+        <div class="cal-event-name">${escapeHtml(e.name)} ${lockIcon(e)}</div>
         <div class="cal-event-meta who-${e.who}">${e.who||''}</div>
       </div>
     </div>`).join('') || MASCOT_EMPTY_SM('Nothing on this day', 'Tap + to add an event');
@@ -4521,7 +4634,7 @@ function renderTodos() {
           <div class="todo-full-check">✓</div>
         </div>
         <div onclick="showDetail('todo','${t.id}')" style="flex:1;display:flex;align-items:center;gap:14px;min-width:0;cursor:pointer">
-          <div class="todo-full-text">${t.text}</div>
+          <div class="todo-full-text">${escapeHtml(t.text)}</div>
           <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
             ${lockIcon(t)}
             ${dueBadge(t.due)}
@@ -4546,7 +4659,7 @@ function renderTodos() {
           <div class="todo-full-check done">✓</div>
         </div>
         <div onclick="showDetail('todo','${t.id}')" style="flex:1;display:flex;align-items:center;gap:14px;min-width:0;cursor:pointer">
-          <div class="todo-full-text done">${t.text}</div>
+          <div class="todo-full-text done">${escapeHtml(t.text)}</div>
           <div style="display:flex;align-items:center;gap:6px">
             ${lockIcon(t)}
             <div class="todo-full-who">${t.who}</div>
@@ -4640,7 +4753,7 @@ function _shopItemHtml(s) {
     ? `<span class="who-tag-${s.who}" style="font-size:12px;padding:2px 7px;border-radius:6px;font-weight:600;margin-right:4px">${s.who}</span>`
     : '';
   const storeTag = s.store
-    ? `<span style="font-size:12px;color:var(--cream-muted);background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:6px;padding:2px 6px;white-space:nowrap">${s.store}</span>`
+    ? `<span style="font-size:12px;color:var(--cream-muted);background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:6px;padding:2px 6px;white-space:nowrap">${escapeHtml(s.store)}</span>`
     : '';
   return swipeRow(s, 'shopping', 'shop',
     `<div class="shop-full-row">
@@ -4649,12 +4762,12 @@ function _shopItemHtml(s) {
       </div>
       <div onclick="showDetail('shop','${s.id}')" style="flex:1;display:flex;align-items:center;gap:14px;min-width:0;cursor:pointer">
         <div style="flex:1;min-width:0">
-          <div class="shop-full-name ${s.done?'done':''}" style="display:flex;align-items:center;gap:5px">${s.name}${whoDot}${lockIcon(s)}</div>
+          <div class="shop-full-name ${s.done?'done':''}" style="display:flex;align-items:center;gap:5px">${escapeHtml(s.name)}${whoDot}${lockIcon(s)}</div>
           ${storeTag ? '<div style="margin-top:2px">' + storeTag + '</div>' : ''}
         </div>
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
           ${whoTag}
-          <div class="shop-full-qty">${s.qty||''}</div>
+          <div class="shop-full-qty">${escapeHtml(s.qty||'')}</div>
         </div>
       </div>
       ${actionBtns('shopping', s.id, 'shop')}
@@ -4762,8 +4875,8 @@ function renderMeals() {
           <div class="meal-day-date">${dateForDay(m.day)}</div>
         </div>
         <div class="meal-info">
-          <div class="meal-full-name">${m.name} ${lockIcon(m)}</div>
-          ${m.notes ? '<div class="meal-full-meta">'+m.notes+'</div>' : ''}
+          <div class="meal-full-name">${escapeHtml(m.name)} ${lockIcon(m)}</div>
+          ${m.notes ? '<div class="meal-full-meta">'+escapeHtml(m.notes)+'</div>' : ''}
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           <div class="meal-tag" style="background:${tc.split(';')[0]};${tc.split(';')[1]}">${m.tag||''}</div>
@@ -4990,7 +5103,7 @@ function populateShopFavsPicker() {
   if (!picker) return;
   const available = favs.filter(f => !existing.includes(f.name.toLowerCase()));
   picker.innerHTML = available.length
-    ? available.map(f => `<button onclick="pickShopFav('${f.id}')" style="padding:5px 12px;border-radius:20px;border:1px solid var(--border-strong);background:var(--navy-card);color:var(--cream);font-size:12px;cursor:pointer;font-family:'Inter',sans-serif">${f.name}</button>`).join('')
+    ? available.map(f => `<button onclick="pickShopFav('${f.id}')" style="padding:5px 12px;border-radius:20px;border:1px solid var(--border-strong);background:var(--navy-card);color:var(--cream);font-size:12px;cursor:pointer;font-family:'Inter',sans-serif">${escapeHtml(f.name)}</button>`).join('')
     : '<span style="font-size:12px;color:var(--cream-muted)">All favourites already on the list</span>';
 }
 
@@ -5052,7 +5165,7 @@ function shopAutocomplete(val) {
   const favs = getShopFavs().filter(f => f.name.toLowerCase().includes(val.toLowerCase()));
   if (!favs.length) { ac.style.display = 'none'; return; }
   ac.style.display = 'block';
-  ac.innerHTML = favs.map(f => `<div onclick="pickShopFav('${f.id}')" style="padding:10px 14px;cursor:pointer;font-size:14px;color:var(--cream);border-bottom:1px solid var(--border)">${f.name} <span style="font-size:12px;color:var(--cream-muted)">${f.qty||''}</span></div>`).join('');
+  ac.innerHTML = favs.map(f => `<div onclick="pickShopFav('${f.id}')" style="padding:10px 14px;cursor:pointer;font-size:14px;color:var(--cream);border-bottom:1px solid var(--border)">${escapeHtml(f.name)} <span style="font-size:12px;color:var(--cream-muted)">${escapeHtml(f.qty||'')}</span></div>`).join('');
 }
 
 function populateMealFavsPicker(filterCat) {
@@ -5066,7 +5179,7 @@ function populateMealFavsPicker(filterCat) {
   const picker = document.getElementById('meal-favs-picker');
   if (!picker) return;
   picker.innerHTML = filtered.length
-    ? filtered.map(f => `<button onclick="pickMealFav('${f.id}')" style="padding:5px 12px;border-radius:20px;border:1px solid var(--border-strong);background:var(--navy-card);color:var(--cream);font-size:12px;cursor:pointer;font-family:'Inter',sans-serif">${f.name}</button>`).join('')
+    ? filtered.map(f => `<button onclick="pickMealFav('${f.id}')" style="padding:5px 12px;border-radius:20px;border:1px solid var(--border-strong);background:var(--navy-card);color:var(--cream);font-size:12px;cursor:pointer;font-family:'Inter',sans-serif">${escapeHtml(f.name)}</button>`).join('')
     : '<span style="font-size:12px;color:var(--cream-muted)">No meals in this category yet</span>';
 }
 
@@ -5083,7 +5196,7 @@ function populateTodoFavsPicker() {
   const picker = document.getElementById('todo-favs-picker');
   if (!picker) return;
   picker.innerHTML = favs.length
-    ? favs.map(f => `<button type="button" onclick="pickTodoFav('${f.id}')" style="padding:5px 12px;border-radius:20px;border:1px solid var(--border-strong);background:var(--navy-card);color:var(--cream);font-size:12px;cursor:pointer;font-family:'Inter',sans-serif">${f.text}</button>`).join('')
+    ? favs.map(f => `<button type="button" onclick="pickTodoFav('${f.id}')" style="padding:5px 12px;border-radius:20px;border:1px solid var(--border-strong);background:var(--navy-card);color:var(--cream);font-size:12px;cursor:pointer;font-family:'Inter',sans-serif">${escapeHtml(f.text)}</button>`).join('')
     : '<span style="font-size:12px;color:var(--cream-muted)">No favourites yet — add one below</span>';
 }
 
@@ -5103,19 +5216,27 @@ function mealAutocomplete(val) {
   const favs = getMealFavs().filter(f => f.name.toLowerCase().includes(val.toLowerCase()));
   if (!favs.length) { ac.style.display = 'none'; return; }
   ac.style.display = 'block';
-  ac.innerHTML = favs.map(f => `<div onclick="pickMealFav('${f.id}')" style="padding:10px 14px;cursor:pointer;font-size:14px;color:var(--cream);border-bottom:1px solid var(--border)">${f.name} <span style="font-size:12px;color:var(--cream-muted)">${f.category||''}</span></div>`).join('');
+  ac.innerHTML = favs.map(f => `<div onclick="pickMealFav('${f.id}')" style="padding:10px 14px;cursor:pointer;font-size:14px;color:var(--cream);border-bottom:1px solid var(--border)">${escapeHtml(f.name)} <span style="font-size:12px;color:var(--cream-muted)">${escapeHtml(f.category||'')}</span></div>`).join('');
 }
 
 function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
 function closeModalIfBackground(e) { if (e.target === document.getElementById('modal-overlay')) closeModal(); }
 
 async function saveModal() {
+  // [S7-001] Disable Save synchronously, before any async work, so rapid
+  // repeat taps physically can't fire onclick again (a disabled button
+  // doesn't dispatch click events) — closes the "10 rapid taps create 10
+  // duplicate items" gap TESTING.md B4 calls out. Re-enabled in `finally`
+  // so it comes back on every exit path: success, validation early-return,
+  // or a thrown error.
+  const saveBtn = document.getElementById('modal-save-btn');
+  if (saveBtn) saveBtn.disabled = true;
   setSyncStatus('saving');
   let _savedName = '', _savedCol = '', _savedId = '';
   try {
     const id = 'id_' + Date.now();
     if (currentModal === 'event') {
-      const name = document.getElementById('new-event-name').value.trim(); if (!name) return;
+      const name = document.getElementById('new-event-name').value.trim(); if (!name) { setSyncStatus('live'); return; }
       const who   = getWhoValue('new-event-who');
       const recur = document.getElementById('new-event-recur').value;
       const colorMap = { Giuseppe:'#E8A838', Ross:'#E07070', Malachi:'#5B9BD5', Mack:'#2EC4B6', Rachel:'#B08BE8', Everyone:'#9B8BCC' };
@@ -5124,7 +5245,7 @@ async function saveModal() {
       const startDate = document.getElementById('new-event-date').value || todayStr;
       const endDateVal = document.getElementById('new-event-end-date').value || startDate;
       if (recur !== 'none' && (!endDateVal || endDateVal <= startDate)) {
-        if (!confirm('⚠️ This event repeats but has no end date — it will generate indefinitely. Save anyway?')) return;
+        if (!confirm('⚠️ This event repeats but has no end date — it will generate indefinitely. Save anyway?')) { setSyncStatus('live'); return; }
       }
       await window.fbSave('events', { id, name, date: startDate,
         endDate: endDateVal !== startDate ? endDateVal : null,
@@ -5145,7 +5266,7 @@ async function saveModal() {
       document.getElementById('new-event-end-date').value = '';
     }
     if (currentModal === 'todo') {
-      const text = document.getElementById('new-todo-text').value.trim(); if (!text) return;
+      const text = document.getElementById('new-todo-text').value.trim(); if (!text) { setSyncStatus('live'); return; }
       const recur = document.getElementById('new-todo-recur').value;
       const todoWho = getWhoValue('new-todo-who');
       const todoType = document.getElementById('new-todo-type').value;
@@ -5179,11 +5300,12 @@ async function saveModal() {
       toggleTodoPointsField('new-todo-type', 'new-todo-points-field', 'new-todo-points');
     }
     if (currentModal === 'shop') {
-      const name = document.getElementById('new-shop-name').value.trim(); if (!name) return;
+      const name = document.getElementById('new-shop-name').value.trim(); if (!name) { setSyncStatus('live'); return; }
       const who  = getWhoValue('new-shop-who');
       if (!who || who === 'Everyone') {
         const whoCont = document.getElementById('new-shop-who-chips');
         if (whoCont) { whoCont.style.outline = '1px solid var(--rose)'; setTimeout(() => { whoCont.style.outline = ''; }, 2000); }
+        setSyncStatus('live');
         return;
       }
       const qty  = document.getElementById('new-shop-qty').value || '1';
@@ -5211,13 +5333,17 @@ async function saveModal() {
       document.getElementById('shop-autocomplete').style.display = 'none';
     }
     if (currentModal === 'meal') {
-      const name  = document.getElementById('new-meal-name').value.trim(); if (!name) return;
+      const name  = document.getElementById('new-meal-name').value.trim(); if (!name) { setSyncStatus('live'); return; }
       const day   = document.getElementById('new-meal-day').value;
       const notes = document.getElementById('new-meal-notes').value || '';
       const existing = getMeals().find(m => m.day === day);
       if (existing) {
-        if (!confirm(`${day} already has "${existing.name}". Replace it?`)) return;
-        await window.fbDelete('meals', existing.id);
+        if (existing.locked) { setSyncStatus('live'); alert(lockedItemMessage()); return; }
+        if (!confirm(`${day} already has "${existing.name}". Replace it?`)) { setSyncStatus('live'); return; }
+        // [S7-001] Was a hard fbDelete — bypassed the app's soft-delete/undo/
+        // activity-log convention that every other delete in the app goes
+        // through, so replacing a meal was silent and permanent.
+        await deleteItem('meals', existing.id);
       }
       await window.fbSave('meals', { id, day, name, notes, who: getWhoValue('new-meal-who'), tag: 'New', createdBy: getDeviceUser() || null });
       _savedName = name; _savedCol = 'meals'; _savedId = id;
@@ -5233,7 +5359,7 @@ async function saveModal() {
       document.getElementById('meal-autocomplete').style.display = 'none';
     }
     if (currentModal === 'household') {
-      const text = document.getElementById('new-house-text').value.trim(); if (!text) return;
+      const text = document.getElementById('new-house-text').value.trim(); if (!text) { setSyncStatus('live'); return; }
       await window.fbSave('household', { id, text,
         room:     document.getElementById('new-house-room').value,
         who:      getWhoValue('new-house-who'),
@@ -5245,6 +5371,7 @@ async function saveModal() {
     }
     if (_savedCol) await logActivity('created', _savedCol, _savedName, _savedId);
   } catch(e) { console.error(e); setSyncStatus('error'); }
+  finally { if (saveBtn) saveBtn.disabled = false; }
   closeModal();
 }
 
@@ -5272,7 +5399,7 @@ function openEditItem(type, id) {
     title.textContent = 'Edit task';
     fields.innerHTML = `
       <div class="modal-field"><label class="modal-label">Task</label>
-        <input class="modal-input" id="edit-todo-text" value="${t.text}"></div>
+        <input class="modal-input" id="edit-todo-text" value="${escapeHtml(t.text)}"></div>
       <div class="modal-field"><label class="modal-label">Assigned to</label>
         <div id="edit-todo-who-chips" style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0"></div>
         <input type="hidden" id="edit-todo-who" value="Everyone"></div>
@@ -5295,11 +5422,11 @@ function openEditItem(type, id) {
     const catOpts = allCats.map(c => `<option${c===s.cat?' selected':''}>${c}</option>`).join('');
     fields.innerHTML = `
       <div class="modal-field"><label class="modal-label">Item</label>
-        <input class="modal-input" id="edit-shop-name" value="${s.name}"></div>
+        <input class="modal-input" id="edit-shop-name" value="${escapeHtml(s.name)}"></div>
       <div class="modal-field"><label class="modal-label">Quantity</label>
-        <input class="modal-input" id="edit-shop-qty" value="${s.qty||''}"></div>
+        <input class="modal-input" id="edit-shop-qty" value="${escapeHtml(s.qty||'')}"></div>
       <div class="modal-field"><label class="modal-label">Store (optional)</label>
-        <input class="modal-input" id="edit-shop-store" value="${s.store||''}" placeholder="e.g. Lidl, Home Bargains, Amazon"></div>
+        <input class="modal-input" id="edit-shop-store" value="${escapeHtml(s.store||'')}" placeholder="e.g. Lidl, Home Bargains, Amazon"></div>
       <div class="modal-field"><label class="modal-label">Category</label>
         <select class="modal-select" id="edit-shop-cat">
           ${catOpts}
@@ -5314,7 +5441,7 @@ function openEditItem(type, id) {
     title.textContent = 'Edit household task';
     fields.innerHTML = `
       <div class="modal-field"><label class="modal-label">Task</label>
-        <input class="modal-input" id="edit-house-text" value="${t.text}"></div>
+        <input class="modal-input" id="edit-house-text" value="${escapeHtml(t.text)}"></div>
       <div class="modal-field"><label class="modal-label">Room</label>
         <select class="modal-select" id="edit-house-room">
           ${['General','Kitchen','Living Room','Master Bedroom','Boys Room','Bathroom','Garden','Garage','Hallway','Other'].map(r=>`<option${r===t.room?' selected':''}>${r}</option>`).join('')}
@@ -5329,7 +5456,7 @@ function openEditItem(type, id) {
           <option value="low"${t.priority==='low'?' selected':''}>Low</option>
         </select></div>
       <div class="modal-field"><label class="modal-label">Notes</label>
-        <input class="modal-input" id="edit-house-notes" value="${t.notes||''}"></div>`;
+        <input class="modal-input" id="edit-house-notes" value="${escapeHtml(t.notes||'')}"></div>`;
     renderWhoChipsWithValue('edit-house-who-chips', 'edit-house-who', t.who || 'Everyone');
   }
   if (type === 'meal') {
@@ -5339,11 +5466,11 @@ function openEditItem(type, id) {
     const dayOpts = mDays.map(d => `<option${m.day === d ? ' selected' : ''}>${d}</option>`).join('');
     fields.innerHTML = `
       <div class="modal-field"><label class="modal-label">Meal name</label>
-        <input class="modal-input" id="edit-meal-name" value="${m.name}"></div>
+        <input class="modal-input" id="edit-meal-name" value="${escapeHtml(m.name)}"></div>
       <div class="modal-field"><label class="modal-label">Day</label>
         <select class="modal-select" id="edit-meal-day">${dayOpts}</select></div>
       <div class="modal-field"><label class="modal-label">Notes</label>
-        <input class="modal-input" id="edit-meal-notes" value="${m.notes||''}"></div>
+        <input class="modal-input" id="edit-meal-notes" value="${escapeHtml(m.notes||'')}"></div>
       <div class="modal-field"><label class="modal-label">Who's cooking?</label>
         <div id="edit-meal-who-chips" style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 0"></div>
         <input type="hidden" id="edit-meal-who" value="Everyone"></div>`;
@@ -5354,7 +5481,7 @@ function openEditItem(type, id) {
     title.textContent = 'Edit event';
     fields.innerHTML = `
       <div class="modal-field"><label class="modal-label">Event name</label>
-        <input class="modal-input" id="edit-event-name" value="${e.name}"></div>
+        <input class="modal-input" id="edit-event-name" value="${escapeHtml(e.name)}"></div>
       <div style="display:flex;gap:12px">
         <div class="modal-field" style="flex:1"><label class="modal-label">Start date</label>
           <input class="modal-input" id="edit-event-date" type="date" lang="en-GB" value="${e.date||''}"></div>
@@ -5391,6 +5518,9 @@ function closeEditItemIfBg(e) { if (e.target === document.getElementById('edit-i
 
 async function saveEditItem() {
   if (!editContext) return;
+  // [S7-001] Same rapid-double-tap guard as saveModal() — see its comment.
+  const saveBtn = document.getElementById('edit-item-save-btn');
+  if (saveBtn) saveBtn.disabled = true;
   setSyncStatus('saving');
   try {
     const { type, id } = editContext;
@@ -5429,8 +5559,11 @@ async function saveEditItem() {
       const newDay = document.getElementById('edit-meal-day').value;
       const conflict = getMeals().find(m => m.day === newDay && String(m.id) !== String(id));
       if (conflict) {
-        if (!confirm(`${newDay} already has "${conflict.name}". Replace it?`)) return;
-        await window.fbDelete('meals', conflict.id);
+        if (conflict.locked) { setSyncStatus('live'); alert(lockedItemMessage()); return; }
+        if (!confirm(`${newDay} already has "${conflict.name}". Replace it?`)) { setSyncStatus('live'); return; }
+        // [S7-001] Was a hard fbDelete — see saveModal()'s meal-conflict path
+        // for why this now goes through the normal soft-delete convention.
+        await deleteItem('meals', conflict.id);
       }
       await window.fbUpdate('meals', id, {
         name:  document.getElementById('edit-meal-name').value.trim(),
@@ -5494,6 +5627,7 @@ async function saveEditItem() {
     const itemName = nameField ? (document.getElementById(nameField) || {}).value || '' : '';
     await logActivity('edited', col, itemName.trim(), id);
   } catch(e) { console.error(e); setSyncStatus('error'); }
+  finally { if (saveBtn) saveBtn.disabled = false; }
   closeEditItem();
 }
 
@@ -5519,7 +5653,7 @@ function showDetail(type, id) {
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
         <div style="width:4px;height:48px;border-radius:2px;background:${e.color};flex-shrink:0"></div>
         <div>
-          <div style="font-family:'Nunito',sans-serif;font-size:22px;font-weight:800;color:var(--cream)">${e.name}</div>
+          <div style="font-family:'Nunito',sans-serif;font-size:22px;font-weight:800;color:var(--cream)">${escapeHtml(e.name)}</div>
           <div style="font-size:14px;color:var(--cream-muted);margin-top:2px">${new Date((e.date||todayStr)+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})}</div>
         </div>
       </div>
@@ -5536,7 +5670,7 @@ function showDetail(type, id) {
           <span style="font-size:12px;color:var(--cream-muted);min-width:60px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Who</span>
           <span class="who-${e.who}" style="font-size:15px;font-weight:600">${e.who||''}</span>
         </div>
-        ${e.notes ? `<div style="margin-top:12px;padding:10px 12px;background:rgba(255,255,255,0.06);border-radius:8px;font-size:14px;color:var(--cream-muted);line-height:1.5;white-space:pre-wrap">${e.notes.replace(/</g,'&lt;')}</div>` : ''}
+        ${e.notes ? `<div style="margin-top:12px;padding:10px 12px;background:rgba(255,255,255,0.06);border-radius:8px;font-size:14px;color:var(--cream-muted);line-height:1.5;white-space:pre-wrap">${escapeHtml(e.notes)}</div>` : ''}
       </div>`;
     actionBtn.style.display = 'none';
     document.getElementById('detail-edit-btn').style.display = 'flex';
@@ -5546,7 +5680,7 @@ function showDetail(type, id) {
     const t = getTodos().find(x => String(x.id) === String(id)); if (!t) return;
     content.innerHTML = `
       <div style="margin-bottom:20px">
-        <div style="font-family:'Nunito',sans-serif;font-size:22px;font-weight:800;color:var(--cream);margin-bottom:8px">${t.text}</div>
+        <div style="font-family:'Nunito',sans-serif;font-size:22px;font-weight:800;color:var(--cream);margin-bottom:8px">${escapeHtml(t.text)}</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <span style="font-size:12px;padding:3px 10px;border-radius:8px;background:${t.type==='chore'?'rgba(232,168,56,0.15)':'rgba(91,155,213,0.15)'};color:${t.type==='chore'?'var(--amber)':'var(--blue-soft)'};font-weight:700">${t.type||'todo'}</span>
           ${t.done?'<span style="font-size:12px;padding:3px 10px;border-radius:8px;background:rgba(46,196,182,0.15);color:var(--sage);font-weight:700">Done ✓</span>':''}
@@ -5587,13 +5721,13 @@ function showDetail(type, id) {
     const s = getShopping().find(x => String(x.id) === String(id)); if (!s) return;
     content.innerHTML = `
       <div style="margin-bottom:20px">
-        <div style="font-family:'Nunito',sans-serif;font-size:22px;font-weight:800;color:var(--cream);margin-bottom:6px">${s.name}</div>
+        <div style="font-family:'Nunito',sans-serif;font-size:22px;font-weight:800;color:var(--cream);margin-bottom:6px">${escapeHtml(s.name)}</div>
         ${s.done?'<span style="font-size:12px;padding:3px 10px;border-radius:8px;background:rgba(91,155,213,0.15);color:var(--blue-soft);font-weight:700">Got it ✓</span>':''}
       </div>
       <div style="display:flex;flex-direction:column;gap:10px">
         <div style="display:flex;gap:12px;align-items:center">
           <span style="font-size:12px;color:var(--cream-muted);min-width:70px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Quantity</span>
-          <span style="font-size:15px;color:var(--cream)">${s.qty||''}</span>
+          <span style="font-size:15px;color:var(--cream)">${escapeHtml(s.qty||'')}</span>
         </div>
         <div style="display:flex;gap:12px;align-items:center">
           <span style="font-size:12px;color:var(--cream-muted);min-width:70px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Category</span>
@@ -5616,7 +5750,7 @@ function showDetail(type, id) {
     const priorityColor = { high: 'var(--rose)', medium: 'var(--amber)', low: 'var(--cream-muted)' };
     content.innerHTML = `
       <div style="margin-bottom:20px">
-        <div style="font-family:'Nunito',sans-serif;font-size:22px;font-weight:800;color:var(--cream);margin-bottom:8px">${t.text}</div>
+        <div style="font-family:'Nunito',sans-serif;font-size:22px;font-weight:800;color:var(--cream);margin-bottom:8px">${escapeHtml(t.text)}</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <span style="font-size:12px;padding:3px 10px;border-radius:8px;background:rgba(255,255,255,0.06);color:var(--cream-muted);font-weight:600">${t.room||''}</span>
           <span style="font-size:12px;padding:3px 10px;border-radius:8px;font-weight:700;color:${priorityColor[t.priority]||'var(--cream-muted)'}">${t.priority||''}</span>
@@ -5629,7 +5763,7 @@ function showDetail(type, id) {
         </div>
         ${t.notes ? `<div style="display:flex;gap:12px;align-items:flex-start">
           <span style="font-size:12px;color:var(--cream-muted);min-width:70px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Notes</span>
-          <span style="font-size:14px;color:var(--cream)">${t.notes}</span>
+          <span style="font-size:14px;color:var(--cream)">${escapeHtml(t.notes)}</span>
         </div>` : ''}
       </div>`;
     actionBtn.textContent = t.done ? 'Mark incomplete' : 'Mark done ✓';
@@ -5643,7 +5777,7 @@ function showDetail(type, id) {
     const m = getMeals().find(x => String(x.id) === String(id)); if (!m) return;
     content.innerHTML = `
       <div style="margin-bottom:20px">
-        <div style="font-family:'Nunito',sans-serif;font-size:22px;font-weight:800;color:var(--cream);margin-bottom:8px">${m.name}</div>
+        <div style="font-family:'Nunito',sans-serif;font-size:22px;font-weight:800;color:var(--cream);margin-bottom:8px">${escapeHtml(m.name)}</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <span style="font-size:12px;padding:3px 10px;border-radius:8px;background:rgba(255,255,255,0.06);color:var(--cream-muted);font-weight:600">${m.day||''}</span>
           ${m.tag ? `<span style="font-size:12px;padding:3px 10px;border-radius:8px;background:rgba(46,196,182,0.12);color:var(--sage);font-weight:600">${m.tag}</span>` : ''}
@@ -5656,7 +5790,7 @@ function showDetail(type, id) {
         </div>
         ${m.notes ? `<div style="display:flex;gap:12px;align-items:flex-start">
           <span style="font-size:12px;color:var(--cream-muted);min-width:70px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Notes</span>
-          <span style="font-size:14px;color:var(--cream)">${m.notes}</span>
+          <span style="font-size:14px;color:var(--cream)">${escapeHtml(m.notes)}</span>
         </div>` : ''}
       </div>`;
     const deviceUser = getDeviceUser();
@@ -5823,9 +5957,21 @@ function saveFamilyMembers(members) {
 function injectMemberStyles(members) {
   let el = document.getElementById('dynamic-member-styles');
   if (!el) { el = document.createElement('style'); el.id = 'dynamic-member-styles'; document.head.appendChild(el); }
-  el.textContent = members.map(m =>
-    `.who-${m.name} { color: ${m.color}; } .who-tag-${m.name} { background: ${m.color}22; color: ${m.color}; }`
-  ).join(' ');
+  // [S7-001] This is one shared <style> block for every member — a name
+  // containing `{`/`}` would break out of its own CSS rule and corrupt every
+  // OTHER member's styling too, not just theirs. `.who-${who}` classes are
+  // also applied directly using the raw member name elsewhere (event/todo/
+  // shop/meal "who" tags), so the selector suffix here must stay byte-for-byte
+  // identical to what's used there — stripping CSS-breaking characters
+  // (rather than HTML-escaping, which would produce a different string and
+  // silently break the colour match) keeps both in sync while still refusing
+  // to let a name inject arbitrary CSS.
+  const cssSafe = s => String(s || '').replace(/[{}\\<>"';]/g, '');
+  el.textContent = members.map(m => {
+    const safeName = cssSafe(m.name);
+    const safeColor = cssSafe(m.color);
+    return `.who-${safeName} { color: ${safeColor}; } .who-tag-${safeName} { background: ${safeColor}22; color: ${safeColor}; }`;
+  }).join(' ');
 }
 
 function refreshAllDropdowns(members) {
@@ -5884,7 +6030,7 @@ function renderActivityLog() {
     return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:8px;margin-bottom:4px">
       <div style="font-size:13px;min-width:18px;text-align:center;color:${isDeleted?'var(--rose)':'var(--cream-muted)'}">${icon}</div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:12px;color:var(--cream);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.itemName||'—'}</div>
+        <div style="font-size:12px;color:var(--cream);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(e.itemName||'—')}</div>
         <div style="font-size:11px;color:var(--cream-muted)">${e.who||'?'} · ${e.action} · ${d}</div>
       </div>
       ${isDeleted ? `<button onclick="restoreDeleted('${e.col}','${e.itemId}')" style="padding:4px 10px;background:rgba(46,196,182,0.12);border:1px solid rgba(46,196,182,0.3);border-radius:6px;color:var(--sage);font-family:'Nunito',sans-serif;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0">Restore</button>` : ''}
@@ -6291,7 +6437,7 @@ function renderSettingsMembers(members) {
     const statusTitle = hasAccount ? 'Signed in with an account' : 'No account yet — roster name only';
     return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
       <div style="width:10px;height:10px;border-radius:50%;background:${m.color};flex-shrink:0"></div>
-      <span style="flex:1;font-size:14px;color:var(--cream)">${m.name} <span title="${statusTitle}" style="font-size:12px">${statusIcon}</span></span>
+      <span style="flex:1;font-size:14px;color:var(--cream)">${escapeHtml(m.name)} <span title="${statusTitle}" style="font-size:12px">${statusIcon}</span></span>
       <button onclick="editFamilyMember(${i})" style="background:rgba(255,255,255,0.08);border:none;border-radius:6px;color:var(--cream-muted);font-size:12px;padding:3px 8px;cursor:pointer;font-weight:700">✏️ Edit</button>
       <button onclick="removeFamilyMember(${i})" style="background:rgba(224,112,112,0.15);border:none;border-radius:6px;color:var(--rose);font-size:12px;padding:3px 8px;cursor:pointer;font-weight:700">Remove</button>
     </div>`;
@@ -6299,7 +6445,11 @@ function renderSettingsMembers(members) {
 }
 
 function renderMemberEditRow(m, i) {
-  const escapedName = m.name.replace(/"/g, '&quot;');
+  // [S7-001] Was only escaping `"` (attribute-breakout only) — upgraded to
+  // the full escapeHtml() since escapedName is also spliced into plain
+  // innerHTML text below (the "won't update items already assigned to"
+  // line), where an unescaped `<`/`&` would still execute/render wrong.
+  const escapedName = escapeHtml(m.name);
   const swatches = MEMBER_COLOR_PRESETS.map(c =>
     `<button type="button" onclick="setMemberEditColor('${c}')" data-swatch="${c}" style="width:22px;height:22px;border-radius:50%;background:${c};border:2px solid ${c === m.color ? 'var(--cream)' : 'transparent'};cursor:pointer;padding:0"></button>`
   ).join('');
@@ -6450,7 +6600,7 @@ async function checkWhatsNew() {
     `<div style="display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--border)">
       <div style="font-size:22px;flex-shrink:0">${f.icon}</div>
       <div>
-        <div style="font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;color:var(--cream);margin-bottom:2px">${f.name}</div>
+        <div style="font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;color:var(--cream);margin-bottom:2px">${escapeHtml(f.name)}</div>
         <div style="font-size:13px;color:var(--cream-muted)">${f.desc}</div>
       </div>
     </div>`
@@ -6499,7 +6649,7 @@ function openCopyTask(id) {
   overlay.innerHTML = `
     <div class="modal-box" onclick="event.stopPropagation()">
       <div class="modal-title">Copy task</div>
-      <div style="font-size:14px;color:var(--cream-muted);margin-bottom:20px">"${t.text}"</div>
+      <div style="font-size:14px;color:var(--cream-muted);margin-bottom:20px">"${escapeHtml(t.text)}"</div>
       <div class="modal-field">
         <label class="modal-label">Copy to</label>
         <select class="modal-select" id="copy-task-when">
@@ -6644,13 +6794,7 @@ function resetScreensaverIdleTimer() {
 }
 
 function maybeStartScreensaver() {
-  const blockers = ['modal-overlay', 'edit-item-overlay', 'settings-overlay', 'pin-overlay',
-                     'privacy-overlay', 'detail-overlay', 'onboarding-overlay', 'auth-screen',
-                     'recur-scope-overlay'];
-  for (const id of blockers) {
-    const el = document.getElementById(id);
-    if (el && getComputedStyle(el).display !== 'none') { resetScreensaverIdleTimer(); return; }
-  }
+  if (isBlockingOverlayOpen()) { resetScreensaverIdleTimer(); return; }
   startScreensaver();
 }
 
@@ -6976,7 +7120,7 @@ function renderObStep() {
     const rows = _obMembers.map((m, i) =>
       '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">' +
         '<div style="width:10px;height:10px;border-radius:50%;background:' + m.color + ';flex-shrink:0"></div>' +
-        '<span style="flex:1;font-size:15px;color:var(--cream);font-weight:600">' + m.name + '</span>' +
+        '<span style="flex:1;font-size:15px;color:var(--cream);font-weight:600">' + escapeHtml(m.name) + '</span>' +
         '<button onclick="obRemoveMember(' + i + ')" style="background:none;border:none;color:var(--cream-muted);font-size:20px;cursor:pointer;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center">×</button>' +
       '</div>'
     ).join('');

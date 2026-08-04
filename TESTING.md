@@ -159,6 +159,26 @@ Test steps:
 - [ ] Two people edit the SAME item at the same time on two different devices — confirm last-write-wins behaviour doesn't cause a crash or corrupted data
 - [ ] Two people try to claim the same meal slot for the same day simultaneously (post S3-017) — confirm the conflict warning works correctly for both
 
+### B8. Stored HTML/script injection via free-text fields
+**Found by:** independent test-agent pass, 4 Aug 2026 — S7-001. No escaping existed anywhere in the file before this.
+
+- [ ] Type `<img src=x onerror=alert(1)>` into an event/todo/shop/meal/household name, notes, quantity, or store field, or a family member's name in Settings — confirm it renders as literal text everywhere it's displayed (dashboard, full list, calendar, detail modal, edit modal, activity log, favourites picker), never as a live image tag or executed script
+- [ ] Type a name containing a double-quote (`"`) or single-quote (`'`) — confirm the edit modal's pre-filled input still shows the correct text and doesn't break the page or inject a working `onfocus`/`onclick` handler
+- [ ] Set a family member's name to something containing `{` or `}` in Settings — confirm every OTHER member's colour-coding still renders correctly (this used to be able to corrupt the shared member-colour `<style>` block for everyone, not just that member)
+- [ ] Confirm `escapeHtml()` is still called at every free-text render site if new item fields/views are ever added — this is the kind of check that's easy to silently skip on a new render path
+
+### B9. Household "mark done" without opening the detail modal
+**Found by:** independent test-agent pass, 4 Aug 2026 — S7-001.
+- [ ] Tap the check circle directly on a Household list row (not the text) — confirm it toggles done/undone immediately, without opening the detail modal, matching Todos/Shopping/Dashboard behaviour
+- [ ] Tap the household task text/notes — confirm it still opens the detail modal as before
+
+### B10. Undo toast cross-device visibility
+**Found by:** independent test-agent pass, 4 Aug 2026 — S7-001.
+- [ ] Delete an item on Device A — confirm the Undo toast appears on Device B within a few seconds
+- [ ] Tap Undo on Device B — confirm the item is restored on both devices
+- [ ] Refresh Device A right after deleting something on it — confirm it does NOT re-show its own just-dismissed/expired toast from the historical activity log (only genuinely new deletes should trigger the cross-device toast, not the initial load of existing history)
+- [ ] Known limit, not a bug: undoing a recurring-event *series* delete (S7-B04) from a DIFFERENT device than the one that deleted it only restores the single occurrence that device's delete button was on, not the rest of the series — full series restore only works from the same device, right after the delete, via Undo
+
 ---
 
 ## Section C — New Issues Log
@@ -173,6 +193,13 @@ When new issues are found during family testing, add them here with date, finder
 | 2026-07-02 | Giuseppe | Repeat events not generating future occurrences on app load | S4-B01 | Open |
 | 2026-07-02 | Giuseppe | Overview widget internal scroll not working (page scrolls fine, card content clips) | S4-B02 | Open |
 | 2026-07-02 | Giuseppe | House tasks not sorted by priority — sort runs before Firestore data loads | S4-B03 | Open |
+| 2026-08-04 | Independent test-agent pass (S7-001) | No HTML escaping anywhere — stored injection via any name/notes field | S7-001 | Fixed S7-001 |
+| 2026-08-04 | Independent test-agent pass (S7-001) | Device-user picker overlay pops over active modals on every remote Firestore write | S7-001 | Fixed S7-001 |
+| 2026-08-04 | Independent test-agent pass (S7-001) | Meal-replace hard-deleted, bypassing soft-delete/undo | S7-001 | Fixed S7-001 |
+| 2026-08-04 | Independent test-agent pass (S7-001) | Sync status stuck on "Saving…" on validation-failure early-returns | S7-001 | Fixed S7-001 |
+| 2026-08-04 | Independent test-agent pass (S7-001) | No double-submission guard on Save — rapid taps create duplicate items | S7-001 | Fixed S7-001 |
+| 2026-08-04 | Independent test-agent pass (S7-001) | Undo toast never appeared on other devices | S7-001 | Fixed S7-001 |
+| 2026-08-04 | Independent test-agent pass (S7-001) | Household rows required detail modal to mark done (unlike Todos/Shopping) | S7-001 | Fixed S7-001 |
 
 ---
 

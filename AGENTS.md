@@ -69,6 +69,24 @@ have been worked through.** Do not skip testing. Do not ask for approval.
 
 ---
 
+## Running a full test pass (TEST-REPORT.md)
+
+Per-item testing above (Section A/A7 + relevant Section B after every change) is the normal workflow. Separately, at the start of a new sprint, after a batch of risky changes, or whenever asked to "run the test agent" / "run a test pass" — run a **full, independent** pass through TESTING.md Sections A and B and write the result to `TEST-REPORT.md`.
+
+**Why a separate agent, not just re-reading your own work:** an agent that just finished implementing a change is biased to rationalize its own code as correct. A fresh agent with no memory of what was just changed, told only "verify this against TESTING.md," catches things the implementer talked itself out of worrying about.
+
+**How to run it:**
+1. Spawn a read-only agent (Explore, or general-purpose with read-only intent stated explicitly) with a prompt that:
+   - Points it at `TESTING.md` Sections A and B and `index.html` at the current commit.
+   - Tells it this is a single-file app with no test runner in this environment — verification is by **tracing actual code**, citing line numbers and reasoning, never by "looks right" or trusting a comment/function name.
+   - Asks it to classify every check as CRITICAL / FAIL / PASS / NEEDS HUMAN (see `TEST-REPORT.md` for the definitions) and explain FAIL/CRITICAL findings with the specific code path that breaks.
+   - Tells it explicitly NOT to fix anything — this is a report-only pass, fixing is a separate step so the finding and the fix aren't judged by the same potentially-biased pass.
+2. Overwrite `TEST-REPORT.md`'s dated run section with the result (it's a snapshot of the latest run, not a running log — see the file's own header).
+3. Any CRITICAL or FAIL finding gets fixed immediately following the normal per-item workflow above (implement → audit.py → relevant TESTING.md sections → commit → update BACKLOG.md), OR — if it's out of scope for right now — added to BACKLOG.md and TESTING.md Section C exactly like any other newly-found issue, with a note in `TEST-REPORT.md` pointing at the backlog ID.
+4. NEEDS HUMAN findings are not failures — list them so Giuseppe knows what still wants a real device/browser check, then move on.
+
+---
+
 ## Coding standards
 
 - **No new files** — everything stays in `index.html`

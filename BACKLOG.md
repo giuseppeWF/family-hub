@@ -3418,3 +3418,34 @@ The "device user" concept (S3-016 — "who is physically using this device right
 - [x] Undo restores the full set of items deleted in a series delete, not just one
 - [x] Legacy events (created before this fix, no `seriesId`) still resolve correctly via heuristic match
 - [x] Audit passes
+
+---
+
+### S7-001 · TEST-REPORT.md pattern + AGENTS.md testing prompt
+**Status:** DONE 2026-08-04
+**Priority:** Infrastructure
+**Category:** Process / QA
+
+**Description:** Establish a repeatable "run a full, independent test pass" process (not just the per-item TESTING.md checks already done after every change), with a defined report format, and actually run it once against the current codebase.
+
+**Implementation:**
+- Created `TEST-REPORT.md` — a **snapshot** (not an append-only log) of the most recent full TESTING.md Section A+B pass, with a defined verdict scale (CRITICAL / FAIL / PASS / NEEDS HUMAN) and the explicit rule that historical findings live in BACKLOG.md + TESTING.md Section C instead, so this file can't rot into an unreliable dual-purpose document (the exact failure mode BACKLOG.md itself once hit — see its "stale-copy overwrite" note).
+- Added a "Running a full test pass" section to `AGENTS.md` documenting *why* a separate, fresh agent is used for this (an agent that just implemented a change is biased to rationalize its own code as correct — a fresh agent with no memory of what changed catches what the implementer talked itself out of worrying about) and the exact procedure.
+- **Ran it for real**, immediately, against the current codebase (commit `f9cbfa7`, right after S7-B01 through S7-B04): spawned a read-only agent with no context on what had just changed, pointed only at `TESTING.md` and `index.html`, told explicitly to trace real code paths (not trust comments/names) and not fix anything. Result: **2 CRITICAL + 5 FAIL** — see `TEST-REPORT.md` for the full table. All 7 fixed this same session:
+  1. **CRITICAL — no HTML escaping anywhere in the file.** Any todo/shop/meal/household/event/member name or notes field was interpolated straight into `innerHTML` with zero sanitization — a stored injection, not theoretical, on a shared no-real-auth family device (exactly TESTING.md's own "curious teenager" threat model). Added `escapeHtml()` and applied it at ~55 render sites across dashboard widgets, full list views, calendar views, detail modals, edit modals, favourites pickers, activity log, settings member list, and onboarding — found via a full-file grep for both template-literal (`${x.text}`) and string-concatenation (`+ x.text +`) interpolation patterns (the first grep pass missed the household tab entirely because it uses concatenation, not template literals — caught on a second, broader sweep). Also fixed a related CSS-injection variant in `injectMemberStyles()` (a member name containing `{`/`}` could break out of the shared `<style>` block and corrupt every other member's colours too, not just their own) and a JS-string-breakout variant in the device-user picker's `onclick` (HTML-escaping alone doesn't stop a quote breaking out of a nested inline-handler JS string, since the browser HTML-decodes the attribute before parsing it as JS — fixed by switching to a `data-name` + `this.dataset` read, matching the existing swipe-delete pattern instead).
+  2. **CRITICAL — device-user picker hijacks active modals.** `checkDeviceUserPrompt()` runs on every `fb-data` event (every remote Firestore write from any device) and was unconditionally re-showing its overlay (z-index 490, above every modal) whenever no confident match/manual pick existed — popping over an in-progress Add/Edit form on this device just because someone elsewhere added an item. Added `isBlockingOverlayOpen()`, a shared guard reused by both this and the screensaver's existing (previously duplicated) blocker-list check.
+  3. **FAIL — meal-replace hard-deleted, bypassing soft-delete/undo.** Routed through `deleteItem()` instead of a raw `fbDelete()`, in both the add and edit paths; also now correctly refuses to silently delete a *locked* conflicting meal instead of deleting it anyway.
+  4. **FAIL — sync status stuck on "Saving…"** on every validation-failure early-return in `saveModal()`/`saveEditItem()` (empty name, missing who, cancelled confirm). Added `setSyncStatus('live')` on each.
+  5. **FAIL — no double-submission guard on Save**, despite TESTING.md B4 explicitly recommending one. Both Save buttons now disable synchronously on tap (before any async work, so a disabled button physically can't fire a second `onclick`) and re-enable in a `finally` block on every exit path.
+  6. **FAIL — Undo toast never appeared on other devices**, failing TESTING.md B2's explicit acceptance criterion. `activityLog` was already replicated everywhere but `listenCol()` re-fetches the whole collection every snapshot with no "just happened" signal, so added a *separate* `onSnapshot`/`docChanges()` listener (`startCrossDeviceUndoListener`) that skips the initial historical snapshot (so it doesn't replay old deletes as toasts on page load) and skips entries logged by this same browser tab (via a per-page-load `window._deviceSessionId`, since that tab already showed its own toast synchronously). Reuses the exact same toast/restore pipeline as a local delete. Known scope limit, documented rather than silently accepted: a cross-device toast for a recurring-event *series* delete (S7-B04) can only restore the single originating occurrence, since the activity-log entry doesn't carry the rest of the series' ids — same-device Undo (right after the delete) still restores the whole series correctly via the in-memory list.
+  7. **FAIL — Household rows required opening the detail modal to mark done**, unlike Todos/Shopping/Dashboard (TESTING.md A2a). Split the check circle into its own 44px `onclick="toggleHousehold(...);event.stopPropagation()"` target, matching the Todos row structure.
+
+**Verified:** `python3 audit.py` (150/150) and `node --check` after every one of the 7 fixes individually, plus a standalone Node repro confirming `escapeHtml()` neutralizes real injection payloads (`<img onerror=...>`, attribute-breakout, and JS-string-breakout strings) into harmless entity-encoded text.
+
+**Acceptance criteria:**
+- [x] `TEST-REPORT.md` created with a defined verdict scale and snapshot-not-log scope
+- [x] `AGENTS.md` documents the test-pass procedure and why a fresh/independent agent is used
+- [x] Test pass actually run against the current codebase, not just documented
+- [x] Every CRITICAL and FAIL finding fixed this session
+- [x] Each fix verified independently (audit + syntax + targeted reasoning/repro)
+- [x] Audit passes
