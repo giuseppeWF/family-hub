@@ -3348,3 +3348,23 @@ The "device user" concept (S3-016 — "who is physically using this device right
 - [x] Manual "Switch" override in Settings still available for the no-match case
 - [x] No false-positive matches on generic/shared account names
 - [x] Audit passes
+
+---
+
+### S7-B02 · UK date format — lang="en-GB"
+**Status:** DONE 2026-08-04
+**Priority:** High
+**Category:** Bug / Locale
+
+**Description:** Dates were showing in US format (mm/dd/yyyy) on some devices instead of UK format (dd/mm/yyyy).
+
+**Fix:** Set `<html lang="en-GB">` (was `lang="en"`), and added `lang="en-GB"` directly on all 11 `<input type="date">`/`<input type="time">` elements as well (event add/edit start+end dates, todo due dates, copy-task custom date). All in-app rendered dates already used explicit `.toLocaleDateString('en-GB', ...)` calls (unaffected either way, always correct), so this specifically targets the native date/time picker widgets' own locale, which is the part that was showing US-style formatting.
+
+**Known platform limitation — flagging honestly rather than overclaiming:** The `lang` attribute is **not a guaranteed, spec-mandated control** over a native `<input type="date">`/`<input type="time">` widget's displayed format. Per the HTML spec, that's governed by the browser/OS locale setting, not the page's declared language. Chromium-family browsers do take the nearest ancestor `lang` into account for these controls in practice (which is why it's been added per-element here, not just at the document root, and should visibly fix this on Chrome/Edge/Android WebView), but Firefox and Safari are documented to ignore it and always follow the device's own OS/browser locale regardless of page markup. **On the SyncGo (Firefox on Android)**, this fix may not take effect if the tablet's own Android system locale is set to US — that would need to be corrected in the device's Android settings directly, not in this codebase, since no page-level attribute can override it there. If that's confirmed to still be wrong on the SyncGo after this deploys, the only fully guaranteed fix is replacing the native inputs with a custom-built (locale-independent) date/time entry UI — a real UI project, not a one-line attribute change, and not started here since it wasn't asked for and has real UX trade-offs (loses the native tap-to-pick calendar/clock affordance) worth a deliberate decision rather than a silent swap.
+
+**Acceptance criteria:**
+- [x] `<html lang="en-GB">` set
+- [x] `lang="en-GB"` set on every date/time input element
+- [x] All in-app displayed dates already use explicit `en-GB` locale (verified, no change needed)
+- [x] Limitation documented: not guaranteed on Firefox/Safari or when device OS locale is non-UK — flagged rather than silently assumed fixed
+- [x] Audit passes

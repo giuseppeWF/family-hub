@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-GB">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
@@ -2469,21 +2469,21 @@
         <div style="display:flex;gap:12px">
           <div class="modal-field" style="flex:1">
             <label class="modal-label">Start date</label>
-            <input class="modal-input" id="new-event-date" type="date" onchange="syncEventEndDate()">
+            <input class="modal-input" id="new-event-date" type="date" lang="en-GB" onchange="syncEventEndDate()">
           </div>
           <div class="modal-field" style="flex:1">
             <label class="modal-label">End date</label>
-            <input class="modal-input" id="new-event-end-date" type="date">
+            <input class="modal-input" id="new-event-end-date" type="date" lang="en-GB">
           </div>
         </div>
         <div style="display:flex;gap:12px">
           <div class="modal-field" style="flex:1">
             <label class="modal-label">Start time</label>
-            <input class="modal-input" id="new-event-start" type="time">
+            <input class="modal-input" id="new-event-start" type="time" lang="en-GB">
           </div>
           <div class="modal-field" style="flex:1">
             <label class="modal-label">End time</label>
-            <input class="modal-input" id="new-event-end" type="time">
+            <input class="modal-input" id="new-event-end" type="time" lang="en-GB">
           </div>
         </div>
         <div class="modal-field">
@@ -2552,7 +2552,7 @@
         </div>
         <div class="modal-field">
           <label class="modal-label">Due date (optional)</label>
-          <input class="modal-input" id="new-todo-due" type="date">
+          <input class="modal-input" id="new-todo-due" type="date" lang="en-GB">
         </div>
         <div class="modal-field">
           <label class="modal-label">Repeat</label>
@@ -3140,9 +3140,9 @@ function getSettingsPin() { return (window.fbSettings || []).find(s => s.id === 
 // ── APP VERSION & WHAT'S NEW ──────────────────────────────────────────────────
 // S5-B08-FIX2: bump deliberately for genuinely user-visible releases only —
 // not automatically on every commit (that was the original loop complaint).
-const APP_VERSION = '4.3';
+const APP_VERSION = '4.4';
 const WHATS_NEW = {
-  version: '4.3',
+  version: '4.4',
   title: "What's new in Family Hub",
   features: [
     { icon: '🔔', name: 'Event reminders', desc: 'Turn on notifications in Settings to get a nudge 30 minutes before events, while the hub is open' },
@@ -5204,7 +5204,7 @@ function openEditItem(type, id) {
         <label class="modal-label">Points for completing this chore</label>
         <input class="modal-input" id="edit-todo-points" type="number" min="0" max="100" value="${t.points != null ? t.points : 10}"></div>
       <div class="modal-field"><label class="modal-label">Due date (optional)</label>
-        <input class="modal-input" id="edit-todo-due" type="date" value="${t.due||''}"></div>`;
+        <input class="modal-input" id="edit-todo-due" type="date" lang="en-GB" value="${t.due||''}"></div>`;
     renderWhoChipsWithValue('edit-todo-who-chips', 'edit-todo-who', t.who || 'Everyone');
   }
   if (type === 'shop') {
@@ -5276,15 +5276,15 @@ function openEditItem(type, id) {
         <input class="modal-input" id="edit-event-name" value="${e.name}"></div>
       <div style="display:flex;gap:12px">
         <div class="modal-field" style="flex:1"><label class="modal-label">Start date</label>
-          <input class="modal-input" id="edit-event-date" type="date" value="${e.date||''}"></div>
+          <input class="modal-input" id="edit-event-date" type="date" lang="en-GB" value="${e.date||''}"></div>
         <div class="modal-field" style="flex:1"><label class="modal-label">End date</label>
-          <input class="modal-input" id="edit-event-end-date" type="date" value="${e.endDate||e.date||''}"></div>
+          <input class="modal-input" id="edit-event-end-date" type="date" lang="en-GB" value="${e.endDate||e.date||''}"></div>
       </div>
       <div style="display:flex;gap:12px">
         <div class="modal-field" style="flex:1"><label class="modal-label">Start</label>
-          <input class="modal-input" id="edit-event-start" type="time" value="${e.start||''}"></div>
+          <input class="modal-input" id="edit-event-start" type="time" lang="en-GB" value="${e.start||''}"></div>
         <div class="modal-field" style="flex:1"><label class="modal-label">End</label>
-          <input class="modal-input" id="edit-event-end" type="time" value="${e.end||''}"></div>
+          <input class="modal-input" id="edit-event-end" type="time" lang="en-GB" value="${e.end||''}"></div>
       </div>
       <div class="modal-field"><label class="modal-label">Repeat</label>
         <select class="modal-select" id="edit-event-recur">
@@ -6400,7 +6400,7 @@ function openCopyTask(id) {
       </div>
       <div class="modal-field" id="copy-custom-date-field" style="display:none">
         <label class="modal-label">Date</label>
-        <input class="modal-input" id="copy-custom-date" type="date" value="${todayStr}">
+        <input class="modal-input" id="copy-custom-date" type="date" lang="en-GB" value="${todayStr}">
       </div>
       <div class="modal-actions">
         <button class="btn-cancel" onclick="document.getElementById('copy-task-overlay').remove()">Cancel</button>
