@@ -3297,3 +3297,29 @@ Reported as a mobile date bug — the app's notion of "today" and event dates ap
 - [x] Fix verified against a real BST date via Node repro
 - [x] No other code compensated for the old bug (checked before fixing)
 - [x] Audit passes
+
+---
+
+### S5-B08-REDUX · What's New popup loop — third occurrence, definitive fix
+**Status:** DONE 2026-08-04
+**Priority:** Critical
+**Category:** Bug / Regression (3rd occurrence — see S5-B08, S5-B08-FIX2)
+
+**Description:**
+The What's New popup started reappearing again despite two prior fix attempts (S5-B08: stopped comparing against a possibly-stale baked-in `APP_VERSION` by fetching `version.json` fresh; S5-B08-FIX2: made `closeWhatsNew()` persist the fetched value, not the constant). Diagnosed with console.log instrumentation before making any change, per instruction, rather than guessing.
+
+**Diagnosis method:** Extracted the actual `checkWhatsNew()`/`closeWhatsNew()` logic into a standalone Node harness (`/tmp/whatsnew_repro.js`) with a mocked `localStorage` that persists across simulated "page loads" and a controllable `fetch()`, with a `console.log` at every decision point (fetch attempted, fetch result, resolved version, `fh_seen_version` read, show/hide decision, persisted value). Ran a sequence of realistic reload scenarios.
+
+**Root cause found:** Both prior fixes assumed the `fetch('version.json')` call itself always succeeds. It doesn't — on a flaky mobile/WiFi connection (the SyncGo is WiFi-only; mobile networks drop routinely) the fetch fails, and the code fell back to the **baked-in `APP_VERSION`** of whatever HTML happens to be currently loaded. That fallback value get both **compared against** `fh_seen_version` and then **re-persisted** on dismiss — but the baked-in version can easily be older than the version already correctly recorded (true any time a deploy has happened since this particular page load). So a single failed fetch: (1) shows the popup again even though the user already saw the latest version, and (2) overwrites the correct `fh_seen_version` with the stale fallback. The next time the fetch succeeds, it flips back to the newer version and shows again. Net effect: an oscillating loop driven by network flakiness alone, with no new version ever actually deployed — reproduced exactly with the console.log harness (flaky-fetch load re-showed the popup and downgraded `fh_seen_version` from `4.2` back to `4.1`; a subsequent successful fetch then flipped it back to `4.2` and showed again).
+
+**Definitive fix:** `checkWhatsNew()` now tracks whether the fetch actually succeeded (`fetchedOk`). If it didn't, the function returns immediately — no show, no persist, `fh_seen_version` is left exactly as it was. The fetched `version.json` value is the *only* trustworthy signal for "what's actually deployed"; a failed fetch means "we don't know" and must never overwrite a previously-good answer. Re-ran the harness with the fix applied: a flaky-then-recovered load sequence now leaves `fh_seen_version` untouched on the failure and correctly resolves once the network recovers — no reappearance, no oscillation.
+
+**Regression coverage added:** `audit.py` check `whatsnew:bails-out-on-failed-fetch` verifies `checkWhatsNew()` contains the `if (!fetchedOk) return` early exit permanently, so a future edit can't silently reintroduce the fallthrough.
+
+**Acceptance criteria:**
+- [x] Root cause diagnosed with console.log instrumentation before any fix was written
+- [x] Failure mode reproduced outside the browser (Node harness) before and after the fix
+- [x] `checkWhatsNew()` never shows or persists based on the baked-in `APP_VERSION` fallback
+- [x] A failed `version.json` fetch leaves `fh_seen_version` unchanged
+- [x] Permanent audit.py regression check added
+- [x] Audit passes (150 checks, up from 149)

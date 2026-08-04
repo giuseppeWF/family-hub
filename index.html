@@ -3140,9 +3140,9 @@ function getSettingsPin() { return (window.fbSettings || []).find(s => s.id === 
 // ── APP VERSION & WHAT'S NEW ──────────────────────────────────────────────────
 // S5-B08-FIX2: bump deliberately for genuinely user-visible releases only —
 // not automatically on every commit (that was the original loop complaint).
-const APP_VERSION = '4.1';
+const APP_VERSION = '4.2';
 const WHATS_NEW = {
-  version: '4.1',
+  version: '4.2',
   title: "What's new in Family Hub",
   features: [
     { icon: '🔔', name: 'Event reminders', desc: 'Turn on notifications in Settings to get a nudge 30 minutes before events, while the hub is open' },
@@ -6260,16 +6260,38 @@ function closePrivacy() { document.getElementById('privacy-overlay').style.displ
 // version.json is always fetched fresh (cache-busted), so it's a stable
 // source of truth regardless of which HTML byte-for-byte happens to be
 // cached this particular load.
-let _whatsNewVersion = APP_VERSION; // fallback if the fetch fails (e.g. offline)
+//
+// [S5-B08-REDUX] FIX2 above still fell back to the baked-in APP_VERSION
+// whenever the fetch itself failed (offline, or — the common real-world
+// case on a WiFi-only mobile/SyncGo connection — a transient network
+// blip). That fallback gets COMPARED against fh_seen_version *and then
+// re-persisted*, which reintroduces the exact bug FIX2 was meant to kill:
+// APP_VERSION in the currently-loaded page can easily be older than the
+// version already correctly recorded in fh_seen_version (any deploy since
+// this page was loaded makes that true), so a single failed fetch shows
+// the popup again AND overwrites the correct "seen" value with the stale
+// one — which then flips back the next time the fetch succeeds, an
+// oscillating loop driven purely by network flakiness, not by an actual
+// new version. Confirmed by simulating both a flaky-then-recovered load
+// sequence: the old code re-showed the popup and downgraded
+// fh_seen_version on the failed fetch; the fix below does neither.
+// Fix: the fetched value is the ONLY trustworthy signal for "what's
+// actually deployed". If the fetch fails, don't show or persist anything
+// this load — leave fh_seen_version exactly as it was and let the next
+// successful check decide.
+let _whatsNewVersion = APP_VERSION; // only used to render the modal body; never compared/persisted unless the fetch below succeeds
 
 async function checkWhatsNew() {
+  let fetchedOk = false;
   try {
     const res = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
     if (res.ok) {
       const data = await res.json();
-      if (data.version) _whatsNewVersion = data.version;
+      if (data.version) { _whatsNewVersion = data.version; fetchedOk = true; }
     }
-  } catch (_) { /* offline or fetch failed — fall back to baked-in APP_VERSION */ }
+  } catch (_) { /* offline or fetch failed */ }
+
+  if (!fetchedOk) return; // can't trust the version this load — don't show or persist anything
 
   const seen = localStorage.getItem('fh_seen_version');
   if (seen === _whatsNewVersion) return;

@@ -208,6 +208,20 @@ check("whatsnew:fetches-version-json",
       "checkWhatsNew() must fetch version.json — comparing only against the "
       "baked-in APP_VERSION reintroduces the reappearing-popup bug")
 
+# [S5-B08-REDUX] checkWhatsNew() must bail out entirely when the fetch
+# fails, rather than falling through to compare/persist against the
+# baked-in APP_VERSION fallback. That fallback can be older than the
+# version already correctly recorded in fh_seen_version (true after any
+# deploy since this page loaded), so a single failed fetch — routine on a
+# flaky mobile/WiFi connection — re-shows the popup and overwrites the
+# correct "seen" value with a stale one, flipping back next time the
+# fetch succeeds: an oscillating loop, not a one-off.
+check("whatsnew:bails-out-on-failed-fetch",
+      "if (!fetchedOk) return" in cwn_fn,
+      "checkWhatsNew() must return early when the version.json fetch fails "
+      "— falling through to compare against the baked-in APP_VERSION "
+      "reintroduces the reappearing-popup loop (S5-B08-REDUX)")
+
 # closeWhatsNew() must persist the SAME value checkWhatsNew() compared
 # against (a fetched variable), not re-read the baked-in constant, or the
 # two can disagree after a stale-cache reload.
