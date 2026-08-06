@@ -1,4 +1,4 @@
-# Family Hub — Product Backlog
+f# Family Hub — Product Backlog
 
 Last updated: June 2026
 Format: Each item has a status, priority, description, and acceptance criteria.
@@ -490,7 +490,7 @@ Giuseppe deploys via Firebase Console → Firestore → Rules.
 - [ ] Sign out works in Settings
 - [ ] Sign out → returns to sign-in screen
 - [ ] Phase 2 Firestore rules deployed by Giuseppe after testing
-- [ ] All family members (Giuseppe, Ross, Malachi, Mack, Rachel) can sign in
+- [ ] All family members (Giuseppe, Ross, Malachi, Mack, Racheal) can sign in
 - [ ] Each sees the same family data
 - [ ] Audit passes with zero issues
 - [ ] TESTING.md Section A passes
@@ -1911,7 +1911,7 @@ When tapping "Arrange" to rearrange dashboard cards, the cards have a subtle wob
 **Priority:** Critical
 **Category:** Security
 
-Giuseppe, Malachi, Mack and Rachel still need to sign in before rules are deployed.
+Giuseppe, Malachi, Mack and Rachael still need to sign in before rules are deployed.
 Once all five family members are in:
 
 1. Go to https://console.firebase.google.com
@@ -1929,7 +1929,7 @@ Giuseppe to help them — which requires temporarily reopening the rules again.
 - [x] Ross signed in ✅  
 - [ ] Malachi signed in
 - [ ] Mack signed in
-- [ ] Rachel signed in
+- [ ] Rachael signed in
 - [ ] All five confirmed — rules safe to deploy
 - [ ] Rules deployed by Giuseppe via Firebase Console
 - [ ] App tested on all five devices after deployment
@@ -2654,6 +2654,443 @@ If any CRITICAL or FAIL items found: fix them before marking the sprint DONE.
 - [ ] Any FAIL items in first report fixed before next sprint starts
 
 
+---
+
+## 🐛 SPRINT 7 — Additional Bugs (Aug 2026)
+
+### S7-B06 · Forward to Hub — email parsed as todo instead of event
+**Status:** TODO
+**Priority:** High
+**Category:** Bug / Apps Script
+
+Forwarded calendar events or meeting emails are being parsed as todo items instead of calendar events. The smart parser threshold for event detection is too strict.
+
+**Root cause:**
+The parser requires BOTH a day name AND (a time OR an event keyword) to classify as an event. Many real-world email subjects don't include a time — they just have a person name, event name, and day.
+
+**Fix — lower the event detection threshold:**
+```javascript
+// Current (too strict — requires time OR event keyword):
+if ((hasDay && hasTime) || (hasDay && hasEventKeyword)) → event
+
+// New (more generous — day alone with a name is likely an event):
+if (hasDay && (hasTime || hasEventKeyword || hasWho)) → event
+// Also: if subject contains "meeting", "appointment", "call", "session" → always event
+```
+
+Also expand the event keywords list:
+```javascript
+const EVENT_KEYWORDS = [
+  'appointment','meeting','dentist','doctor','school','pickup','drop off',
+  'party','birthday','holiday','trip','flight','concert','match','game',
+  'class','session','call','interview','gym','training','mma','swimming',
+  'lesson','club','practice','rehearsal','show','event','visit','hospital',
+  'cinema','theatre','restaurant','dinner','lunch','breakfast'
+];
+```
+
+**Real-world test case (Psychiatry UK appointment email — Aug 2026):**
+Subject: "Appointment: Meeting with Chandra Basavaraj tomorrow 13:30 - 14:30"
+Expected: Calendar event for tomorrow at 13:30, assigned to Giuseppe
+
+**Additional fixes needed based on this test case:**
+
+1. Recognise "Appointment:" as an event prefix (alongside event:):
+```javascript
+if (s.startsWith('appointment:') || s.startsWith('event:')) → always treat as event
+```
+
+2. Recognise "today" and "tomorrow" as date references:
+```javascript
+function relativeDate(text) {
+  const t = text.toLowerCase();
+  const today = new Date();
+  if (t.includes('today')) return formatDate(today);
+  if (t.includes('tomorrow')) {
+    const tom = new Date(today);
+    tom.setDate(today.getDate() + 1);
+    return formatDate(tom);
+  }
+  return dayToDate(extractDay(text)); // existing logic
+}
+```
+
+3. Extract time from subject line more broadly — handle "13:30", "1:30 PM", "13:30 - 14:30":
+```javascript
+function extractTime(text) {
+  // 24hr: 13:30
+  const m24 = text.match(/(\d{1,2}):(\d{2})(?:\s*-\s*\d{1,2}:\d{2})?/);
+  if (m24) return m24[1].padStart(2,'0') + ':' + m24[2];
+  // 12hr: 1:30 PM
+  const m12 = text.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
+  if (m12) {
+    let h = parseInt(m12[1]);
+    const mins = m12[2] || '00';
+    if (m12[3].toLowerCase() === 'pm' && h < 12) h += 12;
+    return h.toString().padStart(2,'0') + ':' + mins;
+  }
+  return null;
+}
+```
+
+4. Parse email body for appointment details when subject is a reminder:
+```javascript
+// If subject contains "reminder" or "appointment", also parse the body for:
+// Date: August 6, 2026 → convert to YYYY-MM-DD
+// Time: 01:30:00 PM → convert to 13:30
+// "Hello [Name]" → extract who
+const bodyDateMatch = body.match(/Date:\s*([A-Z][a-z]+ \d+,? \d{4})/i);
+const bodyTimeMatch = body.match(/Time:\s*(\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?)/i);
+const bodyWhoMatch  = body.match(/Hello ([A-Z][a-z]+)/i);
+```
+
+**Acceptance criteria:**
+- [ ] "Appointment: Meeting with Chandra Basavaraj tomorrow 13:30 - 14:30" → calendar event for tomorrow at 13:30
+- [ ] "Dentist - Giuseppe - Thursday" → calendar event Thursday
+- [ ] "MMA training - Malachi - Friday 6pm" → calendar event Friday 18:00
+- [ ] Email with "Date: August 6, 2026" and "Time: 01:30:00 PM" in body → parsed correctly
+- [ ] "today" and "tomorrow" correctly converted to actual dates
+- [ ] "Hello Giuseppe Lucarelli" in body → who set to Giuseppe
+- [ ] "Pick up milk" → still correctly shopping
+- [ ] "Hoover lounge - Mack" → still correctly todo
+- [ ] Reply confirmation says "added as a calendar event for [date] at [time]"
+- [ ] Apps Script updated and saved
+
+---
+
+### S7-B07 · Forward to Hub — smart sender identification (no manual config)
+**Status:** TODO
+**Priority:** High
+**Category:** Feature / Apps Script
+
+Replace the manual MEMBER_EMAILS mapping with an automatic two-layer system that requires zero configuration from family members.
+
+**Layer 1 — Auto-populate from Google Sign-In (primary)**
+When a family member signs into the app with Google, their email address is already known. Store it automatically in Firestore so the Apps Script can use it:
+
+In index.html — when auth state changes and user signs in:
+```javascript
+onAuthStateChanged(auth, async user => {
+  if (user && window.currentFamilyId) {
+    // Store their email → member name mapping in Firestore
+    const memberName = window.fbMembers?.find(m => 
+      m.name.toLowerCase() === user.displayName?.split(' ')[0].toLowerCase()
+    )?.name;
+    
+    if (memberName && user.email) {
+      await fbUpdate('families', window.currentFamilyId, {
+        [`emailMap.${user.email.replace(/\./g,'_')}`]: memberName
+      });
+    }
+  }
+});
+```
+
+In Apps Script — read the emailMap from Firestore at runtime:
+```javascript
+function getEmailMap(base, token, familyId) {
+  const url = `${base}/families/${familyId}`;
+  const res = UrlFetchApp.fetch(url, {
+    headers: { Authorization: 'Bearer ' + token },
+    muteHttpExceptions: true
+  });
+  const doc = JSON.parse(res.getContentText());
+  const emailMap = doc?.fields?.emailMap?.mapValue?.fields || {};
+  const result = {};
+  for (const [k, v] of Object.entries(emailMap)) {
+    result[k.replace(/_/g, '.')] = v.stringValue;
+  }
+  return result; // { "giuseppe@gmail.com": "Giuseppe", ... }
+}
+
+function senderToMember(fromField, emailMap) {
+  const emailMatch = fromField.match(/<([^>]+)>/);
+  const email = (emailMatch ? emailMatch[1] : fromField).toLowerCase().trim();
+  
+  // Check auto-populated map first
+  if (emailMap[email]) return emailMap[email];
+  
+  // Check display name matches a family member
+  const displayMatch = fromField.match(/^"?([^"<]+)"?\s*</);
+  if (displayMatch) {
+    const firstName = displayMatch[1].trim().split(' ')[0];
+    if (FAMILY_MEMBERS.includes(firstName)) return firstName;
+  }
+  
+  return null; // Unknown sender — trigger reply-based learning
+}
+```
+
+**Layer 2 — Reply-based learning for unknown senders (fallback)**
+When the sender is not in the emailMap, send a friendly reply asking who they are. When they reply with their name, remember it forever by adding to Firestore emailMap.
+
+```javascript
+function handleUnknownSender(message, fromEmail) {
+  message.reply(
+    "👋 Hey! I got your message but I don't know who you are yet.\n\n" +
+    "Reply with your name and I'll remember you next time:\n" +
+    FAMILY_MEMBERS.join(' / ') + "\n\n" +
+    "— The Family Hub 🏠"
+  );
+  
+  // Store pending item temporarily with a holdingId
+  // When they reply with their name, we process it then
+  const holdingId = 'pending_' + Date.now();
+  PropertiesService.getScriptProperties()
+    .setProperty(holdingId, JSON.stringify({
+      from: fromEmail,
+      subject: message.getSubject(),
+      body: message.getPlainBody(),
+      timestamp: Date.now()
+    }));
+}
+
+function processNameReply(message, name, fromEmail) {
+  // Add to Firestore emailMap permanently
+  addToEmailMap(fromEmail, name);
+  
+  // Send warm confirmation
+  message.reply(
+    "✅ Got it — I'll remember you as " + name + " from this address! " +
+    "Next time you forward something, I'll know it's you. 😊\n\n" +
+    "— The Family Hub 🏠"
+  );
+  
+  // Process any pending items from this sender
+  processPendingItems(fromEmail, name);
+}
+
+function addToEmailMap(email, name) {
+  const props = PropertiesService.getScriptProperties();
+  const projectId = props.getProperty('FIREBASE_PROJECT_ID');
+  const familyId  = props.getProperty('FAMILY_ID');
+  const keyJson   = JSON.parse(props.getProperty('SERVICE_ACCOUNT_KEY'));
+  const token     = getAccessToken(keyJson);
+  const base      = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents`;
+  
+  // Update the emailMap field in the families document
+  const safeKey = email.replace(/\./g, '_');
+  const url = `${base}/families/${familyId}?updateMask.fieldPaths=emailMap.${safeKey}`;
+  UrlFetchApp.fetch(url, {
+    method: 'PATCH',
+    contentType: 'application/json',
+    headers: { Authorization: 'Bearer ' + token },
+    payload: JSON.stringify({
+      fields: { emailMap: { mapValue: { fields: {
+        [safeKey]: { stringValue: name }
+      }}}}
+    }),
+    muteHttpExceptions: true
+  });
+}
+```
+
+**Remove MEMBER_EMAILS script property entirely** — no manual config needed.
+
+**Acceptance criteria:**
+- [ ] Family member signs in with Google → their email auto-added to Firestore emailMap
+- [ ] Email forwarded from known address → who identified correctly, no reply needed
+- [ ] Email forwarded from unknown address → friendly reply asking who they are
+- [ ] Reply with name → address remembered in Firestore emailMap permanently
+- [ ] Warm confirmation sent: "I'll remember you as [Name] next time 😊"
+- [ ] Subsequent forwards from same address → identified automatically, no more asking
+- [ ] Works for Gmail, Outlook, work email, any address
+- [ ] MEMBER_EMAILS script property no longer needed or used
+- [ ] Pending items processed once sender identifies themselves
+- [ ] Apps Script updated and saved
+
+---
+
+### S7-B08 · Photo upload in screensaver does nothing after selecting photo
+**Status:** TODO
+**Priority:** High
+**Category:** Bug
+
+Tapping the add button in screensaver/preferences and selecting a JPEG photo does nothing — no upload, no error, no feedback. 
+
+**Likely causes:**
+1. File size too large — Firestore document limit is 1MB. A typical iPhone JPEG is 3-8MB. The base64 encoding adds ~33% overhead. Need to resize/compress before storing.
+2. Silent failure — the error is caught but not shown to the user
+3. Firebase Storage is being called instead of the Firestore base64 approach
+
+**Fix:**
+Add client-side image compression before base64 encoding:
+```javascript
+async function compressImage(file, maxWidth=800, quality=0.7) {
+  return new Promise(resolve => {
+    const canvas = document.createElement('canvas');
+    const img = new Image();
+    img.onload = () => {
+      const ratio = Math.min(maxWidth / img.width, maxWidth / img.height, 1);
+      canvas.width = img.width * ratio;
+      canvas.height = img.height * ratio;
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(blob => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result); // base64
+        reader.readAsDataURL(blob);
+      }, 'image/jpeg', quality);
+    };
+    img.src = URL.createObjectURL(file);
+  });
+}
+```
+
+Target: compress to under 500KB before base64 encoding (well within Firestore 1MB limit).
+
+Also add:
+- Progress indicator while uploading ("Compressing photo...")
+- Success confirmation ("Photo added to screensaver!")
+- Error message if it fails ("Photo too large — try a smaller image")
+- File type validation (JPEG, PNG only)
+
+**Acceptance criteria:**
+- [ ] Selecting a JPEG photo shows "Compressing..." then "Photo added!"
+- [ ] Photo appears in screensaver slideshow
+- [ ] Works for typical iPhone photos (3-8MB originals)
+- [ ] Clear error message if something goes wrong
+- [ ] No silent failures
+- [ ] Audit passes
+
+
+---
+
+### S7-B09 · Forward to Hub — Outlook forwarding not handled correctly
+**Status:** TODO
+**Priority:** High
+**Category:** Bug / Apps Script
+
+When forwarding emails from Outlook (or any non-Gmail client), two issues occur:
+1. The sender email address is an Outlook address not in the MEMBER_EMAILS mapping → defaults to Everyone
+2. Outlook adds "FW:" or "Fwd:" prefix to the subject → breaks parser prefix detection
+
+**Fix 1 — Strip forward prefixes from subject:**
+```javascript
+const subject = message.getSubject()
+  .replace(/^(FW:|Fwd:|FWD:|Re:|RE:)\s*/i, '')
+  .trim();
+```
+Add this at the top of `processInbox()` before any parsing.
+
+**Fix 2 — Support non-Gmail addresses in MEMBER_EMAILS:**
+The MEMBER_EMAILS Script Property should include ALL email addresses each family member might forward from — Gmail, Outlook, work email, Apple ID email etc.
+
+Format: `email1=Name,email2=Name,email3=Name`
+
+Example:
+```
+giuseppe@gmail.com=Giuseppe,g.lucarelli@outlook.com=Giuseppe,giuseppe@work.com=Giuseppe,
+ross@gmail.com=Ross,malachi@gmail.com=Malachi,mack@gmail.com=Mack,Rachael@gmail.com=Rachael
+```
+
+Multiple addresses can map to the same person — the parser just checks if the sender email matches any entry.
+
+**[DECISION NEEDED — Giuseppe]:** Update MEMBER_EMAILS Script Property with:
+- Your Outlook address
+- Any work email addresses family members might forward from
+- Anyone else's secondary email addresses
+
+**Fix 3 — Fallback: extract name from email display name:**
+If the email address isn't in the mapping, try to match the display name:
+```javascript
+// fromField: "Giuseppe Lucarelli <g.lucarelli@outlook.com>"
+const displayName = fromField.match(/^([^<]+)</);
+if (displayName) {
+  const name = displayName[1].trim().split(' ')[0]; // "Giuseppe"
+  if (FAMILY_MEMBERS.includes(name)) return name;
+}
+```
+
+**Acceptance criteria:**
+- [ ] "FW:", "Fwd:", "FWD:", "Re:", "RE:" stripped from subject before parsing
+- [ ] Outlook address auto-learned via reply-based flow (S7-B07) — no manual config
+- [ ] Display name used as immediate fallback if email not yet in emailMap
+- [ ] Psychiatry UK appointment email forwarded from Outlook → triggers "who are you?" reply
+- [ ] After Giuseppe replies with name → subsequent Outlook forwards identified automatically
+- [ ] Apps Script updated and saved
+
+
+---
+
+### S7-B10 · Forward to Hub — parse date and time from email body
+**Status:** TODO
+**Priority:** High  
+**Category:** Bug / Apps Script
+
+When forwarding appointment reminder emails, the date and time are in the email body in structured format, not the subject. The parser must read the body for these details.
+
+**Real example (Psychiatry UK email body):**
+```
+Hello Giuseppe Lucarelli,
+Your appointment details:
+Clinician: Chandra Basavaraj
+Date: August 6, 2026
+Time: 01:30:00 PM
+```
+
+**Body parser to add:**
+```javascript
+function parseBodyForAppointment(body) {
+  const result = {};
+  
+  // Extract date: "Date: August 6, 2026" or "Date: 06/08/2026"
+  const dateMatch = body.match(/Date:\s*([A-Z][a-z]+ \d{1,2},?\s*\d{4})/i)
+                 || body.match(/Date:\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/i);
+  if (dateMatch) {
+    const parsed = new Date(dateMatch[1]);
+    if (!isNaN(parsed)) {
+      result.date = parsed.toISOString().split('T')[0]; // YYYY-MM-DD
+    }
+  }
+  
+  // Extract time: "Time: 01:30:00 PM" or "Time: 13:30"
+  const timeMatch = body.match(/Time:\s*(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?/i);
+  if (timeMatch) {
+    let h = parseInt(timeMatch[1]);
+    const m = timeMatch[2];
+    if (timeMatch[3] && timeMatch[3].toUpperCase() === 'PM' && h < 12) h += 12;
+    if (timeMatch[3] && timeMatch[3].toUpperCase() === 'AM' && h === 12) h = 0;
+    result.start = h.toString().padStart(2,'0') + ':' + m;
+    // Default end time 1 hour later
+    const endH = (h + 1) % 24;
+    result.end = endH.toString().padStart(2,'0') + ':' + m;
+  }
+  
+  // Extract who from greeting: "Hello Giuseppe Lucarelli" or "Dear Giuseppe"
+  const whoMatch = body.match(/(?:Hello|Dear|Hi)\s+([A-Z][a-z]+)/i);
+  if (whoMatch) {
+    const firstName = whoMatch[1];
+    if (FAMILY_MEMBERS.includes(firstName)) result.who = firstName;
+  }
+  
+  // Extract clinician/notes
+  const clinicianMatch = body.match(/Clinician:\s*([^
+]+)/i);
+  if (clinicianMatch) result.notes = 'With: ' + clinicianMatch[1].trim();
+  
+  return result;
+}
+```
+
+**When to use body parsing:**
+Call `parseBodyForAppointment(body)` when:
+- Subject contains "appointment", "reminder", "booking", "confirmation"
+- Subject contains "Fwd:" or "FW:" (forwarded reminder email)
+- Subject doesn't contain a clear date in the subject itself
+
+Merge body results with subject results — body takes priority for date/time, subject takes priority for event name.
+
+**Acceptance criteria:**
+- [ ] "Date: August 6, 2026" in body → event date set to 2026-08-06
+- [ ] "Time: 01:30:00 PM" in body → event time set to 13:30
+- [ ] "Hello Giuseppe Lucarelli" in body → who set to Giuseppe
+- [ ] "Clinician: Chandra Basavaraj" in body → appears in notes
+- [ ] Body parsing used as fallback when subject lacks date/time
+- [ ] Body parsing takes priority over subject for structured appointment emails
+- [ ] Original Psychiatry UK email now creates correct event: Aug 6, 13:30, Giuseppe
+- [ ] Apps Script updated and saved
+
+
 ## 💡 FUTURE / COMMERCIAL
 
 ### F-001 · Multi-household Support
@@ -3095,7 +3532,7 @@ Only the person who created a meal should be able to edit or delete it. Kids sho
 Add a filter row at the top of the To-dos tab to show tasks assigned to a specific family member. Useful for parents checking what the kids need to do, or kids seeing only their own chores.
 
 **Implementation notes:**
-- Filter chips row below the subtitle: "All | Giuseppe | Ross | Malachi | Mack | Rachel"
+- Filter chips row below the subtitle: "All | Giuseppe | Ross | Malachi | Mack | Rachael"
 - Default: All
 - Uses existing `fh_this_device_user` — on load, optionally auto-select current user's chip
 - Stores active filter in `window._todoFilter` (not Firestore — this is a personal view preference)
@@ -3229,7 +3666,7 @@ Let family members choose their own colour rather than using the assigned defaul
 | – | GitHub Pages hosting | 1 | Jun 2026 |
 | – | ADB unlock SyncGo + Firefox install | 1 | Jun 2026 |
 | – | Household Tasks tab | 2 | Jun 2026 |
-| – | Rachel added to family | 2 | Jun 2026 |
+| – | Rachael added to family | 2 | Jun 2026 |
 | – | Settings panel (add/remove members, hub name) | 2 | Jun 2026 |
 | – | Calendar month view | 2 | Jun 2026 |
 | – | Shopping favourites + autocomplete | 2 | Jun 2026 |
@@ -3269,268 +3706,3 @@ The `firestore.rules` file is already written and committed to the repo. It need
 - [ ] App still functions correctly after deployment
 - [ ] Firebase Console shows new rules version in history
 - [ ] Test mode is no longer active
-
----
-
-## 🐛 SPRINT 7 — Critical Bugs & UK Locale (Aug 2026)
-
-**Note:** These items (S7-B01 through S7-001) were specified directly by Giuseppe for this session and did not previously exist in this file — added here as they're worked, following this file's usual DONE-writeup convention, so the record is complete for future sessions.
-
-### S7-B01 · Mobile date bug — everything shown one day ahead
-**Status:** DONE 2026-08-04
-**Priority:** Critical
-**Category:** Bug / Calendar
-
-**Description:**
-Reported as a mobile date bug — the app's notion of "today" and event dates appeared shifted one day ahead of the real date.
-
-**Root cause:**
-`fmt(d)` (the core Date→'YYYY-MM-DD' formatter used almost everywhere: month view, week strip, today-highlight, event-day matching, and `todayStr` itself) was implemented as `d.toISOString().split('T')[0]`. `toISOString()` converts to UTC before formatting. Calendar-day `Date` objects throughout the app are built at **local midnight** (e.g. `new Date(year, month, d)`). In any positive-UTC-offset timezone — including the UK during BST, which is in effect right now — local midnight converts to 23:00 the *previous* UTC day, so `fmt()` silently returned yesterday's date for every calendar cell. Meanwhile `todayStr` (built from the actual current moment, not midnight) was usually correct. The mismatch meant the cell landing on the real "today" failed its `dStr === todayStr` check, while the *next* day's cell (whose local-midnight-to-UTC rollback happened to land on the real today) matched instead — so "today" and all date-based matching visually appeared shifted one day forward. Not new: this is the exact `toISOString()` pattern already diagnosed once in S4-001 and fixed there via `shiftDateStr()` for *other* call sites (recurring end-date shortcuts, generation cap, next-occurrence, copy-task quick dates) — but `fmt()`/`todayStr`, the most-used date primitives in the file, were never migrated onto the same fix.
-
-**Fix:** `fmt()` now builds the string from local `getFullYear()`/`getMonth()`/`getDate()` parts (same approach as `shiftDateStr()`), and `todayStr` is derived from `fmt(today)` instead of its own separate `toISOString()` call. Single shared, correct primitive — no call site changes needed since every consumer (28 usages) just compares/uses the resulting string.
-
-**Verified:** Reproduced the bug and the fix in Node with `TZ=Europe/London` against a simulated BST date (`new Date(2026,7,5)` local midnight) — old `fmt()` returned `2026-08-04` (wrong), new `fmt()` returns `2026-08-05` (correct). Reasoned through every one of the 28 `todayStr`/`fmt()` call sites — all are plain string comparisons/usages with no compensating logic elsewhere that assumed the old (buggy) value, so no double-correction risk. `python3 audit.py` and `node --check` both pass.
-
-**Acceptance criteria:**
-- [x] "Today" highlight lands on the actual current date, not tomorrow
-- [x] Event/task date matching uses the correct calendar day
-- [x] Fix verified against a real BST date via Node repro
-- [x] No other code compensated for the old bug (checked before fixing)
-- [x] Audit passes
-
----
-
-### S5-B08-REDUX · What's New popup loop — third occurrence, definitive fix
-**Status:** DONE 2026-08-04
-**Priority:** Critical
-**Category:** Bug / Regression (3rd occurrence — see S5-B08, S5-B08-FIX2)
-
-**Description:**
-The What's New popup started reappearing again despite two prior fix attempts (S5-B08: stopped comparing against a possibly-stale baked-in `APP_VERSION` by fetching `version.json` fresh; S5-B08-FIX2: made `closeWhatsNew()` persist the fetched value, not the constant). Diagnosed with console.log instrumentation before making any change, per instruction, rather than guessing.
-
-**Diagnosis method:** Extracted the actual `checkWhatsNew()`/`closeWhatsNew()` logic into a standalone Node harness (`/tmp/whatsnew_repro.js`) with a mocked `localStorage` that persists across simulated "page loads" and a controllable `fetch()`, with a `console.log` at every decision point (fetch attempted, fetch result, resolved version, `fh_seen_version` read, show/hide decision, persisted value). Ran a sequence of realistic reload scenarios.
-
-**Root cause found:** Both prior fixes assumed the `fetch('version.json')` call itself always succeeds. It doesn't — on a flaky mobile/WiFi connection (the SyncGo is WiFi-only; mobile networks drop routinely) the fetch fails, and the code fell back to the **baked-in `APP_VERSION`** of whatever HTML happens to be currently loaded. That fallback value get both **compared against** `fh_seen_version` and then **re-persisted** on dismiss — but the baked-in version can easily be older than the version already correctly recorded (true any time a deploy has happened since this particular page load). So a single failed fetch: (1) shows the popup again even though the user already saw the latest version, and (2) overwrites the correct `fh_seen_version` with the stale fallback. The next time the fetch succeeds, it flips back to the newer version and shows again. Net effect: an oscillating loop driven by network flakiness alone, with no new version ever actually deployed — reproduced exactly with the console.log harness (flaky-fetch load re-showed the popup and downgraded `fh_seen_version` from `4.2` back to `4.1`; a subsequent successful fetch then flipped it back to `4.2` and showed again).
-
-**Definitive fix:** `checkWhatsNew()` now tracks whether the fetch actually succeeded (`fetchedOk`). If it didn't, the function returns immediately — no show, no persist, `fh_seen_version` is left exactly as it was. The fetched `version.json` value is the *only* trustworthy signal for "what's actually deployed"; a failed fetch means "we don't know" and must never overwrite a previously-good answer. Re-ran the harness with the fix applied: a flaky-then-recovered load sequence now leaves `fh_seen_version` untouched on the failure and correctly resolves once the network recovers — no reappearance, no oscillation.
-
-**Regression coverage added:** `audit.py` check `whatsnew:bails-out-on-failed-fetch` verifies `checkWhatsNew()` contains the `if (!fetchedOk) return` early exit permanently, so a future edit can't silently reintroduce the fallthrough.
-
-**Acceptance criteria:**
-- [x] Root cause diagnosed with console.log instrumentation before any fix was written
-- [x] Failure mode reproduced outside the browser (Node harness) before and after the fix
-- [x] `checkWhatsNew()` never shows or persists based on the baked-in `APP_VERSION` fallback
-- [x] A failed `version.json` fetch leaves `fh_seen_version` unchanged
-- [x] Permanent audit.py regression check added
-- [x] Audit passes (150 checks, up from 149)
-
----
-
-### S7-B05 · Device user remembered permanently — auto-match Google Sign-In name
-**Status:** DONE 2026-08-04
-**Priority:** Critical
-**Category:** Bug / UX
-
-**Description:**
-The "device user" concept (S3-016 — "who is physically using this device right now", used to attribute todos/shopping/photos added from a shared screen) is picked once via a chip picker and then stored in `localStorage['fh_this_device_user']` forever. On a personal device (someone's own phone, signed into their own Google account since S5-003) this is redundant — we already know who they are — and worse, since the value never re-evaluates, if a different family member's Google account ever signs in on that same browser the leftover value from whoever picked first stays wrong permanently, misattributing everything they add from then on.
-
-**Fix:** Added `matchDeviceUserToGoogleAccount()` — matches `window.currentUser.displayName` (the signed-in Google account's name) against the family roster, case-insensitively, on either the full name or its first word (Google accounts are usually "First Last"; roster entries are usually first-name-only, e.g. "Ross"). `checkDeviceUserPrompt()` (already run on every `fb-data` event) now calls this first:
-- **Confident match found** (e.g. displayName "Ross Lucarelli" → roster "Ross"): silently keeps the device user in sync with it, correcting it automatically if it ever drifts — no picker shown, no manual step needed on a personal device.
-- **No confident match** (e.g. a shared kiosk device like the SyncGo, signed into one generic/shared account): unchanged fallback to the existing manual chip picker, and whatever's picked is kept until changed — this is the correct behaviour for a genuinely shared device where Google identity can't tell us who's standing in front of it.
-- Settings retains its existing "Switch" button (`openDeviceUserPicker()`) as a manual override for the no-match case; on a device with a confident auto-match, the next `fb-data` event resyncs it to the signed-in account, which is deliberate — a personal device should always reflect who's actually signed into it.
-
-**Verified:** Unit-tested the matching logic in Node against realistic Google display names (`Ross Lucarelli`→Ross, `malachi`→Malachi, `Giuseppe`→Giuseppe, `Rachel W`→Rachel) and confirmed no false-positive match for a generic/shared account name (`The Lucarelli Family`) or empty displayName — both correctly fall through to the manual picker. `python3 audit.py` and `node --check` pass.
-
-**Acceptance criteria:**
-- [x] Personal device signed into a Google account matching a roster name is never prompted — device user auto-set silently
-- [x] Device user auto-corrects if a different, clearly-matching account later signs in on the same browser
-- [x] Shared/kiosk devices with no confident name match keep the existing manual picker behaviour unchanged
-- [x] Manual "Switch" override in Settings still available for the no-match case
-- [x] No false-positive matches on generic/shared account names
-- [x] Audit passes
-
----
-
-### S7-B02 · UK date format — lang="en-GB"
-**Status:** DONE 2026-08-04
-**Priority:** High
-**Category:** Bug / Locale
-
-**Description:** Dates were showing in US format (mm/dd/yyyy) on some devices instead of UK format (dd/mm/yyyy).
-
-**Fix:** Set `<html lang="en-GB">` (was `lang="en"`), and added `lang="en-GB"` directly on all 11 `<input type="date">`/`<input type="time">` elements as well (event add/edit start+end dates, todo due dates, copy-task custom date). All in-app rendered dates already used explicit `.toLocaleDateString('en-GB', ...)` calls (unaffected either way, always correct), so this specifically targets the native date/time picker widgets' own locale, which is the part that was showing US-style formatting.
-
-**Known platform limitation — flagging honestly rather than overclaiming:** The `lang` attribute is **not a guaranteed, spec-mandated control** over a native `<input type="date">`/`<input type="time">` widget's displayed format. Per the HTML spec, that's governed by the browser/OS locale setting, not the page's declared language. Chromium-family browsers do take the nearest ancestor `lang` into account for these controls in practice (which is why it's been added per-element here, not just at the document root, and should visibly fix this on Chrome/Edge/Android WebView), but Firefox and Safari are documented to ignore it and always follow the device's own OS/browser locale regardless of page markup. **On the SyncGo (Firefox on Android)**, this fix may not take effect if the tablet's own Android system locale is set to US — that would need to be corrected in the device's Android settings directly, not in this codebase, since no page-level attribute can override it there. If that's confirmed to still be wrong on the SyncGo after this deploys, the only fully guaranteed fix is replacing the native inputs with a custom-built (locale-independent) date/time entry UI — a real UI project, not a one-line attribute change, and not started here since it wasn't asked for and has real UX trade-offs (loses the native tap-to-pick calendar/clock affordance) worth a deliberate decision rather than a silent swap.
-
-**Acceptance criteria:**
-- [x] `<html lang="en-GB">` set
-- [x] `lang="en-GB"` set on every date/time input element
-- [x] All in-app displayed dates already use explicit `en-GB` locale (verified, no change needed)
-- [x] Limitation documented: not guaranteed on Firefox/Safari or when device OS locale is non-UK — flagged rather than silently assumed fixed
-- [x] Audit passes
-
----
-
-### S7-B03 · 24-hour time picker
-**Status:** DONE 2026-08-04 (delivered together with S7-B02, same commit — same underlying mechanism)
-**Priority:** High
-**Category:** Bug / Locale
-
-**Description:** Event start/end time pickers were showing a 12-hour AM/PM control instead of 24-hour, on some devices.
-
-**Fix:** Same as S7-B02 — `lang="en-GB"` added to all four `<input type="time">` elements (event add/edit start + end). Additionally verified every place the app *displays* a time (event cards, week/month view, detail modal, event-reminder notifications) — all render the raw `HH:MM` string (`e.start`/`e.end`) directly with no `toLocaleTimeString()`/AM-PM conversion anywhere in the codebase, so the app's own rendered UI was never actually locale-dependent for time display — only the native picker control itself was affected.
-
-**Same platform limitation applies:** the native `<input type="time">` widget's 12h-vs-24h rendering is a browser/OS locale decision, not something any page attribute can force with a spec guarantee. Effective on Chromium; not guaranteed on Firefox/Safari (see S7-B02's note) — if the SyncGo (Firefox/Android) still shows AM/PM after this deploys, it's an Android system-locale setting on that specific device, not a code issue, and the only guaranteed alternative is a custom-built time control (not attempted — real UX trade-off, would need a deliberate decision, not a silent swap).
-
-**Acceptance criteria:**
-- [x] `lang="en-GB"` set on every time input
-- [x] Confirmed no AM/PM formatting anywhere in displayed times (event cards, detail modal, notifications) — already always 24-hour
-- [x] Limitation documented (same caveat as S7-B02)
-- [x] Audit passes
-
----
-
-### S7-B04 · Recurring event delete/edit — single vs series prompt
-**Status:** DONE 2026-08-04
-**Priority:** High
-**Category:** Feature / Bug — Calendar
-
-**Description:** Deleting or editing a recurring event silently acted on only the one occurrence, with no way to apply the change/delete to the whole series — a common source of confusion (e.g. changing a dog-walk time only fixes one day, not the recurring slot).
-
-**Why "series" is a real, addressable concept here:** Recurring events aren't a single doc with a repeat rule — `processRecurringEvents()` pre-generates up to 24 real future occurrence documents (capped 90 days ahead) each time the current one passes. So "this and future" is operating on real sibling Firestore docs, not a synthetic concept.
-
-**Implementation:**
-- New events created with a `recur` value now get a `seriesId` (their own `id`) — carried forward onto every generated future occurrence automatically, since `processRecurringEvents()` already spreads the previous occurrence's fields onto each new one. `getRecurSeries(event, {futureOnly})` uses `seriesId` when present; for events created before this change (no `seriesId`), it falls back to the same `name+recur+who` equality the app already used for recurring-event dedup — a consistent, if heuristic, definition of "series" with no data migration needed.
-- New small prompt overlay (`recur-scope-overlay`) — "Just this event" / "This and future events" / "Cancel" — shown only when the event being deleted/edited has an active `recur` value.
-- **Delete:** `deleteItem()` now asks scope for recurring events (both the detail-modal Delete button and the swipe-row delete button go through this same function, so both are covered). "This and future" soft-deletes every sibling from this occurrence's date onward. Locked siblings are skipped even in series mode — locking still fully protects an item. Cancelling does nothing.
-- **Edit:** `saveEditItem()` checks the event's *current* Firestore state (not the edited form) to decide whether to ask — so editing recur itself still prompts correctly. "This and future" applies the shared fields (name, start/end time, who, colour, recur, notes) to every future sibling; each sibling **keeps its own date** — only the occurrence actually being edited gets its date/end-date fields changed. Cancelling leaves the edit modal open with nothing written (sync status reset, not left stuck on "Saving…").
-- **Undo (S4-004) extended to cover series deletes:** `showUndoToast()`/`undoDelete()` now take/restore an array of items instead of a single one, so undoing a series delete restores every occurrence that was actually deleted, not just the primary one — otherwise a series delete would only be *partially* reversible, which conflicts with this project's own stated testing philosophy (TESTING.md: "nothing destructive should be permanent or silent").
-
-**Verified:** Unit-tested `getRecurSeries()` matching logic in Node against a mix of `seriesId`-based (new) and legacy heuristic-matched siblings, plus a non-recurring control item — all resolved correctly, including `futureOnly` filtering. `python3 audit.py` and `node --check` pass.
-
-**Acceptance criteria:**
-- [x] Deleting a recurring event (detail modal or swipe) prompts single-vs-series; non-recurring events are unaffected (no prompt)
-- [x] Editing a recurring event prompts single-vs-series before writing anything
-- [x] "This and future" applies to the correct sibling occurrences (same series, same date or later)
-- [x] Each occurrence keeps its own date even when editing "this and future"
-- [x] Locked siblings are never force-edited/deleted even in series mode
-- [x] Cancelling the prompt performs no writes
-- [x] Undo restores the full set of items deleted in a series delete, not just one
-- [x] Legacy events (created before this fix, no `seriesId`) still resolve correctly via heuristic match
-- [x] Audit passes
-
----
-
-### S7-001 · TEST-REPORT.md pattern + AGENTS.md testing prompt
-**Status:** DONE 2026-08-04
-**Priority:** Infrastructure
-**Category:** Process / QA
-
-**Description:** Establish a repeatable "run a full, independent test pass" process (not just the per-item TESTING.md checks already done after every change), with a defined report format, and actually run it once against the current codebase.
-
-**Implementation:**
-- Created `TEST-REPORT.md` — a **snapshot** (not an append-only log) of the most recent full TESTING.md Section A+B pass, with a defined verdict scale (CRITICAL / FAIL / PASS / NEEDS HUMAN) and the explicit rule that historical findings live in BACKLOG.md + TESTING.md Section C instead, so this file can't rot into an unreliable dual-purpose document (the exact failure mode BACKLOG.md itself once hit — see its "stale-copy overwrite" note).
-- Added a "Running a full test pass" section to `AGENTS.md` documenting *why* a separate, fresh agent is used for this (an agent that just implemented a change is biased to rationalize its own code as correct — a fresh agent with no memory of what changed catches what the implementer talked itself out of worrying about) and the exact procedure.
-- **Ran it for real**, immediately, against the current codebase (commit `f9cbfa7`, right after S7-B01 through S7-B04): spawned a read-only agent with no context on what had just changed, pointed only at `TESTING.md` and `index.html`, told explicitly to trace real code paths (not trust comments/names) and not fix anything. Result: **2 CRITICAL + 5 FAIL** — see `TEST-REPORT.md` for the full table. All 7 fixed this same session:
-  1. **CRITICAL — no HTML escaping anywhere in the file.** Any todo/shop/meal/household/event/member name or notes field was interpolated straight into `innerHTML` with zero sanitization — a stored injection, not theoretical, on a shared no-real-auth family device (exactly TESTING.md's own "curious teenager" threat model). Added `escapeHtml()` and applied it at ~55 render sites across dashboard widgets, full list views, calendar views, detail modals, edit modals, favourites pickers, activity log, settings member list, and onboarding — found via a full-file grep for both template-literal (`${x.text}`) and string-concatenation (`+ x.text +`) interpolation patterns (the first grep pass missed the household tab entirely because it uses concatenation, not template literals — caught on a second, broader sweep). Also fixed a related CSS-injection variant in `injectMemberStyles()` (a member name containing `{`/`}` could break out of the shared `<style>` block and corrupt every other member's colours too, not just their own) and a JS-string-breakout variant in the device-user picker's `onclick` (HTML-escaping alone doesn't stop a quote breaking out of a nested inline-handler JS string, since the browser HTML-decodes the attribute before parsing it as JS — fixed by switching to a `data-name` + `this.dataset` read, matching the existing swipe-delete pattern instead).
-  2. **CRITICAL — device-user picker hijacks active modals.** `checkDeviceUserPrompt()` runs on every `fb-data` event (every remote Firestore write from any device) and was unconditionally re-showing its overlay (z-index 490, above every modal) whenever no confident match/manual pick existed — popping over an in-progress Add/Edit form on this device just because someone elsewhere added an item. Added `isBlockingOverlayOpen()`, a shared guard reused by both this and the screensaver's existing (previously duplicated) blocker-list check.
-  3. **FAIL — meal-replace hard-deleted, bypassing soft-delete/undo.** Routed through `deleteItem()` instead of a raw `fbDelete()`, in both the add and edit paths; also now correctly refuses to silently delete a *locked* conflicting meal instead of deleting it anyway.
-  4. **FAIL — sync status stuck on "Saving…"** on every validation-failure early-return in `saveModal()`/`saveEditItem()` (empty name, missing who, cancelled confirm). Added `setSyncStatus('live')` on each.
-  5. **FAIL — no double-submission guard on Save**, despite TESTING.md B4 explicitly recommending one. Both Save buttons now disable synchronously on tap (before any async work, so a disabled button physically can't fire a second `onclick`) and re-enable in a `finally` block on every exit path.
-  6. **FAIL — Undo toast never appeared on other devices**, failing TESTING.md B2's explicit acceptance criterion. `activityLog` was already replicated everywhere but `listenCol()` re-fetches the whole collection every snapshot with no "just happened" signal, so added a *separate* `onSnapshot`/`docChanges()` listener (`startCrossDeviceUndoListener`) that skips the initial historical snapshot (so it doesn't replay old deletes as toasts on page load) and skips entries logged by this same browser tab (via a per-page-load `window._deviceSessionId`, since that tab already showed its own toast synchronously). Reuses the exact same toast/restore pipeline as a local delete. Known scope limit, documented rather than silently accepted: a cross-device toast for a recurring-event *series* delete (S7-B04) can only restore the single originating occurrence, since the activity-log entry doesn't carry the rest of the series' ids — same-device Undo (right after the delete) still restores the whole series correctly via the in-memory list.
-  7. **FAIL — Household rows required opening the detail modal to mark done**, unlike Todos/Shopping/Dashboard (TESTING.md A2a). Split the check circle into its own 44px `onclick="toggleHousehold(...);event.stopPropagation()"` target, matching the Todos row structure.
-
-**Verified:** `python3 audit.py` (150/150) and `node --check` after every one of the 7 fixes individually, plus a standalone Node repro confirming `escapeHtml()` neutralizes real injection payloads (`<img onerror=...>`, attribute-breakout, and JS-string-breakout strings) into harmless entity-encoded text.
-
-**Acceptance criteria:**
-- [x] `TEST-REPORT.md` created with a defined verdict scale and snapshot-not-log scope
-- [x] `AGENTS.md` documents the test-pass procedure and why a fresh/independent agent is used
-- [x] Test pass actually run against the current codebase, not just documented
-- [x] Every CRITICAL and FAIL finding fixed this session
-- [x] Each fix verified independently (audit + syntax + targeted reasoning/repro)
-- [x] Audit passes
-
----
-
-### S7-B06 · Weekly recurring event showing on every day, not once a week
-**Status:** DONE 2026-08-04
-**Priority:** Critical
-**Category:** Bug / Calendar
-
-**Found by:** Giuseppe, real-device testing (mobile), 4 Aug 2026 — "Adding a 'weekly' event is adding the event to every day, rather than the same day every week. Also you cannot click on any of the 'repeat until' options. Nothing happens."
-
-**Root cause:** Both symptoms traced to the same bug. The "Repeat until" quick-pick chips (`setRecurEnd()` — 1 month/3 months/6 months/1 year) wrote their result into `new-event-end-date`, the SAME field used for genuine multi-day events (S4-009, e.g. a holiday spanning several days). `eventOnDay(e, dStr)` renders an event on **every day** between `e.date` and `e.endDate` inclusive, with no awareness that `recur` exists. So setting a weekly event to "repeat until 3 months" set `endDate` to 3 months out, and the event immediately rendered on **every single day** in that 3-month span, not once a week — the exact reported symptom. This wasn't a delayed/generation-timing bug — it happened the instant the event was saved, because it's a display bug (`eventOnDay`), not a generation bug (`processRecurringEvents`). The "nothing happens when I tap Repeat-until" symptom was the same root cause seen from the other side: the buttons DID work, but they silently updated the "End date" field near the TOP of the form (easy to miss/scroll past), while appearing to do nothing to the "Repeat" section the user was actually looking at.
-
-**Fix:** Split the two concepts into genuinely separate fields:
-- `endDate` — multi-day event span only, untouched by recurrence, exactly as before.
-- New `recurUntil` field — caps how far a recurring series generates (`processRecurringEvents()`'s `seriesEnd` now reads `e.recurUntil`, not `e.endDate`).
-- Added a real `new-event-recur-until` date input (plus the same 4 quick-pick chips, now correctly wired) directly under the "Repeat" dropdown in the add modal, and the identical field/chips to the **edit** modal (which previously had no "repeat until" UI at all — you could only set it when first creating an event, never change it afterwards).
-- `recurUntil` is treated as a series-wide shared field in S7-B04's "this and future" edit path (changing when a series ends is a series-level property, unlike `date`/`endDate` which stay per-occurrence).
-
-**Verified:** Reproduced the exact bug and the fix with a Node simulation of `eventOnDay()` — old behaviour (`endDate` = 3-months-out recur-until) showed the event as present on Aug 5/11/18 (`true`/`true`/`true`); new behaviour (`endDate: null`, `recurUntil` separate) correctly shows it only on its actual date, `false` on the other days. `python3 audit.py` (151 checks, up from 150 — new field registered) and `node --check` pass.
-
-**Acceptance criteria:**
-- [x] A weekly (or daily/fortnightly/monthly) event appears only on its actual occurrence date(s), never every day in between
-- [x] "Repeat until" quick-pick chips visibly and correctly set a real, separate field
-- [x] "Repeat until" is now editable after creation, not just at add-time
-- [x] Multi-day events (S4-009) are unaffected — `endDate` semantics unchanged
-- [x] Fix reproduced and verified via Node simulation, not just read-through
-- [x] Audit passes
-
----
-
-### S7-B07 · Voice input on all form fields + fill-whole-event-by-voice
-**Status:** DONE 2026-08-04
-**Priority:** Medium
-**Category:** Feature / Bug — Accessibility
-
-**Found by:** Giuseppe, real-device testing, 4 Aug 2026 — "voice input doesn't seem available on all form fields. Only the first one. Would it be possible to complete all fields in one go when spoken?"
-
-**Bug part:** Confirmed — mic buttons only existed on each modal's primary name/text field (event name, todo text, shop name, meal name, household text). Added the same `startVoiceInput()` mic button to every remaining free-text field: event notes, shopping quantity, shopping store, meal notes, household notes. (Date/time/who fields are intentionally excluded — a native date/time picker and a chip selector aren't dictation targets; that's what the new whole-phrase parser below is for.)
-
-**Feature part — "complete all fields in one go":** There's no AI/NLP service available (this is a static single-file app on GitHub Pages, no backend) — built as a deliberately conservative regex/heuristic parser (`parseVoiceEventPhrase()`) rather than a proper language model, scoped to the Event form first since that's the richest field set and the example given ("Dentist appointment Tuesday at 3pm with Malachi"). A new "🎤 Say the whole thing" banner at the top of the Add Event modal listens once, parses out event name / date / time / who, and fills all four fields at once:
-- **Time:** only confident, unambiguous forms ("3pm", "3:30 pm", "15:00") — deliberately does NOT guess at a bare number like "at 3", since that's too easily a false match against a name containing a number.
-- **Date:** "today"/"tomorrow", or a weekday name. A bare weekday name means its nearest upcoming occurrence (today counts if it matches); "next <weekday>" always pushes a full week further, since saying "next" is the user's explicit signal they don't mean the one that's already here.
-- **Who:** matched against the actual family roster (not a hardcoded list), so it stays correct as members are added/renamed.
-- **Name:** whatever's left after removing the matched date/time/who phrases and common connector words ("with"/"on"/"at").
-- Never auto-saves — every parsed field lands in the normal, editable form field, and a toast summarises what was understood ("Got it: \"Dentist appointment\", Tue 4 Aug, 15:00, Malachi — check and save") so a misparse is immediately visible and correctable before the user taps Save.
-- Not yet extended to Todos/Shopping/Meals/Household — Events was the explicit example and has the clearest, richest field set (name+date+time+who) to parse into. The same date/who extraction logic would carry over reasonably directly to Todos (name+due-date+who) if wanted; Shopping/Meals/Household have weaker fits (quantity extraction, day-only, enum room/priority fields) and would need their own thinking, not a mechanical copy.
-
-**Verified:** Unit-tested `parseVoiceEventPhrase()` in Node against 7 realistic phrasings (including "next Tuesday" vs bare "Tuesday", am/pm and 24-hour time, a member name, and a phrase with no date/time/who at all) — every case produced the correct name/date/time/who split. `python3 audit.py` and `node --check` pass.
-
-**Acceptance criteria:**
-- [x] Every free-text field across all 5 add forms has a working mic button, not just the first
-- [x] New "say the whole thing" voice-fill option on the Add Event modal
-- [x] Parses name, date, time, and who from a single spoken phrase where confidently identifiable
-- [x] Never saves automatically — always leaves the result in the editable form for review
-- [x] Handles "next <weekday>" vs bare "<weekday>" distinctly
-- [x] Matches against the real family roster, not a hardcoded name list
-- [x] Verified with unit tests against realistic phrasings
-- [x] Audit passes
-
----
-
-### S7-B06-FIX2 · Weekly recurring event still only showing once — real cause
-**Status:** DONE 2026-08-04
-**Priority:** Critical
-**Category:** Bug / Calendar
-
-**Found by:** Giuseppe, real-device testing with screenshots, 4 Aug 2026 — "Adding the recurring event is still not working. I added a weekly recurring event but it only shows on the calendar once." Screenshots showed a "Malachi MMA" weekly event, start date 7 Aug 2026, repeat until 7 Nov 2026 — but the month view showed it only on the 3rd and 7th, not weekly going forward.
-
-**Why S7-B06 wasn't enough:** S7-B06 fixed a real bug (the display bug that made a recurring event render on *every day* up to its "repeat until" date). That fix was correct and is confirmed working — the every-day rendering is gone. But it unmasked a second, separate bug underneath: `processRecurringEvents()` only ever generated a series' future occurrences once the CURRENT occurrence's own date had already passed (`if (e.date >= todayStr) continue;`). A recurring event created for a future date (e.g. this Friday) would sit with **zero siblings generated** until that Friday itself arrived and passed — so anyone looking at the following weeks in the meantime saw only the single original occurrence, exactly matching the report. Previously the S7-B06 display bug coincidentally made a future recurring event *look* like it was repeating (wrongly, every day) — which is presumably why this generation gap was never separately noticed until the display bug was fixed and the real underlying behaviour became visible.
-
-**Fix:** `processRecurringEvents()` now generates a series' occurrences immediately regardless of whether the triggering event's own date is in the past, today, or the future. Introduced a new flag, `recurSeriesGenerated`, kept deliberately separate from the existing `pastRecurring`:
-- `pastRecurring` continues to mean exactly what it always did — this specific occurrence's date has actually happened. Still gates `checkEventReminders()` (don't remind about something already over) and `getRecurSeries()` (don't include stale, already-superseded occurrences in "this and future" operations).
-- `recurSeriesGenerated` means "this event's future siblings have been generated" — set on a still-upcoming event once its siblings exist, WITHOUT marking it `pastRecurring` (which would have wrongly suppressed its own reminder and excluded it from its own series).
-
-**Verified:** Simulated the exact reported scenario in Node with a model faithful to the real app's async Firestore behaviour (`getEvents()` returns a fresh `.filter()`'d copy every call; `fbSave`/`fbUpdate` never synchronously mutate the array a running function already captured — matching how `window.fbEvents` is only ever replaced by a new array from an async `onSnapshot`, never mutated in place). A weekly event dated this Friday with "repeat until" 3 months out correctly generated 13 occurrences (Fri 7 Aug through Fri 30 Oct, correctly capped at the 90-day generation window) in one pass, with only the original triggering event marked `recurSeriesGenerated` — no cascade, no duplicates. Ran the same function a second time against the resulting state (simulating a later session) and confirmed the occurrence count stayed at 13 — idempotent, no runaway growth.
-
-**Note for Giuseppe:** existing events created before this fix (like the "Malachi MMA" one in the screenshots) will pick up their missing future occurrences the next time the app is opened fresh (`processRecurringEvents()` runs once per page load) — no manual fix needed, but a reload/refresh is required to trigger it, since it already ran once this session before this fix was deployed.
-
-**Acceptance criteria:**
-- [x] A weekly (or daily/fortnightly/monthly) recurring event scheduled for a FUTURE date generates its future occurrences immediately, not only after its own date passes
-- [x] Reminders still fire correctly for an upcoming event whose siblings have been pre-generated (not wrongly suppressed by conflating the two flags)
-- [x] `getRecurSeries()` (S7-B04 single-vs-series delete/edit) still correctly includes a pre-generated-but-still-upcoming event in its own series
-- [x] No duplicate occurrences created on a second run against the same data
-- [x] Verified via a Firestore-async-faithful Node simulation, not just read-through reasoning
-- [x] Audit passes
