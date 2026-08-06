@@ -454,6 +454,28 @@
     } catch (e) { /* non-critical */ }
   };
 
+  // [S7-B07] Bridge for the main script — records an email → family-roster-name
+  // mapping once a confident match is found (matchDeviceUserToGoogleAccount()
+  // in the main script already does this exact matching for the device-user
+  // picker; checkDeviceUserPrompt() calls this too on the same confident
+  // match, no new matching logic needed). The "Forward to Family Hub" Apps
+  // Script (FamilyHubInbox.gs) reads this emailMap to identify who forwarded
+  // something with zero manual configuration — this is the ONLY index.html
+  // change S7-B07 requires; the rest of the two-layer system lives in the
+  // Apps Script itself. Best-effort: a failure here must never block sign-in.
+  window.recordEmailMapEntry = async (email, memberName) => {
+    if (!email || !memberName || !window.currentFamilyId) return;
+    try {
+      // Firestore field paths use '.' as a nesting separator, so a literal
+      // email address can't be a map key as-is — escaped here, unescaped by
+      // the Apps Script side when it reads emailMap back out.
+      const safeKey = email.toLowerCase().replace(/\./g, '_');
+      await setDoc(doc(db, 'families', window.currentFamilyId), {
+        emailMap: { [safeKey]: memberName }
+      }, { merge: true });
+    } catch (e) { /* non-critical */ }
+  };
+
   // [S7-001] Cross-device undo toast. showUndoToast() only ever updated local
   // DOM state — TESTING.md B2 explicitly requires "Undo toast appears on
   // OTHER connected devices too", which was never actually built. activityLog
@@ -3403,6 +3425,12 @@ function matchDeviceUserToGoogleAccount() {
   return match ? match.name : null;
 }
 
+// [S7-B07] Tracks which signed-in email has already had its emailMap entry
+// written this session, so checkDeviceUserPrompt() (which runs on every
+// fb-data event) doesn't re-write the same Firestore field on every remote
+// change — only when the signed-in account actually changes.
+let _emailMapRecordedFor = null;
+
 // [S7-001] Shared "is the user in the middle of something" check — used to
 // stop the device-user picker (and the screensaver) from popping up over an
 // in-progress modal. Kept as one list so the two call sites can't drift.
@@ -3429,6 +3457,15 @@ function checkDeviceUserPrompt() {
     // signed in, rather than trusting a value picked once and never
     // revisited even after a different person signs in on this browser.
     if (getDeviceUser() !== matched) setDeviceUser(matched);
+    // [S7-B07] Same confident match also feeds the Forward-to-Family-Hub
+    // Apps Script's sender identification — one-shot per session (this
+    // fires on every fb-data event otherwise, which would be a redundant
+    // Firestore write on every single remote change, not just once).
+    if (window.currentUser && window.currentUser.email && _emailMapRecordedFor !== window.currentUser.email
+        && typeof window.recordEmailMapEntry === 'function') {
+      _emailMapRecordedFor = window.currentUser.email;
+      window.recordEmailMapEntry(window.currentUser.email, matched);
+    }
     return;
   }
 
