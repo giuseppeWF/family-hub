@@ -2782,7 +2782,7 @@ function addToEmailMap(email, name) {
 ---
 
 ### S7-B08 · Photo upload in screensaver does nothing after selecting photo
-**Status:** TODO
+**Status:** DONE 2026-08-07 — client-side compression retuned to a 400KB base64 target (iterative quality step-down 0.8→0.2, then a second pass at a smaller maxDim if still over the 900KB hard ceiling), progress/success/error toasts added at each stage, file type validation restricted to image/jpeg, image/png, image/webp (rejects with a message instead of silently dropping), and confirmed the existing Firestore onSnapshot listener already reflects new photos in Settings and the screensaver slideshow with no page refresh needed.
 **Priority:** High
 **Category:** Bug
 

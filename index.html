@@ -2882,7 +2882,7 @@
       <div style="font-size:12px;font-weight:700;color:var(--cream-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">Photo Screensaver</div>
       <div style="font-size:12px;color:var(--cream-muted);margin-bottom:10px">After 5 minutes idle, the hub shows a full-screen photo slideshow. Tap anywhere to return.</div>
       <div id="settings-photos-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px"></div>
-      <input type="file" id="screensaver-photo-input" accept="image/*" multiple style="display:none" onchange="handleScreensaverPhotoUpload(this.files)">
+      <input type="file" id="screensaver-photo-input" accept="image/jpeg,image/png,image/webp" multiple style="display:none" onchange="handleScreensaverPhotoUpload(this.files)">
       <button onclick="document.getElementById('screensaver-photo-input').click()" style="width:100%;padding:12px;background:rgba(46,196,182,0.08);border:1px solid rgba(46,196,182,0.25);border-radius:10px;color:var(--sage);font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;cursor:pointer;text-align:left">📷 Add photos</button>
 
       <div style="height:1px;background:var(--border);margin:20px 0"></div>
@@ -7028,7 +7028,9 @@ function runQA() {
 // single Firestore doc. This sidesteps the blocker entirely.
 const SCREENSAVER_IDLE_MS = 5 * 60 * 1000;
 const SCREENSAVER_CROSSFADE_MS = 30 * 1000;
-const SCREENSAVER_MAX_DATA_URL_LEN = 900000; // stay well under Firestore's 1MB doc cap
+const SCREENSAVER_TARGET_LEN = 400 * 1024; // ~400KB base64 target — comfortable margin under the 1MB Firestore doc cap
+const SCREENSAVER_MAX_DATA_URL_LEN = 900000; // hard ceiling, stay well under Firestore's 1MB doc cap
+const SCREENSAVER_ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 let _screensaverIdleTimer = null;
 let _screensaverCycleTimer = null;
 let _screensaverIdx = 0;
@@ -7086,7 +7088,11 @@ function stopScreensaver() {
   resetScreensaverIdleTimer();
 }
 
-function compressImageToDataUrl(file, maxDim, quality) {
+// Scales the image down to maxDim on its longest side, then steps JPEG
+// quality down from 0.8 in 0.1 increments until the base64 output fits
+// targetLen — iPhone originals (3-8MB) need both steps to land under
+// Firestore's 1MB doc cap after the ~33% base64 overhead.
+function compressImageToDataUrl(file, maxDim, targetLen) {
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -7098,7 +7104,13 @@ function compressImageToDataUrl(file, maxDim, quality) {
         const canvas = document.createElement('canvas');
         canvas.width = width; canvas.height = height;
         canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', quality));
+        let quality = 0.8;
+        let dataUrl = canvas.toDataURL('image/jpeg', quality);
+        while (dataUrl.length > targetLen && quality > 0.2) {
+          quality -= 0.1;
+          dataUrl = canvas.toDataURL('image/jpeg', quality);
+        }
+        resolve(dataUrl);
       };
       img.onerror = () => resolve(null);
       img.src = e.target.result;
@@ -7109,20 +7121,30 @@ function compressImageToDataUrl(file, maxDim, quality) {
 }
 
 async function handleScreensaverPhotoUpload(fileList) {
-  const files = Array.from(fileList || []).filter(f => f.type.startsWith('image/'));
+  const files = Array.from(fileList || []);
   for (const file of files) {
-    let dataUrl = await compressImageToDataUrl(file, 1000, 0.65);
-    if (dataUrl && dataUrl.length > SCREENSAVER_MAX_DATA_URL_LEN) {
-      dataUrl = await compressImageToDataUrl(file, 700, 0.5);
-    }
-    if (!dataUrl || dataUrl.length > SCREENSAVER_MAX_DATA_URL_LEN) {
-      showMicToast(`Couldn't add ${file.name} — try a smaller photo`);
+    if (!SCREENSAVER_ALLOWED_TYPES.includes(file.type)) {
+      showMicToast(`❌ ${file.name} isn't a supported photo type — use JPEG, PNG or WEBP`);
       continue;
     }
+    showMicToast('📸 Compressing photo...');
+    let dataUrl = await compressImageToDataUrl(file, 1200, SCREENSAVER_TARGET_LEN);
+    if (dataUrl && dataUrl.length > SCREENSAVER_MAX_DATA_URL_LEN) {
+      dataUrl = await compressImageToDataUrl(file, 700, SCREENSAVER_TARGET_LEN);
+    }
+    if (!dataUrl || dataUrl.length > SCREENSAVER_MAX_DATA_URL_LEN) {
+      showMicToast('❌ Photo too large to add. Try a smaller image.');
+      continue;
+    }
+    showMicToast('☁️ Saving to hub...');
     setSyncStatus('saving');
     try {
       await window.fbSave('photos', { data: dataUrl, addedBy: getDeviceUser() || '', createdAt: new Date().toISOString() });
-    } catch (e) { setSyncStatus('error'); }
+      showMicToast('✅ Photo added to screensaver!');
+    } catch (e) {
+      setSyncStatus('error');
+      showMicToast('❌ Photo too large to add. Try a smaller image.');
+    }
   }
   document.getElementById('screensaver-photo-input').value = '';
 }
