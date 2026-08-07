@@ -7029,7 +7029,6 @@ function runQA() {
 const SCREENSAVER_IDLE_MS = 5 * 60 * 1000;
 const SCREENSAVER_CROSSFADE_MS = 30 * 1000;
 const SCREENSAVER_TARGET_LEN = 400 * 1024; // ~400KB base64 target — comfortable margin under the 1MB Firestore doc cap
-const SCREENSAVER_MAX_DATA_URL_LEN = 900000; // hard ceiling, stay well under Firestore's 1MB doc cap
 const SCREENSAVER_ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 let _screensaverIdleTimer = null;
 let _screensaverCycleTimer = null;
@@ -7088,27 +7087,35 @@ function stopScreensaver() {
   resetScreensaverIdleTimer();
 }
 
-// Scales the image down to maxDim on its longest side, then steps JPEG
-// quality down from 0.8 in 0.1 increments until the base64 output fits
-// targetLen — iPhone originals (3-8MB) need both steps to land under
-// Firestore's 1MB doc cap after the ~33% base64 overhead.
-function compressImageToDataUrl(file, maxDim, targetLen) {
+// Compresses ANY input size down to under targetLen — no upfront size
+// rejection. Starts at 1600px/quality 0.8, steps quality down to 0.2, and
+// if still over target at the smallest quality, shrinks the dimensions
+// further and repeats. Dimensions shrink geometrically each round so this
+// always converges for a real photo; it only resolves null if the image
+// itself can't be decoded (corrupt file, unsupported codec etc).
+function compressImageToDataUrl(file, targetLen) {
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
-        let { width, height } = img;
-        if (width > height && width > maxDim) { height = Math.round(height * (maxDim / width)); width = maxDim; }
-        else if (height > maxDim) { width = Math.round(width * (maxDim / height)); height = maxDim; }
-        const canvas = document.createElement('canvas');
-        canvas.width = width; canvas.height = height;
-        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-        let quality = 0.8;
-        let dataUrl = canvas.toDataURL('image/jpeg', quality);
-        while (dataUrl.length > targetLen && quality > 0.2) {
-          quality -= 0.1;
+        let maxDim = 1600;
+        let dataUrl = null;
+        while (maxDim >= 100) {
+          let { width, height } = img;
+          if (width > height && width > maxDim) { height = Math.round(height * (maxDim / width)); width = maxDim; }
+          else if (height > maxDim) { width = Math.round(width * (maxDim / height)); height = maxDim; }
+          const canvas = document.createElement('canvas');
+          canvas.width = width; canvas.height = height;
+          canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+          let quality = 0.8;
           dataUrl = canvas.toDataURL('image/jpeg', quality);
+          while (dataUrl.length > targetLen && quality > 0.2) {
+            quality -= 0.1;
+            dataUrl = canvas.toDataURL('image/jpeg', quality);
+          }
+          if (dataUrl.length <= targetLen) break;
+          maxDim = Math.round(maxDim * 0.7);
         }
         resolve(dataUrl);
       };
@@ -7128,12 +7135,9 @@ async function handleScreensaverPhotoUpload(fileList) {
       continue;
     }
     showMicToast('📸 Compressing photo...');
-    let dataUrl = await compressImageToDataUrl(file, 1200, SCREENSAVER_TARGET_LEN);
-    if (dataUrl && dataUrl.length > SCREENSAVER_MAX_DATA_URL_LEN) {
-      dataUrl = await compressImageToDataUrl(file, 700, SCREENSAVER_TARGET_LEN);
-    }
-    if (!dataUrl || dataUrl.length > SCREENSAVER_MAX_DATA_URL_LEN) {
-      showMicToast('❌ Photo too large to add. Try a smaller image.');
+    const dataUrl = await compressImageToDataUrl(file, SCREENSAVER_TARGET_LEN);
+    if (!dataUrl) {
+      showMicToast(`❌ Couldn't read ${file.name} — try a different photo`);
       continue;
     }
     showMicToast('☁️ Saving to hub...');
@@ -7143,7 +7147,7 @@ async function handleScreensaverPhotoUpload(fileList) {
       showMicToast('✅ Photo added to screensaver!');
     } catch (e) {
       setSyncStatus('error');
-      showMicToast('❌ Photo too large to add. Try a smaller image.');
+      showMicToast('❌ Failed to add photo — try again');
     }
   }
   document.getElementById('screensaver-photo-input').value = '';
