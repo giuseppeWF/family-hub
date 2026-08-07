@@ -175,6 +175,17 @@ service cloud.firestore {
       allow write: if isFamilyMember(request.resource.data.familyId);
     }
 
+    // Screensaver photos (S4-002 / S7-B08) — compressed base64 JPEG data
+    // URLs, same flat familyId-scoped shape as every other collection above.
+    match /photos/{photoId} {
+      allow read: if isFamilyMember(resource.data.familyId);
+      allow create: if isFamilyMember(request.resource.data.familyId)
+        && request.resource.data.keys().hasAll(['data'])
+        && request.resource.data.data is string;
+      allow update: if isFamilyMember(resource.data.familyId) && isFamilyMember(request.resource.data.familyId);
+      allow delete: if isFamilyMember(resource.data.familyId);
+    }
+
     // Activity log (S4-004) — append-only, immutable once written.
     match /activityLog/{entryId} {
       allow read: if isFamilyMember(resource.data.familyId);
